@@ -1,0 +1,14 @@
+# TrustShield AI — enforce consistent LF line endings everywhere.
+* text=auto eol=lf
+
+# Explicitly text files
+*.py   text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.json text eol=lf
+*.csv  text eol=lf
+
+# Binary files — no line-ending conversion
+*.joblib binary
+*.jpg    binary
+*.png    binary
