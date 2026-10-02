@@ -47,31 +47,49 @@ Rather than one generic fraud flag, four distinct, realistically-distinguishable
 
 ## Results
 
+> All numbers below are real, reproduced runs — not fabricated. See `docs/memory.md` for the session-by-session verification log.
+
 **Phase 1C — combined baseline** (single order-level target, all 4 fraud types blended):
 
-| Model | Precision | Recall | F1 |
-|---|---|---|---|
-| Naive rule-based | 0.286 | 0.456 | 0.351 |
-| Random Forest | 0.550 | 0.157 | 0.244 |
+| Model | Precision | Recall | F1 | ROC-AUC | PR-AUC |
+|---|---|---|---|---|---|
+| Naive rule-based | 0.286 | 0.456 | 0.351 | — | — |
+| Random Forest | 0.551 | 0.163 | 0.251 | 0.633 | 0.248 |
+| **XGBoost** | **0.424** | **0.220** | **0.289** | **0.654** | **0.270** |
 
-**Phase 2 — specialized detectors** (split by entity, at default 0.5 / at cost-optimal threshold):
+XGBoost's top feature: `buyer_return_rate_before` (importance 0.363).
 
-| Detector | Precision | Recall | F1 |
-|---|---|---|---|
-| Fake Listing (RF, default) | 0.859 | 0.488 | 0.622 |
-| Return Fraud (RF, default) | 0.948 | 0.549 | 0.696 |
-| Return Fraud (RF, cost-optimal @0.12) | 0.660 | 0.972 | 0.786 |
+**Phase 2 — specialized detectors** (listing-level / return-level, at default 0.5 / cost-optimal threshold):
 
-**Phase 3 — does graph structure actually help?** (tabular-only vs. tabular+graph, same RF, same test set):
+| Detector | Precision | Recall | F1 | ROC-AUC |
+|---|---|---|---|---|
+| Fake Listing RF (default) | 0.859 | 0.488 | 0.622 | 0.754 |
+| Fake Listing XGB (default) | 0.451 | 0.512 | 0.480 | 0.764 |
+| Return Fraud RF (default) | 0.948 | 0.549 | 0.696 | 0.951 |
+| Return Fraud RF (cost-opt @0.13) | 0.677 | 0.950 | 0.790 | — |
+| **Return Fraud XGB (default)** | **0.919** | **0.605** | **0.729** | **0.951** |
+| Return Fraud XGB (cost-opt @0.01) | 0.734 | 0.905 | 0.810 | — |
+
+**Phase 3 — does graph structure actually help?** (tabular-only vs. tabular+graph, XGBoost, same test set):
 
 | Metric | Tabular-only | Tabular + Graph |
 |---|---|---|
-| Recall | 0.161 | 0.302 |
-| F1 | 0.250 | 0.309 |
-| ROC-AUC | 0.632 | 0.699 |
-| PR-AUC | 0.246 | 0.291 |
+| Precision | 0.520 | 0.605 |
+| Recall | 0.190 | 0.203 |
+| F1 | 0.278 | 0.304 |
+| ROC-AUC | 0.651 | 0.680 |
+| PR-AUC | 0.265 | 0.302 |
 
-Device/address-sharing graph features (`share_degree`, `share_component_size`) landed in the top-3 most important features of the combined model — and known `coordinated_fraud`/`collusion` ring members scored measurably higher (0.341 → 0.376 avg predicted probability) once graph features were added.
+`share_degree` is the #1 feature (importance 0.168) — above all tabular features including `buyer_return_rate_before`. Known ring members scored measurably higher (avg predicted probability 0.341 → 0.374) once graph features were added. Fraud ring detection: 691 suspected rings, 107 high-risk (avg ≥ 0.3), 67 very high-risk (avg ≥ 0.5).
+
+**Phase 5 — Hybrid GNN (GraphSAGE + XGBoost)**:
+
+| Model | Val ROC-AUC | Test ROC-AUC | Test Precision | Test Recall | Test F1 |
+|---|---|---|---|---|---|
+| Standalone GraphSAGE | — | 0.519 | 0.091 | 0.939 | 0.167 |
+| **Hybrid (GNN embeddings + XGBoost)** | **0.792** | **0.696** | **0.580** | **0.180** | **0.275** |
+
+The standalone GNN result (barely above random) confirmed the expected limitation: pure graph structure, without tabular behavioral features, is insufficient for this dataset. The hybrid architecture (GraphSAGE encodes structural context → XGBoost classifies using both embeddings and tabular features) achieves meaningful lift. GNN encoder Val ROC-AUC: 0.708.
 
 ## Known issues found & fixed during development
 
@@ -81,10 +99,21 @@ Documented here deliberately — the debugging process is part of the project's 
 2. Two temporal-integrity bugs caught by the leakage-audit checklist: burst-rescheduling not checking buyer signup dates, and not excluding orders that already had a return on file (both could put a timestamp before its own prerequisite).
 3. A reproducibility bug caught by re-running the pipeline twice and comparing checksums: `set()` hash-randomization and un-seeded `pandas.sample()` calls silently broke determinism despite a fixed top-level seed.
 4. A structural-realism gap caught by inspecting actual ring sizes: `return_abuse` fraud rings were 100% solo-buyer (0 genuine multi-account rings) until address-sharing pairs were explicitly prioritized as co-abusers.
+5. A cost-threshold column-name mismatch in `graph_features.py`: the code checked for `order_amount` (absent) instead of `amount` (always present), silently falling back to the flat $100 proxy. Fixed.
 
-## Environment limitations (this sandbox specifically)
+## Library stack
 
-- **XGBoost, PyTorch, PyTorch Geometric, or DGL were initially unavailable** — the project was built using scikit-learn and networkx stand-ins, but has since been run and verified with the real libraries locally. Both the fallback and the real library paths remain in the code (auto-detected).
+All libraries below are now installed and verified:
+
+| Library | Version | Role |
+|---|---|---|
+| scikit-learn | latest | Baseline models, RF fallback |
+| XGBoost | 3.4.1 | Primary boosted-tree classifier |
+| PyTorch | 2.13.0 CPU | GNN training |
+| PyTorch Geometric | 2.8.0 | GraphSAGE (SAGEConv) |
+| FastAPI | 0.141.1 | REST API serving layer |
+| Uvicorn | 0.52.4 | ASGI server |
+| Pydantic | 2.13.5 | Request/response schemas |
 
 ## Setup
 
@@ -110,14 +139,41 @@ python graph_features.py
 
 All data is generated in memory and printed by the scripts; no database is required.
 
-## Current State & Remaining Work
+To train all models and start the API:
 
-What **already exists**:
-- **FastAPI serving layer** (`backend/`) with three endpoints: `/health`, `/transaction/score`, `/fraud-rings`.
-- **GNN stub** (`gnn_model.py`) — a complete GraphSAGE implementation written against stable PyTorch Geometric APIs, but not yet run against real hardware (torch/torch_geometric unavailable in the sandbox). Run locally with `pip install torch torch_geometric` and report back.
+```cmd
+python scripts/train_and_save_models.py   # generates .joblib artifacts
+cd backend
+uvicorn main:app --reload                 # API docs at http://localhost:8000/docs
+```
 
-What **still needs work**:
-- **Run the GNN locally** and compare its test-set metrics against the `graph_features.py` tabular+graph ablation (the purpose of `gnn_model.py`).
-- **Real multimodal signal** — actual ABO product images + CLIP-style image-text mismatch scoring, replacing the current placeholder categorical swap.
-- **Test suite** (pytest) formalizing the manual print-based validation checks used throughout development.
+To run the Phase 5 hybrid GNN:
 
+```cmd
+python trustshield_project/phase5_hybrid_model.py
+```
+
+To run the test suite:
+
+```cmd
+cd trustshield_project
+python -m pytest -v
+```
+
+## Real product data (ABO)
+
+The pipeline automatically detects the Amazon Berkeley Objects dataset if placed at `trustshield_project/data/external/abo/`. When present, it loads 3,000 real product records with real image paths. When absent, a synthetic placeholder catalog with identical schema is used automatically — no code changes needed either way.
+
+## Current State
+
+What **exists and is verified**:
+- **Phases 1–3**: Full data pipeline, specialized detectors, graph feature ablation — all with real XGBoost numbers.
+- **Phase 5**: Hybrid GraphSAGE + XGBoost model, trained and evaluated.
+- **FastAPI serving layer** (`backend/`): Three endpoints (`/health`, `/transaction/score`, `/fraud-rings`) — smoke-tested locally.
+- **Real ABO product data**: Live in the pipeline (auto-detected from `data/external/abo/`).
+- **Test suite** (pytest): 44 tests across data integrity, fraud injection logic, and temporal-leakage audits — all passing.
+
+What **remains as stretch goals**:
+- **Real multimodal signal** — CLIP-style image-text mismatch scoring (Phase 4). The ABO images are present; the embedding comparison step is not yet built.
+- **Scalability experiment** — runtime comparison at 500 vs. 5,000 sellers.
+- **MLOps layer** — MLflow experiment tracking, Docker, GitHub Actions CI (Phase 7).

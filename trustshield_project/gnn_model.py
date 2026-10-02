@@ -196,7 +196,7 @@ def run_gnn():
     )
     df["order_date"] = pd.to_datetime(df["order_date"])
     df["y"] = df["is_fraudulent"].astype(int)
-    edge_feature_cols = ["price_vs_base_price_ratio", "order_amount"]  # small, deliberately — keep the GNN's embeddings doing the work
+    edge_feature_cols = ["price_vs_base_price_ratio", "amount"]  # small, deliberately — keep the GNN's embeddings doing the work
 
     trainval = df[df["order_date"] <= VAL_END]
     train = df[df["order_date"] <= TRAIN_END]
@@ -222,7 +222,7 @@ def run_gnn():
         s_ids = split_df["seller_id"].map(seller_idx).fillna(0).astype(int).to_numpy()
         
         feat_arr = split_df[edge_feature_cols].fillna(0).copy()
-        feat_arr["order_amount"] = np.log1p(feat_arr["order_amount"].clip(lower=0))
+        feat_arr["amount"] = np.log1p(feat_arr["amount"].clip(lower=0))
         feats = torch.tensor(feat_arr.to_numpy(), dtype=torch.float32)
         
         labels = torch.tensor(split_df["y"].to_numpy(), dtype=torch.float32)

@@ -23,12 +23,16 @@ htmlcov/
 # Logs
 *.log
 
-# Project specific
+# Project specific: large data archives & unpacked image directory
+trustshield_project/data/external/abo/*.tar
+trustshield_project/data/external/abo/*.tar.gz
+trustshield_project/data/external/abo/images/
 trustshield_project/synthetic_data_export/*.csv
 trustshield_project/synthetic_data_export/*.gz
-trustshield_project/data/external/abo/*.gz
-trustshield_project/data/external/abo/*.json
-trustshield_project/data/external/abo/*.csv
-__pycache__/
-trustshield_project/data/external/abo/*.tar
-trustshield_project/data/external/abo/images/
+
+# General large / cache formats
+*.tar
+*.tar.gz
+*.parquet
+.env
+.ipynb_checkpoints/
