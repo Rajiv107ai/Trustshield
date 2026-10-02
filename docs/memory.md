@@ -435,3 +435,32 @@ listings: 20,000 rows with real image refs (e.g. images\small\8c\8ccb5859.jpg)
 - Re-run full pipeline (`export_dataset.py`) with real ABO data to regenerate the `dataset/` CSVs.
 
 **Current project rating:** ~9.5/10. Real ABO product data is now live in the pipeline. The last real gap (multimodal signal — actual image-text mismatch scoring via CLIP) remains a stretch goal.
+
+## Session 8 — Pytest Green, Cost-Threshold Fix, README Update
+
+**Items completed:**
+
+1. **Pytest suite confirmed green (44/44 PASSED):**
+   - Ran `python -m pytest -v` in `trustshield_project/`.
+   - All 44 tests pass: 16 data integrity, 11 fraud injection, 17 leakage/temporal safety.
+   - No fixes required — the existing test code and pipeline are consistent.
+
+2. **Cost-threshold column-name bug fixed in `graph_features.py`:**
+   - The `run_phase_3()` cost-optimal threshold sweep was checking for `order_amount` (absent from the df), silently falling back to a flat `$100` proxy.
+   - Fixed to check for `amount` — the column that `build_features()` in `baseline_model.py` always produces. Now uses real order dollar amounts for FN cost calculation.
+
+3. **README.md fully updated with Session 4–7 verified numbers:**
+   - Phase 1C now shows XGBoost numbers (ROC-AUC 0.654 vs RF 0.633).
+   - Phase 2 now shows XGBoost detectors alongside RF (Return Fraud XGB best: P=0.919, R=0.605).
+   - Phase 3 table now shows XGBoost ablation (tabular: ROC-AUC 0.651 → tabular+graph: 0.680).
+   - Phase 5 Hybrid GNN section added (Val ROC-AUC 0.792, Test ROC-AUC 0.696).
+   - Library stack table added (XGBoost 3.4.1, PyTorch 2.13.0, PyTorch Geometric 2.8.0, FastAPI 0.141.1).
+   - "Current State & Remaining Work" updated: test suite, FastAPI, ABO, Phase 5 all marked done.
+   - Bug #5 added to "Known issues" list.
+
+**Current project rating: ~9.5/10** — unchanged, no new features added, but all open documentation debt and bugs cleared.
+
+**Remaining stretch goals (unchanged from Session 7):**
+- Real multimodal signal (CLIP image-text mismatch).
+- Scalability experiment (500 vs 5,000 sellers runtime).
+- MLOps layer (MLflow, Docker, GitHub Actions).

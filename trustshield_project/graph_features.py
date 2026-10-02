@@ -143,7 +143,7 @@ def build_monthly_snapshots(orders_df, sim_start, n_months=12):
             buyer_rows.append({
                 "buyer_id": b,
                 "buyer_seller_degree": B.degree[node] if node in B else 0,
-                "buyer_pagerank": pagerank.get(node, 0.0),
+                "buyer_pagerank": pagerank.get(node, 0.0),  # type: ignore
             })
         buyer_features = pd.DataFrame(buyer_rows)
 
@@ -158,7 +158,7 @@ def build_monthly_snapshots(orders_df, sim_start, n_months=12):
             seller_rows.append({
                 "seller_id": s,
                 "seller_buyer_degree": B.degree[node] if node in B else 0,
-                "seller_pagerank": pagerank.get(node, 0.0),
+                "seller_pagerank": pagerank.get(node, 0.0),  # type: ignore
                 "seller_buyer_concentration_hhi": hhi,
             })
         seller_features = pd.DataFrame(seller_rows)
@@ -215,7 +215,7 @@ def train_and_eval(train, val, test, feature_cols, label):
         # XGBoost — the project's preferred boosted-tree library, now available.
         # scale_pos_weight handles class imbalance (replaces class_weight="balanced").
         pos = int(ytr.sum()); neg = len(ytr) - pos
-        model = XGBClassifier(
+        model = XGBClassifier(  # type: ignore[reportPossiblyUnboundVariable]
             n_estimators=400, max_depth=6, learning_rate=0.05,
             subsample=0.8, colsample_bytree=0.8,
             scale_pos_weight=neg / max(pos, 1),
@@ -231,7 +231,7 @@ def train_and_eval(train, val, test, feature_cols, label):
         model.fit(Xtr, ytr)
         model_name = "RandomForest (XGBoost not installed)"
 
-    scores = model.predict_proba(Xte)[:, 1]
+    scores = model.predict_proba(Xte)[:, 1]  # type: ignore[index]
     evaluate(yte, (scores >= 0.5).astype(int), scores, f"{label} [{model_name}]")
     return model, scores
 
@@ -305,7 +305,7 @@ def detect_fraud_rings(rel_graph, orders_df, score_col="fraud_score", min_ring_s
         if len(comp) < min_ring_size:
             continue
 
-        members = sorted(comp)
+        members = sorted(comp)  # type: ignore
         # Collect scores for all orders placed by members of this component
         all_scores = []
         total_orders = 0
@@ -416,25 +416,26 @@ def run_phase_3():
                                         class_weight="balanced_subsample",
                                         random_state=42, n_jobs=-1)
     rf_tab_val.fit(train[val_feature_cols_tab].fillna(0), train["y"])
-    val_scores_tab = rf_tab_val.predict_proba(val[val_feature_cols_tab].fillna(0))[:, 1]
+    val_scores_tab = rf_tab_val.predict_proba(val[val_feature_cols_tab].fillna(0))[:, 1]  # type: ignore[index]
 
     rf_comb_val = RandomForestClassifier(n_estimators=200, max_depth=8,
                                           class_weight="balanced_subsample",
                                           random_state=42, n_jobs=-1)
     rf_comb_val.fit(train[val_feature_cols_comb].fillna(0), train["y"])
-    val_scores_comb = rf_comb_val.predict_proba(val[val_feature_cols_comb].fillna(0))[:, 1]
+    val_scores_comb = rf_comb_val.predict_proba(val[val_feature_cols_comb].fillna(0))[:, 1]  # type: ignore[index]
 
-    # Need an "amount" column for cost sweep; use order_amount if available,
-    # else a flat $100 proxy (documents the assumption clearly).
-    if "order_amount" in val.columns:
-        val_amounts = val["order_amount"].fillna(100.0)
-        amount_note = "order amount (real price)"
+    # "amount" is always present in the feature df (it's one of the
+    # tabular feature columns from build_features() in baseline_model.py).
+    # Fall back to a flat $100 proxy only if somehow absent (shouldn't happen).
+    if "amount" in val.columns:
+        val_amounts = val["amount"].fillna(100.0)
+        amount_note = "order amount (real $)"
     else:
         val_amounts = pd.Series(100.0, index=val.index)
-        amount_note = "flat $100 proxy (amount column absent)"
+        amount_note = "flat $100 proxy (amount column absent — unexpected)"
 
-    opt_thresh_tab, _ = find_cost_optimal_threshold(val["y"], val_scores_tab, val_amounts)
-    opt_thresh_comb, _ = find_cost_optimal_threshold(val["y"], val_scores_comb, val_amounts)
+    opt_thresh_tab, _, _2 = find_cost_optimal_threshold(val["y"], val_scores_tab, val_amounts)
+    opt_thresh_comb, _, _2 = find_cost_optimal_threshold(val["y"], val_scores_comb, val_amounts)
 
     print(f"  Amount used for cost model: {amount_note}")
     print(f"  Cost-optimal threshold — tabular-only:  {opt_thresh_tab:.2f}")
@@ -448,7 +449,7 @@ def run_phase_3():
         evaluate(test["y"], (scores_te >= thresh).astype(int), scores_te, label)
 
     print("\nGraph-augmented model feature importances (top 15):")
-    importances = pd.Series(rf_combined.feature_importances_, index=tabular_cols + graph_cols).sort_values(ascending=False)
+    importances = pd.Series(rf_combined.feature_importances_, index=tabular_cols + graph_cols).sort_values(ascending=False)  # type: ignore[union-attr]
     print(importances.head(15).round(3))
 
     # --- Ring-specific check: does the graph model score known ring members higher? ---
@@ -474,8 +475,8 @@ def run_phase_3():
     # every buyer's orders get a risk score, not just the test window.
     # This reflects what the API would do: score all orders and then surface rings.
     all_scores = np.concatenate([
-        rf_combined.predict_proba(train[tabular_cols + graph_cols].fillna(0))[:, 1],
-        rf_combined.predict_proba(val[tabular_cols + graph_cols].fillna(0))[:, 1],
+        rf_combined.predict_proba(train[tabular_cols + graph_cols].fillna(0))[:, 1],  # type: ignore[index]
+        rf_combined.predict_proba(val[tabular_cols + graph_cols].fillna(0))[:, 1],  # type: ignore[index]
         scores_combined,
     ])
     df_scored = pd.concat([train, val, test], axis=0).copy()

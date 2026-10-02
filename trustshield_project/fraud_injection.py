@@ -99,6 +99,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
     running several fake listings at once, not just one).
     """
     listings_df = listings_df.copy()
+    orders_df = orders_df.copy()
     listings_df["is_fraudulent"] = False
     listings_df["fraud_type"] = None
     listings_df["price_anomaly"] = False
@@ -141,6 +142,12 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
     ).round(2)
     listings_df.loc[price_anomaly_idx, "price_anomaly"] = True
 
+    # Propagate the discounted price to orders_df so the model actually sees it!
+    price_anomaly_listing_ids = listings_df.loc[price_anomaly_idx, "listing_id"]
+    updated_prices = listings_df.loc[price_anomaly_idx].set_index("listing_id")["price"]
+    affected_orders_mask = orders_df["listing_id"].isin(price_anomaly_listing_ids)
+    orders_df.loc[affected_orders_mask, "amount"] = orders_df.loc[affected_orders_mask, "listing_id"].map(updated_prices)
+
     # Image mismatch: the listing shows a *different* product's image/text
     # than what product_id (the real catalog item) actually is.
     all_product_ids = products_df["product_id"].values
@@ -161,7 +168,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
                                  "entity_type": "listing", "entity_id": lid})
 
     fraud_order_ids = set(orders_df.loc[orders_df["listing_id"].isin(chosen_listing_ids), "order_id"])
-    return listings_df, fraud_order_ids, pd.DataFrame(ledger_rows)
+    return listings_df, orders_df, fraud_order_ids, pd.DataFrame(ledger_rows)
 
 
 # ---------------------------------------------------------------------------
@@ -223,10 +230,7 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
         if running_total >= target_fraud_orders:
             break
 
-        buyer_orders = eligible_orders[
-            (eligible_orders["buyer_id"] == buyer_id) &
-            (~eligible_orders["order_id"].isin(fraud_order_ids))
-        ]
+        buyer_orders = eligible_orders[eligible_orders["buyer_id"] == buyer_id]
         if len(buyer_orders) == 0:
             continue
 
@@ -435,10 +439,7 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
         if running_total >= target_fraud_orders:
             break
 
-        seller_orders = eligible_orders[
-            (eligible_orders["seller_id"] == seller_id) &
-            (~eligible_orders["order_id"].isin(fraud_order_ids))
-        ]
+        seller_orders = eligible_orders[eligible_orders["seller_id"] == seller_id]
         buyer_pool = seller_orders["buyer_id"].unique()
         if len(buyer_pool) < 3:
             continue
@@ -522,7 +523,7 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
           f"{FAKE_LISTING_RATE:.1%} of {len(listings_df)})")
 
     print("Injecting fake listings...")
-    listings_df, fake_ids, ledger1 = inject_fake_listings(
+    listings_df, orders_df, fake_ids, ledger1 = inject_fake_listings(
         listings_df, orders_df, products_df, target_n_fake_listings
     )
 
@@ -564,7 +565,7 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
     fake_mask = orders_df["order_id"].isin(fake_ids)
     orders_df.loc[fake_mask, "is_fraudulent"] = True
     orders_df.loc[fake_mask, "fraud_type"] = "fake_listing"
-    abuse_mask = orders_df["order_id"].isin(abuse_ids) & ~fake_mask
+    abuse_mask = orders_df["order_id"].isin(abuse_ids)
     orders_df.loc[abuse_mask, "is_fraudulent"] = True
     orders_df.loc[abuse_mask, "fraud_type"] = "return_abuse"
 
