@@ -6,11 +6,16 @@ numpy>=1.24
 pandas>=2.0
 scikit-learn>=1.3
 networkx>=3.1
+xgboost>=2.0
+pyarrow>=14.0
 
-# Phase 5 — Hybrid GNN (required for train_phase5.py, NOT needed to serve pre-trained models)
-# torch>=2.0
-# torch-geometric>=2.4
-# xgboost>=2.0
+# Phase 4 — Real CLIP multimodal scoring (openai/clip-vit-base-patch32)
+transformers>=4.37
+Pillow>=10.0
+
+# Phase 5 — Hybrid GNN (required for train_phase5.py)
+torch>=2.0
+torch-geometric>=2.4
 
 # API layer (Priority 2 — FastAPI backend)
 fastapi>=0.110
@@ -20,6 +25,9 @@ httpx>=0.27.0
 
 # Model serialization
 joblib>=1.3
+
+# Testing & Quality
+pytest>=8.0
 
 # Optional (for Postgres export in export_dataset.py)
 sqlalchemy>=2.0
