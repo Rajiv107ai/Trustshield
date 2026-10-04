@@ -43,15 +43,17 @@ def build_node_index(buyer_ids, seller_ids):
     return buyer_idx, seller_idx, n_buyers, n_buyers + len(seller_idx) + 1
 
 
-def build_node_features(buyer_idx, seller_idx, n_total, trainval_orders, rel_graph, buyers_df, sellers_df):
-    """Builds node feature matrix for graph encoder."""
+def build_node_features(buyer_idx, seller_idx, n_total, orders_df, rel_graph, buyers_df, sellers_df,
+                        cutoff_date=None):
+    """Builds node feature matrix for graph encoder, respecting temporal cutoffs."""
     X = np.zeros((n_total, GNN_NODE_FEAT_DIM), dtype=np.float32)
-    buyer_order_counts = trainval_orders.groupby("buyer_id").size()
+    ref_date = pd.Timestamp(cutoff_date) if cutoff_date is not None else VAL_END
+    buyer_order_counts = orders_df.groupby("buyer_id").size()
     components = {node: comp for comp in nx.connected_components(rel_graph) for node in comp}
 
     buyers_indexed = buyers_df.set_index("buyer_id")
     for b, idx in buyer_idx.items():
-        age = max(0, (VAL_END - pd.to_datetime(buyers_indexed.loc[b, "signup_date"])).days) if b in buyers_indexed.index else 0
+        age = max(0, (ref_date - pd.to_datetime(buyers_indexed.loc[b, "signup_date"])).days) if b in buyers_indexed.index else 0
         X[idx, 0] = 1.0
         X[idx, 2] = age / 365.0
         X[idx, 3] = np.log1p(float(buyer_order_counts.get(b, 0)))
@@ -59,11 +61,11 @@ def build_node_features(buyer_idx, seller_idx, n_total, trainval_orders, rel_gra
             X[idx, 5] = rel_graph.degree[b]
             X[idx, 6] = len(components.get(b, {b}))
 
-    seller_order_counts = trainval_orders.groupby("seller_id").size()
-    seller_avg_amount = trainval_orders.groupby("seller_id")["amount"].mean()
+    seller_order_counts = orders_df.groupby("seller_id").size()
+    seller_avg_amount = orders_df.groupby("seller_id")["amount"].mean()
     sellers_indexed = sellers_df.set_index("seller_id")
     for s, idx in seller_idx.items():
-        age = max(0, (VAL_END - pd.to_datetime(sellers_indexed.loc[s, "signup_date"])).days) if s in sellers_indexed.index else 0
+        age = max(0, (ref_date - pd.to_datetime(sellers_indexed.loc[s, "signup_date"])).days) if s in sellers_indexed.index else 0
         X[idx, 1] = 1.0
         X[idx, 2] = age / 365.0
         X[idx, 3] = np.log1p(float(seller_order_counts.get(s, 0)))
@@ -72,10 +74,10 @@ def build_node_features(buyer_idx, seller_idx, n_total, trainval_orders, rel_gra
     return torch.tensor(X, dtype=torch.float32)
 
 
-def build_edge_index(buyer_idx, seller_idx, trainval_orders, rel_graph):
+def build_edge_index(buyer_idx, seller_idx, orders_df, rel_graph):
     """Builds PyG undirected edge tensor."""
     edges = set()
-    for b, s in zip(trainval_orders["buyer_id"], trainval_orders["seller_id"]):
+    for b, s in zip(orders_df["buyer_id"], orders_df["seller_id"]):
         if b in buyer_idx and s in seller_idx:
             u, v = buyer_idx[b], seller_idx[s]
             edges.add((u, v))
@@ -231,8 +233,10 @@ def run_phase5(gnn_epochs=50):
     df["order_date"] = pd.to_datetime(df["order_date"])
     df["y"] = df["is_fraudulent"].astype(int)
 
-    rel_graph = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"])
-    rel_features = compute_relationship_features(rel_graph, df["buyer_id"].unique())
+    rel_graph_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
+    rel_graph_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
+    rel_graph_full = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"])
+    rel_features = compute_relationship_features(rel_graph_full, df["buyer_id"].unique())
     df = df.merge(rel_features, on="buyer_id", how="left")
     df[["share_degree", "share_component_size"]] = df[["share_degree", "share_component_size"]].fillna(0)
 
@@ -258,8 +262,18 @@ def run_phase5(gnn_epochs=50):
     test = pd.DataFrame(df[df["order_date"] > VAL_END])
 
     buyer_idx, seller_idx, n_buyers, n_total = build_node_index(txn["buyers"]["buyer_id"], catalog["sellers"]["seller_id"])
-    X_nodes = build_node_features(buyer_idx, seller_idx, n_total, trainval, rel_graph, txn["buyers"], catalog["sellers"])
-    edge_index = build_edge_index(buyer_idx, seller_idx, trainval, rel_graph)
+
+    # Training-period graph state: strictly bounded to <= TRAIN_END (no validation leakage)
+    X_nodes_train = build_node_features(
+        buyer_idx, seller_idx, n_total, train, rel_graph_train, txn["buyers"], catalog["sellers"], cutoff_date=TRAIN_END
+    )
+    edge_index_train = build_edge_index(buyer_idx, seller_idx, train, rel_graph_train)
+
+    # Historical graph state up to VAL_END: strictly bounded to <= VAL_END (historical for test scoring)
+    X_nodes_val = build_node_features(
+        buyer_idx, seller_idx, n_total, trainval, rel_graph_val, txn["buyers"], catalog["sellers"], cutoff_date=VAL_END
+    )
+    edge_index_val = build_edge_index(buyer_idx, seller_idx, trainval, rel_graph_val)
 
     def _edge_tensors(split_df):
         b_ids = np.clip(split_df["buyer_id"].map(buyer_idx).fillna(0).astype(int).to_numpy(), 0, n_total - 1)
@@ -278,17 +292,20 @@ def run_phase5(gnn_epochs=50):
 
     print("Training GraphSAGE representation encoder...")
     encoder = train_sage_encoder(
-        X_nodes, edge_index, train_b, train_s, train_feats, train_y_t,
+        X_nodes_train, edge_index_train, train_b, train_s, train_feats, train_y_t,
         val_b, val_s, val_feats, val_y_t, epochs=gnn_epochs
     )
 
-    buyer_embs, seller_embs = extract_embeddings(encoder, X_nodes, edge_index, buyer_idx, seller_idx)
-    df_aug, gnn_cols = attach_gnn_embeddings(df, buyer_embs, seller_embs)
-    hybrid_feature_cols = phase3_feature_cols + gnn_cols
+    # Validation embeddings are extracted from training-period graph state (leak-free)
+    buyer_embs_train, seller_embs_train = extract_embeddings(encoder, X_nodes_train, edge_index_train, buyer_idx, seller_idx)
+    # Test embeddings are extracted from historical graph state up to VAL_END (historical for test)
+    buyer_embs_test, seller_embs_test = extract_embeddings(encoder, X_nodes_val, edge_index_val, buyer_idx, seller_idx)
 
-    train_aug = pd.DataFrame(df_aug[df_aug["order_date"] <= TRAIN_END])
-    val_aug = pd.DataFrame(df_aug[(df_aug["order_date"] > TRAIN_END) & (df_aug["order_date"] <= VAL_END)])
-    test_aug = pd.DataFrame(df_aug[df_aug["order_date"] > VAL_END])
+    train_aug, gnn_cols = attach_gnn_embeddings(train, buyer_embs_train, seller_embs_train)
+    val_aug, _ = attach_gnn_embeddings(val, buyer_embs_train, seller_embs_train)
+    test_aug, _ = attach_gnn_embeddings(test, buyer_embs_test, seller_embs_test)
+    df_aug = pd.concat([train_aug, val_aug, test_aug]).sort_index()
+    hybrid_feature_cols = phase3_feature_cols + gnn_cols
 
     print(f"Training Hybrid XGBoost on {len(hybrid_feature_cols)} features...")
     hybrid_model = train_hybrid_classifier(train_aug, hybrid_feature_cols)
@@ -329,8 +346,8 @@ def run_phase5(gnn_epochs=50):
 
     return {
         "hybrid_model": hybrid_model,
-        "buyer_embeddings": buyer_embs,
-        "seller_embeddings": seller_embs,
+        "buyer_embeddings": buyer_embs_test,
+        "seller_embeddings": seller_embs_test,
         "phase5_meta": phase5_meta,
         "val_auc": val_auc,
         "test_auc": test_auc,
