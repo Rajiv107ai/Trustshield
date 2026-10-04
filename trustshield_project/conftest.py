@@ -1,10 +1,10 @@
-"""
-TrustShield AI — pytest shared fixtures
+import os
+import sys
 
-Builds the full synthetic pipeline ONCE per test session (entity generation →
-catalog → orders/returns → fraud injection → feature engineering) and caches
-the result so individual test modules don't each spend ~30s regenerating data.
-"""
+# Ensure current directory is on sys.path for direct module imports
+_project_dir = os.path.dirname(os.path.abspath(__file__))
+if _project_dir not in sys.path:
+    sys.path.insert(0, _project_dir)
 
 import pandas as pd
 import pytest
@@ -18,7 +18,7 @@ from baseline_model import build_features, TRAIN_END, VAL_END
 
 @pytest.fixture(scope="session")
 def pipeline():
-    """Build and return the full pipeline output as a dict."""
+    """Generates synthetic dataset and feature matrices once per test session."""
     base = build_base_entities()
     catalog = build_catalog_and_listings(base["sellers"])
     txn = build_orders_and_returns(
@@ -40,8 +40,8 @@ def pipeline():
         "base": base,
         "catalog": catalog,
         "txn": txn,
-        "result": result,             # post-fraud-injection tables
-        "df": df,                      # feature-engineered order-level df
+        "result": result,
+        "df": df,
         "feature_cols": feature_cols,
         "train": df[df["order_date"] <= TRAIN_END],
         "val": df[(df["order_date"] > TRAIN_END) & (df["order_date"] <= VAL_END)],

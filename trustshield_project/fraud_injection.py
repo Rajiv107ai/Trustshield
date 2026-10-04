@@ -1,30 +1,4 @@
-"""
-TrustShield AI — Synthetic Data Generator
-Part 4: Fraud injection module
-
-Design reference: design.md / rules.md
-- Applied on TOP of clean base entities (entity_generator, product_listing_
-  generator, order_return_generator) — never mixed into those modules.
-- Overall fraud rate target: ~6-8% of orders (deliberately above the
-  realistic 1-3% to keep enough fraud density for graph/ML learning at
-  this scale — documented deviation, not a realism claim).
-- 4 scenario types from the start, unequal proportions of the fraud total:
-    Fake Listing          ~40%
-    Return Abuse          ~30%
-    Coordinated Fraud     ~20%  (device-sharing rings)
-    Seller-Buyer Collusion ~10%
-- Fraud rings cluster in TIME BURSTS, not uniformly across the year —
-  this module reschedules a subset of already-existing order dates into
-  short windows for ring-based scenarios (coordinated fraud, collusion),
-  always keeping order_date >= listing_date so temporal integrity from
-  order_return_generator is never violated.
-- fraud_ring_id is a GROUND-TRUTH-ONLY label. It lives exclusively in the
-  separate fraud_ground_truth ledger returned by this module — it is never
-  merged into listings_df / orders_df / returns_df, so it can never leak
-  into a feature matrix built from those tables. is_fraudulent / fraud_type
-  ARE merged into those tables since they are the prediction target, not a
-  leaking identifier.
-"""
+"""Fraud pattern injection for synthetic marketplace: fake listings, return abuse, coordinated rings, and collusion."""
 
 import pandas as pd
 from datetime import timedelta
@@ -34,7 +8,7 @@ from product_listing_generator import build_catalog_and_listings
 from order_return_generator import build_orders_and_returns, RETURN_REASONS, RETURN_REASON_WEIGHTS
 
 TOTAL_ORDERS_ASSUMED = 50000
-TARGET_FRAUD_RATE = 0.07  # of total orders, split across the 4 types below
+TARGET_FRAUD_RATE = 0.07
 
 FRAUD_TYPE_SHARE = {
     "fake_listing": 0.40,
@@ -42,19 +16,8 @@ FRAUD_TYPE_SHARE = {
     "coordinated_fraud": 0.20,
     "seller_buyer_collusion": 0.10,
 }
+FAKE_LISTING_RATE = 0.025
 
-# Fake listings are now sized by LISTING count, not order count (see
-# inject_fake_listings docstring) — order-count selection alone picked only
-# ~90 high-traffic listings to hit the order target, leaving the listing-
-# level classifier with an unusably thin positive class (~0.4%). This rate
-# targets a healthier positive class while keeping order-level fraud share
-# close to its intended 40%.
-FAKE_LISTING_RATE = 0.025  # ~2.5% of all listings flagged as fake
-
-
-# ---------------------------------------------------------------------------
-# Tiny union-find for grouping device-sharing fraud pairs into rings
-# ---------------------------------------------------------------------------
 
 class UnionFind:
     def __init__(self):
