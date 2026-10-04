@@ -187,10 +187,6 @@ class TestAmountMappingUnit:
 class TestAmountMappingEndpoint:
     """Integration tests: the /transaction/score endpoint must reflect the fix."""
 
-    @pytest.fixture(scope="class")
-    def client(self):
-        with TestClient(app) as c:
-            yield c
 
     def test_endpoint_amount_only(self, client):
         """Endpoint must not silently score with amount=0 when only order_amount supplied."""
@@ -298,10 +294,6 @@ class TestCLIPEmbeddingCache:
 class TestListingAnalyzeFallback:
     """Integration tests for /listing/analyze when CLIP scorer is unavailable."""
 
-    @pytest.fixture(scope="class")
-    def client(self):
-        with TestClient(app) as c:
-            yield c
 
     def test_no_product_id_uses_caller_supplied_similarity(self, client):
         """Without product_id, the endpoint must use the caller-supplied similarity score."""
@@ -368,3 +360,78 @@ class TestListingAnalyzeFallback:
         finally:
             store._clip_loaded = was_clip_loaded
             store.clip_products_df = was_clip_products
+
+
+# ---------------------------------------------------------------------------
+# Issue #7 — model_used field reflects actual classifier, not "Random Forest"
+# ---------------------------------------------------------------------------
+
+class TestModelUsedField:
+    """Assert that model_used returned by /transaction/score reflects the real
+    classifier name (XGBoost or Hybrid GNN + XGBoost), never the old stale
+    hard-coded 'Random Forest' string that was in the API description.
+    """
+
+
+    def test_phase5_model_used_contains_xgboost(self, client):
+        """Phase 5 model_used must mention XGBoost (or the actual classifier name)."""
+        r = client.post("/transaction/score", json={
+            "order_id": "MODEL_USED_P5",
+            "buyer_id": "BUYER_000001",
+            "seller_id": "SELLER_000001",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+        })
+        assert r.status_code == 200
+        model_used = r.json()["model_used"]
+        assert "Random Forest" not in model_used, (
+            f"model_used must not say 'Random Forest' for Phase 5; got: {model_used!r}"
+        )
+        # Must identify the model family — either GNN+XGBoost or XGBoost
+        assert "XGBoost" in model_used or "GNN" in model_used, (
+            f"model_used must mention XGBoost or GNN; got: {model_used!r}"
+        )
+
+    def test_phase3_fallback_model_used_not_random_forest_description(self, client):
+        """Phase 3 fallback model_used must derive from the artifact metadata,
+        not from a hardcoded 'Random Forest' string in the API description.
+        The Phase 3 model is XGBoost; model_used must not claim RandomForest.
+        """
+        was_p5 = store._phase5_loaded
+        try:
+            store._phase5_loaded = False  # force Phase 3 path
+            r = client.post("/transaction/score", json={
+                "order_id": "MODEL_USED_P3",
+                "buyer_id": "BUYER_000002",
+                "seller_id": "SELLER_000002",
+                "amount": 80.0,
+                "base_price": 80.0,
+                "category_median_price": 80.0,
+            })
+            assert r.status_code == 200
+            model_used = r.json()["model_used"]
+            # model_used must not be a bare "Random Forest" label — it should
+            # reflect the actual classifier stored in the artifact metadata.
+            assert "scikit-learn RandomForest" not in model_used, (
+                f"model_used must not reference scikit-learn RandomForest; got: {model_used!r}"
+            )
+        finally:
+            store._phase5_loaded = was_p5
+
+    def test_listing_model_used_mentions_phase4(self, client):
+        """Listing model_used must always reference Phase 4, not a stale Phase 3 label."""
+        r = client.post("/listing/analyze", json={
+            "listing_id": "MODEL_USED_LISTING",
+            "price": 50.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+            "seller_age_days_at_listing": 30.0,
+            "seller_listings_before": 5,
+            "multimodal_similarity_score": 0.30,
+        })
+        assert r.status_code == 200
+        model_used = r.json()["model_used"]
+        assert "Phase 4" in model_used, (
+            f"Listing model_used must reference Phase 4; got: {model_used!r}"
+        )

@@ -11,5 +11,7 @@
   "extraPaths": [
     "trustshield_project",
     "."
-  ]
+  ],
+  "venvPath": ".",
+  "venv": ".venv"
 }

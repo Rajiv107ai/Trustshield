@@ -156,9 +156,16 @@ python trustshield_project/phase5_hybrid_model.py
 To run the test suite:
 
 ```cmd
-cd trustshield_project
+# From the repo root — fast suite (CLIP integration tests excluded by default):
+python -m pytest -v -m "not clip"
+
+# Full suite including CLIP model + ABO real-image tests (requires transformers, Pillow, torch):
 python -m pytest -v
 ```
+
+> **Note:** CLIP tests are marked `@pytest.mark.clip` and require the `transformers`,
+> `Pillow`, and `torch` packages plus the ABO dataset at
+> `trustshield_project/data/external/abo/`.
 
 ## Real product data (ABO)
 
@@ -168,12 +175,12 @@ The pipeline automatically detects the Amazon Berkeley Objects dataset if placed
 
 What **exists and is verified**:
 - **Phases 1–3**: Full data pipeline, specialized detectors, graph feature ablation — all with real XGBoost numbers.
+- **Phase 4**: CLIP multimodal fake-listing scorer — real ABO image + text embeddings, fingerprint-verified cache, TF-IDF deterministic fallback, integrated into `/listing/analyze`.
 - **Phase 5**: Hybrid GraphSAGE + XGBoost model, trained and evaluated.
-- **FastAPI serving layer** (`backend/`): Three endpoints (`/health`, `/transaction/score`, `/fraud-rings`) — smoke-tested locally.
+- **FastAPI serving layer** (`backend/`): Four endpoints (`/health`, `/transaction/score`, `/fraud-rings`, `/listing/analyze`) — smoke-tested locally.
 - **Real ABO product data**: Live in the pipeline (auto-detected from `data/external/abo/`).
-- **Test suite** (pytest): 44 tests across data integrity, fraud injection logic, and temporal-leakage audits — all passing.
+- **Test suite** (pytest): **89 tests** across data integrity, fraud injection logic, temporal-leakage audits, CLIP multimodal signal, and backend API — all passing.
 
 What **remains as stretch goals**:
-- **Real multimodal signal** — CLIP-style image-text mismatch scoring (Phase 4). The ABO images are present; the embedding comparison step is not yet built.
 - **Scalability experiment** — runtime comparison at 500 vs. 5,000 sellers.
 - **MLOps layer** — MLflow experiment tracking, Docker, GitHub Actions CI (Phase 7).
