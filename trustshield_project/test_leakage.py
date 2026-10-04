@@ -88,3 +88,102 @@ class TestReturnTemporalSafety:
         merged = returns.merge(orders[["order_id", "order_date"]], on="order_id", how="left")
         violations = (pd.to_datetime(merged["return_date"]) < pd.to_datetime(merged["order_date"])).sum()
         assert violations == 0
+
+
+# ---------------------------------------------------------------------------
+# Issue #3 — Same-timestamp prior-count regression tests
+# ---------------------------------------------------------------------------
+
+class TestSameTimestampOrderLeakage:
+    """Two orders for the same buyer at the exact same timestamp must both get
+    buyer_orders_before = 0.  The old cumcount() code would give one of them
+    count=1, creating temporal leakage.
+    """
+
+    def test_same_timestamp_both_get_zero_prior_count(self):
+        from baseline_model import _cumulative_count_asof
+        import pandas as pd
+
+        ts = pd.Timestamp("2025-06-15 10:00:00")
+        orders = pd.DataFrame({
+            "buyer_id": ["B001", "B001"],
+            "order_date": [ts, ts],
+            "order_id": ["O1", "O2"],
+        })
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+
+        result = _cumulative_count_asof(orders, group_col="buyer_id", date_col="order_date")
+
+        assert result.iloc[0] == 0, (
+            "First of two same-timestamp orders must see 0 prior orders (not 1)."
+        )
+        assert result.iloc[1] == 0, (
+            "Second of two same-timestamp orders must see 0 prior orders (not 1)."
+        )
+
+    def test_earlier_order_counted_for_later(self):
+        """An order placed before another must be counted in the later order's prior count."""
+        from baseline_model import _cumulative_count_asof
+        import pandas as pd
+
+        orders = pd.DataFrame({
+            "buyer_id": ["B001", "B001"],
+            "order_date": [
+                pd.Timestamp("2025-06-01"),
+                pd.Timestamp("2025-06-15"),
+            ],
+            "order_id": ["O1", "O2"],
+        })
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+
+        result = _cumulative_count_asof(orders, group_col="buyer_id", date_col="order_date")
+        assert result.iloc[0] == 0, "First (earliest) order should have 0 prior orders"
+        assert result.iloc[1] == 1, "Second (later) order should see 1 prior order"
+
+
+class TestSameTimestampEdgeWeightLeakage:
+    """Two orders between the same buyer and seller at the exact same timestamp must
+    both get buyer_seller_edge_weight_before = 0.
+    """
+
+    def test_same_timestamp_edge_weight_both_zero(self):
+        from graph_features import add_edge_weight_before
+        import pandas as pd
+
+        ts = pd.Timestamp("2025-07-01 12:00:00")
+        df = pd.DataFrame({
+            "buyer_id": ["B001", "B001"],
+            "seller_id": ["S001", "S001"],
+            "order_date": [ts, ts],
+            "order_id": ["O1", "O2"],
+        })
+        df["order_date"] = pd.to_datetime(df["order_date"])
+
+        result = add_edge_weight_before(df)
+
+        assert result["buyer_seller_edge_weight_before"].iloc[0] == 0, (
+            "First same-timestamp order must have edge_weight_before=0."
+        )
+        assert result["buyer_seller_edge_weight_before"].iloc[1] == 0, (
+            "Second same-timestamp order must have edge_weight_before=0 (not 1)."
+        )
+
+    def test_prior_order_counted_for_later_order(self):
+        """An earlier order must be counted for the later one."""
+        from graph_features import add_edge_weight_before
+        import pandas as pd
+
+        df = pd.DataFrame({
+            "buyer_id": ["B001", "B001"],
+            "seller_id": ["S001", "S001"],
+            "order_date": [
+                pd.Timestamp("2025-06-01"),
+                pd.Timestamp("2025-06-15"),
+            ],
+            "order_id": ["O1", "O2"],
+        })
+        df["order_date"] = pd.to_datetime(df["order_date"])
+        result = add_edge_weight_before(df)
+        result = result.sort_values("order_date").reset_index(drop=True)
+        assert result.loc[0, "buyer_seller_edge_weight_before"] == 0
+        assert result.loc[1, "buyer_seller_edge_weight_before"] == 1

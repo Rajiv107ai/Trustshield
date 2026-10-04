@@ -18,6 +18,31 @@ TRAIN_END = pd.Timestamp("2025-08-31")
 VAL_END = pd.Timestamp("2025-10-31")
 
 
+def _strict_prior_cumcount(df: pd.DataFrame, group_col: str, date_col: str) -> pd.Series:
+    """Count of rows per group with a timestamp STRICTLY BEFORE the current row.
+
+    Uses merge_asof with allow_exact_matches=False so that two rows sharing the
+    same timestamp are never counted as prior history of each other.
+    Same logic as baseline_model._cumulative_count_asof.
+    """
+    sorted_df = df[[group_col, date_col]].sort_values(by=date_col, kind="mergesort").copy()
+    sorted_df["_running"] = sorted_df.groupby(group_col).cumcount() + 1
+
+    left = df[[group_col, date_col]].copy()
+    left["_orig_index"] = left.index
+    left_sorted = left.sort_values(by=date_col, kind="mergesort")
+
+    merged = pd.merge_asof(
+        left_sorted, sorted_df[[group_col, date_col, "_running"]],
+        on=date_col, by=group_col,
+        direction="backward",
+        allow_exact_matches=False,
+    )
+    return pd.Series(
+        merged.set_index("_orig_index")["_running"].reindex(df.index).fillna(0),
+    )
+
+
 def evaluate_at_cost_threshold(y_test, score_test, amount_test, threshold, fp_cost, label):
     """Evaluates test performance at cost-optimal decision threshold."""
     pred = (score_test >= threshold).astype(int)
@@ -78,7 +103,7 @@ def build_listing_features(listings_df, sellers_df, products_df):
     df["seller_age_days_at_listing"] = (df["listing_date"] - df["seller_signup_date"]).dt.days
 
     sorted_listings = df.sort_values("listing_date", kind="mergesort")
-    df["seller_listings_before"] = sorted_listings.groupby("seller_id").cumcount().reindex(df.index)
+    df["seller_listings_before"] = _strict_prior_cumcount(sorted_listings, "seller_id", "listing_date").reindex(df.index)
     df["multimodal_similarity_score"] = compute_multimodal_similarity(listings_df, products_df).to_numpy()
 
     feature_cols = [
@@ -121,9 +146,7 @@ def build_return_features(returns_df, orders_df, buyers_df, sellers_df):
     df["seller_age_days_at_return"] = (df["return_date"] - df["seller_signup_date"]).dt.days
     df["order_amount"] = df["amount"]
 
-    sorted_returns = df.sort_values("return_date", kind="mergesort").copy()
-    sorted_returns["running_count"] = sorted_returns.groupby("buyer_id").cumcount()
-    df["buyer_prior_returns"] = sorted_returns["running_count"].reindex(df.index)
+    df["buyer_prior_returns"] = _strict_prior_cumcount(df, "buyer_id", "return_date")
 
     orders_sorted = orders_df[["buyer_id", "order_date"]].sort_values("order_date", kind="mergesort").copy()
     orders_sorted["running_count"] = orders_sorted.groupby("buyer_id").cumcount() + 1
@@ -134,9 +157,7 @@ def build_return_features(returns_df, orders_df, buyers_df, sellers_df):
     df["buyer_orders_before_return"] = merged.set_index("_orig_index")["running_count"].reindex(df.index).fillna(0)
     df["buyer_return_rate_before"] = df["buyer_prior_returns"] / df["buyer_orders_before_return"].clip(lower=1)
 
-    seller_returns_sorted = df[["seller_id", "return_date"]].sort_values("return_date", kind="mergesort").copy()
-    seller_returns_sorted["running_count"] = seller_returns_sorted.groupby("seller_id").cumcount()
-    df["seller_prior_returns"] = seller_returns_sorted["running_count"].reindex(df.index)
+    df["seller_prior_returns"] = _strict_prior_cumcount(df, "seller_id", "return_date")
 
     seller_orders_sorted = orders_df[["seller_id", "order_date"]].sort_values("order_date", kind="mergesort").copy()
     seller_orders_sorted["running_count"] = seller_orders_sorted.groupby("seller_id").cumcount() + 1

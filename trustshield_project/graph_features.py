@@ -117,9 +117,32 @@ def attach_snapshot_features(df: pd.DataFrame, snapshots: dict, months: list) ->
 
 
 def add_edge_weight_before(df: pd.DataFrame) -> pd.DataFrame:
-    """Computes prior transaction count between specific buyer-seller pairs."""
+    """Computes prior transaction count between specific buyer-seller pairs.
+
+    Uses merge_asof with allow_exact_matches=False so that same-timestamp orders
+    for the same buyer-seller pair never count as prior history for each other.
+    """
     df = df.sort_values("order_date", kind="mergesort").copy()
-    df["buyer_seller_edge_weight_before"] = df.groupby(["buyer_id", "seller_id"]).cumcount()
+
+    # Build running count per (buyer_id, seller_id) group
+    pair_sorted = df[["buyer_id", "seller_id", "order_date"]].sort_values(
+        "order_date", kind="mergesort"
+    ).copy()
+    pair_sorted["_running"] = pair_sorted.groupby(["buyer_id", "seller_id"]).cumcount() + 1
+
+    left = df[["buyer_id", "seller_id", "order_date"]].copy()
+    left["_orig_index"] = left.index
+    left_sorted = left.sort_values("order_date", kind="mergesort")
+
+    merged = pd.merge_asof(
+        left_sorted, pair_sorted[["buyer_id", "seller_id", "order_date", "_running"]],
+        on="order_date", by=["buyer_id", "seller_id"],
+        direction="backward",
+        allow_exact_matches=False,
+    )
+    df["buyer_seller_edge_weight_before"] = (
+        merged.set_index("_orig_index")["_running"].reindex(df.index).fillna(0)
+    )
     return df
 
 

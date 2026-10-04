@@ -18,9 +18,30 @@ VAL_END = pd.Timestamp("2025-10-31")
 
 
 def _cumulative_count_asof(orders_df: pd.DataFrame, group_col: str, date_col: str = "order_date") -> pd.Series:
-    """Prior row count per group strictly before current order date."""
-    ordered = orders_df.sort_values(by=date_col, kind="mergesort")
-    return pd.Series(ordered.groupby(group_col).cumcount().reindex(orders_df.index))
+    """Prior row count per group strictly before current row's timestamp.
+
+    Uses merge_asof with allow_exact_matches=False so that two rows with the
+    *same* timestamp for the same entity are never counted as prior history of
+    each other — preventing temporal leakage on same-day/same-second events.
+    """
+    # Build a running-count lookup keyed by (group_col, date_col)
+    sorted_df = orders_df[[group_col, date_col]].sort_values(by=date_col, kind="mergesort").copy()
+    sorted_df["_running"] = sorted_df.groupby(group_col).cumcount() + 1  # 1-indexed count after current row
+
+    left = orders_df[[group_col, date_col]].copy()
+    left["_orig_index"] = left.index
+    left_sorted = left.sort_values(by=date_col, kind="mergesort")
+
+    merged = pd.merge_asof(
+        left_sorted, sorted_df[[group_col, date_col, "_running"]],
+        on=date_col, by=group_col,
+        direction="backward",
+        allow_exact_matches=False,  # strictly BEFORE current timestamp
+    )
+    return pd.Series(
+        merged.set_index("_orig_index")["_running"].reindex(orders_df.index).fillna(0),
+        name=date_col,
+    )
 
 
 def _asof_cumulative_from_events(orders_df: pd.DataFrame, events_df: pd.DataFrame, group_col: str, 
