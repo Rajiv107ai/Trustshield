@@ -1,4 +1,4 @@
-﻿"""Offline CLIP embedding pre-computation script -- Phase 4.
+"""Offline CLIP embedding pre-computation script -- Phase 4.
 
 Run this script once after installing the project to pre-compute and cache
 OpenAI CLIP embeddings for the full ABO product catalog (~3 000 items).
@@ -56,8 +56,14 @@ def parse_args():
     )
     p.add_argument(
         "--cache-dir",
-        default=os.path.normpath(os.path.join(SCRIPT_DIR, "..", "models", "clip_cache")),
-        help="Directory to write embedding cache. (default: models/clip_cache)",
+        default=None,
+        help=(
+            "Directory to write embedding cache. "
+            "Defaults to models/clip_cache (full run) or models/clip_cache_smoke "
+            "(when --n-products is used). "
+            "Override explicitly to write a smoke cache to the production location "
+            "(not recommended)."
+        ),
     )
     p.add_argument("--n-products", type=int, default=None,
                    help="Limit to first N products -- useful for quick smoke tests.")
@@ -113,7 +119,42 @@ def _run_sanity_check(products_df, id_to_idx, text_emb, image_emb):
 
 def main():
     args = parse_args()
-    cache_dir = os.path.normpath(args.cache_dir)
+
+    # ------------------------------------------------------------------
+    # Resolve the effective cache directory.
+    # If the user ran with --n-products (smoke / partial run) and did NOT
+    # explicitly pass --cache-dir, use a *separate* smoke cache location
+    # so that a partial cache never poisons the production clip_cache/.
+    # ------------------------------------------------------------------
+    _prod_cache = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "models", "clip_cache"))
+    _smoke_cache = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "models", "clip_cache_smoke"))
+    is_smoke = args.n_products is not None
+
+    if args.cache_dir is None:
+        # User did not override → apply the safe default split.
+        cache_dir = _smoke_cache if is_smoke else _prod_cache
+        if is_smoke:
+            logger.warning(
+                "\n"
+                "  *** SMOKE-RUN MODE ***\n"
+                "  --n-products=%d  →  writing to SEPARATE smoke cache: %s\n"
+                "  Production cache (%s) is NOT modified.\n"
+                "  Pass --cache-dir %s explicitly to override (not recommended).\n",
+                args.n_products, _smoke_cache, _prod_cache, _prod_cache,
+            )
+    else:
+        cache_dir = os.path.normpath(args.cache_dir)
+        if is_smoke and os.path.normpath(cache_dir) == _prod_cache:
+            # User explicitly targeted the production cache during a smoke run.
+            logger.warning(
+                "\n"
+                "  *** WARNING: Smoke run targeting PRODUCTION cache ***\n"
+                "  --n-products=%d with --cache-dir pointing to the default production\n"
+                "  location (%s).  This will write a PARTIAL cache that the API\n"
+                "  server will reject (fingerprint mismatch).  Consider omitting\n"
+                "  --cache-dir so the script writes to models/clip_cache_smoke/ instead.\n",
+                args.n_products, _prod_cache,
+            )
 
     try:
         import transformers
