@@ -16,8 +16,8 @@ to pre-computed statistics.  If the derived fields ARE supplied directly,
 the raw-input fields are ignored.
 """
 
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ---------------------------------------------------------------------------
@@ -95,8 +95,8 @@ class TransactionScoreRequest(BaseModel):
         description="Median listing price for the product's category (training-set statistic).",
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "order_id": "ORDER_000123",
                 "buyer_id": "BUYER_00042",
@@ -112,6 +112,7 @@ class TransactionScoreRequest(BaseModel):
                 "seller_total_listings_before": 42,
             }
         }
+    )
 
 
 class TransactionScoreResponse(BaseModel):
@@ -152,5 +153,104 @@ class HealthResponse(BaseModel):
     status: str
     models_loaded: bool
     phase5_loaded: bool = False
+    clip_loaded: bool = False
     rings_loaded: bool
     n_rings: int
+
+
+# ---------------------------------------------------------------------------
+# /listing/analyze  (POST) — Phase 4 Multimodal Detector
+# ---------------------------------------------------------------------------
+
+class ListingScoreRequest(BaseModel):
+    """Request schema for the Phase 4 listing fraud detector.
+
+    CLIP auto-scoring (preferred):
+        Supply product_id + displayed_product_id (and optionally image_ref).
+        The server will compute multimodal_similarity_score via real CLIP
+        embeddings if the scorer is loaded, or fall back to TF-IDF.
+
+    Legacy pre-computed mode:
+        Supply multimodal_similarity_score directly (backward-compatible).
+        If neither product_id nor similarity is supplied the field defaults to 0.85.
+    """
+    listing_id: Optional[str] = None
+    seller_id: Optional[str] = None
+
+    # --- Price features ---
+    price: float = Field(default=100.0, description="Listing price")
+    base_price: float = Field(default=100.0, description="Catalog base price")
+    category_median_price: float = Field(default=100.0, description="Category median price")
+
+    # --- Seller features ---
+    seller_age_days_at_listing: float = Field(default=30.0, description="Seller age at listing time (days)")
+    seller_listings_before: int = Field(default=5, description="Prior listings count")
+
+    # --- CLIP routing fields (Phase 4 real signal) ---
+    product_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "ABO product_id of the catalog item. When provided together with "
+            "displayed_product_id, the server derives multimodal_similarity_score "
+            "via CLIP image-text embeddings automatically."
+        ),
+    )
+    displayed_product_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "product_id of the image actually shown in this listing. "
+            "For genuine listings this equals product_id. "
+            "For fake listings it differs — this drives the CLIP mismatch signal."
+        ),
+    )
+    image_ref: Optional[str] = Field(
+        default=None,
+        description=(
+            "Relative path to the displayed image within the ABO dataset "
+            "(e.g. 'images/small/8c/8ccb5859.jpg'). Optional hint — the server "
+            "resolves the image from displayed_product_id when omitted."
+        ),
+    )
+
+    # --- Pre-computed fallback (backward-compatible) ---
+    multimodal_similarity_score: float = Field(
+        default=0.85,
+        description=(
+            "Cosine similarity between listing text and displayed image [0, 1]. "
+            "Used directly when product_id is not supplied. "
+            "0.80+ = normal, <0.65 = moderate concern, <0.45 = severe mismatch."
+        ),
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "listing_id": "LISTING_000123",
+                "seller_id": "SELLER_00007",
+                "price": 85.99,
+                "base_price": 120.0,
+                "category_median_price": 100.0,
+                "seller_age_days_at_listing": 14.0,
+                "seller_listings_before": 2,
+                "product_id": "B06X9STHNG",
+                "displayed_product_id": "B07P8ML82R",
+            }
+        }
+    )
+
+
+class ListingScoreResponse(BaseModel):
+    listing_id: Optional[str]
+    fake_listing_probability: float
+    risk_label: str
+    model_used: str = "Fake Listing Detector (Phase 4 Multimodal XGBoost)"
+    clip_scored: bool = Field(
+        default=False,
+        description="True when multimodal_similarity_score was computed via real CLIP embeddings.",
+    )
+    multimodal_similarity_score: float = Field(
+        default=0.85,
+        description="The image-text similarity score used for this prediction.",
+    )
+    investigator_narrative: Dict[str, Any]
+

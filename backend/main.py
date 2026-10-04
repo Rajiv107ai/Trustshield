@@ -28,15 +28,34 @@ Docs auto-generated at: http://localhost:8000/docs
 from contextlib import asynccontextmanager
 from typing import List
 
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 
-from model_loader import store
-from schemas import (
-    TransactionScoreRequest, TransactionScoreResponse,
-    FraudRingsResponse, FraudRingItem,
-    HealthResponse,
-)
+try:
+    from backend.model_loader import store
+    from backend.schemas import (
+        TransactionScoreRequest, TransactionScoreResponse,
+        FraudRingsResponse, FraudRingItem,
+        HealthResponse,
+        ListingScoreRequest, ListingScoreResponse,
+    )
+except ImportError:
+    from model_loader import store
+    from schemas import (
+        TransactionScoreRequest, TransactionScoreResponse,
+        FraudRingsResponse, FraudRingItem,
+        HealthResponse,
+        ListingScoreRequest, ListingScoreResponse,
+    )
+
+try:
+    from trustshield_project.multimodal_scoring import explain_listing_risk
+except ImportError:
+    try:
+        from multimodal_scoring import explain_listing_risk
+    except ImportError:
+        explain_listing_risk = None
 
 
 def _risk_label(score: float) -> str:
@@ -61,22 +80,46 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
     """
     row = req.model_dump()
 
-    # --- Derive price_vs_base_price_ratio from raw inputs if not given ---
-    if row.get("order_amount", 0.0) == 0.0 and row.get("amount") is not None:
-        row["order_amount"] = row["amount"]
+    # --- Harmonize amount and order_amount consistently in both directions ---
+    fields_set = getattr(req, "model_fields_set", set())
+    has_amount = ("amount" in fields_set) if fields_set else (row.get("amount") is not None)
+    has_order_amount = ("order_amount" in fields_set) if fields_set else (row.get("order_amount", 0.0) != 0.0)
 
+    amount_val = row.get("amount")
+    order_amount_val = row.get("order_amount")
+
+    if has_amount and has_order_amount:
+        amt = float(amount_val) if amount_val is not None else 0.0
+        ord_amt = float(order_amount_val) if order_amount_val is not None else 0.0
+        if abs(amt - ord_amt) > 1e-6:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Conflicting 'amount' ({amt}) and 'order_amount' ({ord_amt}) provided.",
+            )
+        resolved_amount = amt
+    elif has_amount and amount_val is not None:
+        resolved_amount = float(amount_val)
+    elif has_order_amount and order_amount_val is not None:
+        resolved_amount = float(order_amount_val)
+    elif amount_val is not None:
+        resolved_amount = float(amount_val)
+    else:
+        resolved_amount = float(order_amount_val or 0.0)
+
+    row["amount"] = resolved_amount
+    row["order_amount"] = resolved_amount
+
+    # --- Derive price_vs_base_price_ratio from raw inputs if not given ---
     if row.get("price_vs_base_price_ratio", 0.0) == 0.0:
-        amount = row.get("amount") or row.get("order_amount")
         base_price = row.get("base_price")
-        if amount and base_price and base_price > 0:
-            row["price_vs_base_price_ratio"] = amount / base_price
+        if resolved_amount and base_price and base_price > 0:
+            row["price_vs_base_price_ratio"] = resolved_amount / base_price
 
     # --- Derive price_vs_category_median_ratio from raw inputs if not given ---
     if row.get("price_vs_category_median_ratio", 0.0) == 0.0:
-        amount = row.get("amount") or row.get("order_amount")
         cat_median = row.get("category_median_price")
-        if amount and cat_median and cat_median > 0:
-            row["price_vs_category_median_ratio"] = amount / cat_median
+        if resolved_amount and cat_median and cat_median > 0:
+            row["price_vs_category_median_ratio"] = resolved_amount / cat_median
 
     # --- Derive buyer_return_rate_before from counts if not given ---
     if row.get("buyer_return_rate_before", 0.0) == 0.0:
@@ -85,7 +128,7 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
         row["buyer_return_rate_before"] = returns_before / max(orders_before, 1)
 
     # Build the final feature vector using only the columns the model expects
-    return {col: row.get(col, 0.0) for col in all_cols}
+    return {col: (row.get(col) if row.get(col) is not None else 0.0) for col in all_cols}
 
 
 def _build_hybrid_feature_row(
@@ -148,6 +191,7 @@ def health():
         status="ok",
         models_loaded=store.is_loaded,
         phase5_loaded=store.phase5_loaded,
+        clip_loaded=store.clip_loaded,
         rings_loaded=store.rings_df is not None,
         n_rings=len(store.rings_df) if store.rings_df is not None else 0,
     )
@@ -176,7 +220,7 @@ def score_transaction(req: TransactionScoreRequest):
     if not store.is_loaded:
         raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
 
-    if store.phase5_loaded:
+    if store.phase5_loaded and store.phase5_meta is not None and store.hybrid_model is not None:
         p5_meta = store.phase5_meta
         hybrid_cols = p5_meta["hybrid_feature_cols"]
         p3_cols = p5_meta["phase3_feature_cols"]
@@ -186,7 +230,7 @@ def score_transaction(req: TransactionScoreRequest):
             store.buyer_embeddings, store.seller_embeddings, emb_dim
         )
         X = pd.DataFrame([row])[hybrid_cols].fillna(0.0)
-        prob = float(store.hybrid_model.predict_proba(X)[0, 1])
+        prob = float(np.asarray(store.hybrid_model.predict_proba(X))[0, 1])
         clf_name = p5_meta.get("classifier", "XGBoost")
         return TransactionScoreResponse(
             order_id=req.order_id,
@@ -200,13 +244,16 @@ def score_transaction(req: TransactionScoreRequest):
             ),
         )
 
+    if store.feature_meta is None or store.combined_graph_model is None:
+        raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
+
     meta = store.feature_meta
     all_cols = meta["all_feature_cols"]
 
     feature_row = _build_feature_row(req, all_cols)
     X = pd.DataFrame([feature_row])[all_cols].fillna(0.0)
 
-    prob = float(store.combined_graph_model.predict_proba(X)[0, 1])
+    prob = float(np.asarray(store.combined_graph_model.predict_proba(X))[0, 1])
 
     clf_name = meta.get("classifier", type(store.combined_graph_model).__name__)
 
@@ -262,6 +309,8 @@ def get_fraud_rings(
 
     ring_items: List[FraudRingItem] = []
     for _, row in df.iterrows():
+        raw_members = row.get("members")
+        members_list = list(raw_members) if isinstance(raw_members, (list, tuple)) else []
         ring_items.append(FraudRingItem(
             ring_id=row["ring_id"],
             size=int(row["size"]),
@@ -270,7 +319,7 @@ def get_fraud_rings(
             max_risk_score=float(row["max_risk_score"]),
             n_high_risk_orders=int(row["n_high_risk_orders"]),
             risk_label=_risk_label(row["avg_risk_score"]),
-            members=list(row.get("members", [])),
+            members=members_list,
         ))
 
     high_risk = int((store.rings_df["avg_risk_score"] >= 0.5).sum())
@@ -280,3 +329,103 @@ def get_fraud_rings(
         high_risk_rings=high_risk,
         rings=ring_items,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /listing/analyze  (Phase 4 Multimodal Fake Listing Scoring)
+# ---------------------------------------------------------------------------
+
+@app.post("/listing/analyze", response_model=ListingScoreResponse, tags=["scoring"])
+def analyze_listing(req: ListingScoreRequest):
+    """
+    Score a product listing for fraud / fake-listing risk using the Phase 4
+    multimodal model (trained on price anomalies, seller profile, and
+    image-text alignment via real CLIP embeddings).
+
+    **CLIP auto-scoring** (preferred): supply ``product_id`` and
+    ``displayed_product_id`` in the request body.  When the CLIP scorer is
+    loaded (run ``scripts/build_clip_embeddings.py`` first), the server will
+    compute ``multimodal_similarity_score`` from real CLIP image-text cosine
+    similarity and return ``clip_scored=true`` in the response.
+
+    **Legacy mode**: omit ``product_id`` and supply ``multimodal_similarity_score``
+    directly (backward-compatible with prior API clients).
+
+    Also generates structured natural-language investigator rationale.
+    """
+    if not store.is_loaded or store.fake_listing_model is None or store.feature_meta is None:
+        raise HTTPException(status_code=503, detail="Listing model not loaded yet.")
+
+    cols = store.feature_meta.get("listing_feature_cols", [
+        "price_vs_base_price_ratio", "price_vs_category_median_ratio",
+        "seller_age_days_at_listing", "seller_listings_before",
+        "multimodal_similarity_score",
+    ])
+
+    price_base_ratio = req.price / max(req.base_price, 0.01)
+    price_cat_ratio = req.price / max(req.category_median_price, 0.01)
+
+    # ------------------------------------------------------------------ #
+    # Phase 4: derive multimodal_similarity_score via real CLIP embeddings
+    # ------------------------------------------------------------------ #
+    clip_scored = False
+    sim_score = req.multimodal_similarity_score  # default: caller-supplied
+
+    if (
+        req.product_id is not None
+        and store.clip_loaded
+        and store.clip_scorer is not None
+    ):
+        try:
+            displayed_pid = req.displayed_product_id or req.product_id
+            listing_row = pd.DataFrame([
+                {
+                    "product_id": req.product_id,
+                    "displayed_product_id": displayed_pid,
+                }
+            ])
+            clip_sim = store.clip_scorer.score_listings(listing_row)
+            sim_score = float(clip_sim.iloc[0])
+            clip_scored = True
+        except Exception as exc:
+            # Fallback to caller-supplied value without crashing the request
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "CLIP scoring failed for listing %s (%s). "
+                "Using caller-supplied multimodal_similarity_score=%.3f.",
+                req.listing_id, exc, req.multimodal_similarity_score,
+            )
+
+    features = {
+        "price_vs_base_price_ratio": price_base_ratio,
+        "price_vs_category_median_ratio": price_cat_ratio,
+        "seller_age_days_at_listing": req.seller_age_days_at_listing,
+        "seller_listings_before": req.seller_listings_before,
+        "multimodal_similarity_score": sim_score,
+    }
+
+    X = pd.DataFrame([{c: features.get(c, 0.0) for c in cols}])[cols].fillna(0.0)
+    prob = float(np.asarray(store.fake_listing_model.predict_proba(X))[0, 1])
+
+    narrative = explain_listing_risk(features, prob) if explain_listing_risk is not None else {
+        "risk_score": round(prob, 4),
+        "risk_level": _risk_label(prob).upper(),
+        "summary": f"Listing risk score: {prob:.2f}",
+        "key_evidence": [],
+        "recommended_action": "Review listing.",
+    }
+
+    return ListingScoreResponse(
+        listing_id=req.listing_id,
+        fake_listing_probability=round(prob, 4),
+        risk_label=_risk_label(prob),
+        model_used=(
+            "Fake Listing Detector (Phase 4 CLIP + XGBoost)"
+            if clip_scored
+            else "Fake Listing Detector (Phase 4 Multimodal XGBoost)"
+        ),
+        clip_scored=clip_scored,
+        multimodal_similarity_score=round(sim_score, 4),
+        investigator_narrative=narrative,
+    )
+

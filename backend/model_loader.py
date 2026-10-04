@@ -11,6 +11,12 @@ Phase 3 artifacts (required):
     fraud_rings.joblib            — pre-ranked fraud ring DataFrame
     feature_meta.joblib           — Phase 3 feature column lists
 
+Phase 4 artifacts (optional — CLIP multimodal scorer):
+    clip_cache/                   — pre-computed embedding cache directory
+                                    (built by scripts/build_clip_embeddings.py)
+    The scorer loads from cache in seconds. If absent, the /listing/analyze
+    endpoint uses the caller-supplied multimodal_similarity_score field instead.
+
 Phase 5 artifacts (optional — auto-detected):
     hybrid_model.joblib           — tabular + graph + GNN embedding XGBoost/RF
     buyer_embeddings.joblib       — dict {buyer_id  → np.array(16,)}
@@ -18,8 +24,8 @@ Phase 5 artifacts (optional — auto-detected):
     phase5_feature_meta.joblib    — Phase 5 feature column lists + metadata
 
 If Phase 3 artifacts are missing, raises FileNotFoundError with instructions.
-If Phase 5 artifacts are absent (e.g. torch not yet installed), the server
-continues serving Phase 3 predictions without error — no configuration needed.
+If Phase 4/5 artifacts are absent the server continues serving Phase 3
+predictions without error — no configuration needed.
 """
 
 import os
@@ -57,6 +63,11 @@ class ModelStore:
         self.feature_meta: Optional[dict] = None
         self._loaded = False
 
+        # --- Phase 4 CLIP scorer (optional) ---
+        self.clip_scorer = None          # CLIPMultimodalScorer instance, or None
+        self.clip_products_df: Optional[pd.DataFrame] = None
+        self._clip_loaded = False
+
         # --- Phase 5 (optional) ---
         self.hybrid_model         = None
         self.buyer_embeddings:  dict = {}
@@ -93,10 +104,64 @@ class ModelStore:
         )
         self._loaded = True
         print(f"[model_loader] Loaded Phase 3 models from {MODELS_DIR}")
-        print(
-            f"[model_loader] {len(self.rings_df)} fraud rings pre-computed "
-            f"({(self.rings_df['avg_risk_score'] >= 0.3).sum()} high-risk)"
-        )
+        if self.rings_df is not None:
+            print(
+                f"[model_loader] {len(self.rings_df)} fraud rings pre-computed "
+                f"({(self.rings_df['avg_risk_score'] >= 0.3).sum()} high-risk)"
+            )
+
+        # ---- Phase 4: CLIP embedding cache (optional) ----
+        clip_cache_dir = os.path.join(MODELS_DIR, "clip_cache")
+        clip_meta_path = os.path.join(clip_cache_dir, "clip_meta.npz")
+        if os.path.isfile(clip_meta_path):
+            try:
+                import sys
+                _project_dir = os.path.normpath(
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "trustshield_project")
+                )
+                if _project_dir not in sys.path:
+                    sys.path.insert(0, _project_dir)
+
+                from product_listing_generator import generate_product_catalog
+                from multimodal_scoring import (
+                    CLIPMultimodalScorer,
+                    CLIPEmbeddingCache,
+                    _product_fingerprint,
+                )
+
+                self.clip_products_df = generate_product_catalog()
+                cache = CLIPEmbeddingCache(clip_cache_dir)
+                fingerprint = _product_fingerprint(list(self.clip_products_df["product_id"].astype(str)))
+                cached = cache.load(fingerprint)
+                if cached is not None:
+                    self.clip_scorer = CLIPMultimodalScorer(cache_dir=clip_cache_dir)
+                    self.clip_scorer.id_to_idx, self.clip_scorer.text_embeddings, self.clip_scorer.image_embeddings = cached
+                    self.clip_scorer._fitted = True
+                    self._clip_loaded = True
+                    print(
+                        f"[model_loader] Phase 4 CLIP scorer loaded from cache "
+                        f"({len(self.clip_scorer.id_to_idx):,} products, "
+                        f"text_emb={self.clip_scorer.text_embeddings.shape}, "
+                        f"image_emb={self.clip_scorer.image_embeddings.shape})"
+                    )
+                else:
+                    print(
+                        "[model_loader] Phase 4 CLIP cache fingerprint mismatch or stale. "
+                        "Run scripts/build_clip_embeddings.py to refresh cache. "
+                        "The /listing/analyze endpoint will use caller-supplied "
+                        "multimodal_similarity_score instead."
+                    )
+            except Exception as exc:
+                print(
+                    f"[model_loader] Phase 4 CLIP scorer unavailable ({exc}). "
+                    "The /listing/analyze endpoint will use caller-supplied "
+                    "multimodal_similarity_score instead."
+                )
+        else:
+            print(
+                "[model_loader] Phase 4 CLIP cache not found — "
+                "run scripts/build_clip_embeddings.py to enable real CLIP scoring."
+            )
 
         # ---- Phase 5 (optional — graceful skip if absent) ----
         phase5_present = all(
@@ -118,13 +183,14 @@ class ModelStore:
             )
             self._phase5_loaded = True
             meta = self.phase5_meta
-            print(
-                f"[model_loader] Phase 5 hybrid model loaded  "
-                f"({len(self.buyer_embeddings):,} buyer embeddings, "
-                f"{len(self.seller_embeddings):,} seller embeddings, "
-                f"{len(meta['hybrid_feature_cols'])} features, "
-                f"classifier={meta['classifier']})"
-            )
+            if meta is not None:
+                print(
+                    f"[model_loader] Phase 5 hybrid model loaded  "
+                    f"({len(self.buyer_embeddings):,} buyer embeddings, "
+                    f"{len(self.seller_embeddings):,} seller embeddings, "
+                    f"{len(meta['hybrid_feature_cols'])} features, "
+                    f"classifier={meta.get('classifier', 'XGBoost')})"
+                )
         else:
             print(
                 "[model_loader] Phase 5 artifacts not found — "
@@ -139,6 +205,10 @@ class ModelStore:
     @property
     def phase5_loaded(self) -> bool:
         return self._phase5_loaded
+
+    @property
+    def clip_loaded(self) -> bool:
+        return self._clip_loaded
 
 
 # Global singleton — imported by main.py
