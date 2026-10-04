@@ -77,36 +77,52 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
       2. If a ratio field is 0 (default) AND the raw inputs needed to compute
          it are present, the ratio is derived server-side.
       3. Everything else defaults to 0.
+
+    Amount harmonization:
+      - ``amount`` (Optional[float], default None) and ``order_amount`` (float,
+        default 0.0) are aliases for the same concept.
+      - Whichever field the caller explicitly provides wins.
+      - If both are provided and disagree by more than 1e-6, a 400 is raised.
+      - ``model_fields_set`` (Pydantic v2) is the authoritative way to detect
+        explicit supply; we never rely on sentinel-value comparisons.
     """
     row = req.model_dump()
 
-    # --- Harmonize amount and order_amount consistently in both directions ---
-    fields_set = getattr(req, "model_fields_set", set())
-    has_amount = ("amount" in fields_set) if fields_set else (row.get("amount") is not None)
-    has_order_amount = ("order_amount" in fields_set) if fields_set else (row.get("order_amount", 0.0) != 0.0)
+    # --- Determine which amount alias(es) the caller explicitly provided ---
+    # model_fields_set is always available in Pydantic v2; fall back for safety.
+    fields_set: set = getattr(req, "model_fields_set", set())
+    has_amount       = "amount"       in fields_set
+    has_order_amount = "order_amount" in fields_set
 
-    amount_val = row.get("amount")
-    order_amount_val = row.get("order_amount")
+    amount_val       = row.get("amount")        # Optional[float], None when not set
+    order_amount_val = row.get("order_amount")  # float, 0.0 when not set
 
     if has_amount and has_order_amount:
-        amt = float(amount_val) if amount_val is not None else 0.0
+        # Both explicitly provided — they must agree.
+        amt     = float(amount_val)       if amount_val       is not None else 0.0
         ord_amt = float(order_amount_val) if order_amount_val is not None else 0.0
         if abs(amt - ord_amt) > 1e-6:
             raise HTTPException(
                 status_code=400,
-                detail=f"Conflicting 'amount' ({amt}) and 'order_amount' ({ord_amt}) provided.",
+                detail=(
+                    f"Conflicting 'amount' ({amt}) and 'order_amount' ({ord_amt}) "
+                    "provided. Supply only one, or ensure they are equal."
+                ),
             )
         resolved_amount = amt
-    elif has_amount and amount_val is not None:
-        resolved_amount = float(amount_val)
-    elif has_order_amount and order_amount_val is not None:
-        resolved_amount = float(order_amount_val)
-    elif amount_val is not None:
-        resolved_amount = float(amount_val)
+    elif has_amount:
+        # Only `amount` was explicitly supplied (order_amount at default 0.0).
+        resolved_amount = float(amount_val) if amount_val is not None else 0.0
+    elif has_order_amount:
+        # Only `order_amount` was explicitly supplied.
+        resolved_amount = float(order_amount_val) if order_amount_val is not None else 0.0
     else:
-        resolved_amount = float(order_amount_val or 0.0)
+        # Neither explicitly supplied — use whatever non-None value we have.
+        resolved_amount = float(amount_val) if amount_val is not None else float(order_amount_val or 0.0)
 
-    row["amount"] = resolved_amount
+    # Ensure both aliases carry the resolved value so downstream ratio derivation
+    # can reference either key without distinction.
+    row["amount"]       = resolved_amount
     row["order_amount"] = resolved_amount
 
     # --- Derive price_vs_base_price_ratio from raw inputs if not given ---
