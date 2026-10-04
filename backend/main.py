@@ -50,12 +50,13 @@ except ImportError:
     )
 
 try:
-    from trustshield_project.multimodal_scoring import explain_listing_risk
+    from trustshield_project.multimodal_scoring import explain_listing_risk, MultimodalScorer as _MultimodalScorer
 except ImportError:
     try:
-        from multimodal_scoring import explain_listing_risk
+        from multimodal_scoring import explain_listing_risk, MultimodalScorer as _MultimodalScorer
     except ImportError:
         explain_listing_risk = None
+        _MultimodalScorer = None
 
 
 def _risk_label(score: float) -> str:
@@ -385,13 +386,11 @@ def analyze_listing(req: ListingScoreRequest):
     # Phase 4: derive multimodal_similarity_score via real CLIP embeddings
     # ------------------------------------------------------------------ #
     clip_scored = False
+    tfidf_scored = False
     sim_score = req.multimodal_similarity_score  # default: caller-supplied
 
-    if (
-        req.product_id is not None
-        and store.clip_loaded
-        and store.clip_scorer is not None
-    ):
+    if req.product_id is not None and store.clip_loaded and store.clip_scorer is not None:
+        # ── Preferred path: real CLIP scorer ────────────────────────────
         try:
             displayed_pid = req.displayed_product_id or req.product_id
             listing_row = pd.DataFrame([
@@ -404,12 +403,36 @@ def analyze_listing(req: ListingScoreRequest):
             sim_score = float(clip_sim.iloc[0])
             clip_scored = True
         except Exception as exc:
-            # Fallback to caller-supplied value without crashing the request
             import logging as _logging
             _logging.getLogger(__name__).warning(
                 "CLIP scoring failed for listing %s (%s). "
+                "Falling back to TF-IDF surrogate.",
+                req.listing_id, exc,
+            )
+
+    if not clip_scored and req.product_id is not None and store.clip_products_df is not None:
+        # ── Secondary path: deterministic TF-IDF surrogate ──────────────
+        # Used when CLIP is unavailable/stale but product_id was supplied.
+        # This is reproducible and avoids the silent 0.85-default trap.
+        try:
+            if _MultimodalScorer is not None:
+                _tfidf = _MultimodalScorer()
+                _tfidf.fit(store.clip_products_df)
+                displayed_pid = req.displayed_product_id or req.product_id
+                listing_row = pd.DataFrame([
+                    {
+                        "product_id": req.product_id,
+                        "displayed_product_id": displayed_pid,
+                    }
+                ])
+                sim_score = float(_tfidf.score_listings(listing_row).iloc[0])
+                tfidf_scored = True
+        except Exception as exc2:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "TF-IDF fallback also failed for listing %s (%s). "
                 "Using caller-supplied multimodal_similarity_score=%.3f.",
-                req.listing_id, exc, req.multimodal_similarity_score,
+                req.listing_id, exc2, req.multimodal_similarity_score,
             )
 
     features = {
@@ -438,7 +461,11 @@ def analyze_listing(req: ListingScoreRequest):
         model_used=(
             "Fake Listing Detector (Phase 4 CLIP + XGBoost)"
             if clip_scored
-            else "Fake Listing Detector (Phase 4 Multimodal XGBoost)"
+            else (
+                "Fake Listing Detector (Phase 4 TF-IDF Fallback + XGBoost)"
+                if tfidf_scored
+                else "Fake Listing Detector (Phase 4 Multimodal XGBoost, caller-supplied similarity)"
+            )
         ),
         clip_scored=clip_scored,
         multimodal_similarity_score=round(sim_score, 4),
