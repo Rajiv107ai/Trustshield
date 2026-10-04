@@ -85,7 +85,14 @@ def assign_primary_devices(buyers_df: pd.DataFrame, devices_df: pd.DataFrame) ->
 
 
 def assign_shared_addresses(buyers_df: pd.DataFrame, share_rate: float = 0.12, legit_share: float = 0.70):
-    """Simulates physical address sharing across buyer accounts."""
+    """Simulates physical address sharing across buyer accounts.
+
+    The ``first_seen_date`` column records when the sharing relationship was
+    first observed.  It is drawn uniformly between the later of the two buyers'
+    signup dates and SIM_END, so the relationship is always discoverable *after*
+    both accounts exist.  Use this timestamp to filter the sharing graph when
+    building features for a specific decision point.
+    """
     buyers_df = buyers_df.copy()
     n = len(buyers_df)
     n_sharing = int(n * share_rate)
@@ -99,19 +106,35 @@ def assign_shared_addresses(buyers_df: pd.DataFrame, share_rate: float = 0.12, l
 
     is_fraud_link = rng.random(n_sharing) >= legit_share
 
+    # Determine first_seen_date: uniform between max(signup_a, signup_b) and SIM_END
+    signup_a = pd.to_datetime(buyers_df.iloc[sharing_idx]["signup_date"].values)
+    signup_b = pd.to_datetime(buyers_df.iloc[partner_idx]["signup_date"].values)
+    latest_signup = np.maximum(signup_a.asi8, signup_b.asi8)
+    sim_end_ns = pd.Timestamp(SIM_END).value
+    # Clamp: if latest_signup >= SIM_END, set first_seen = SIM_END
+    span_ns = np.maximum(sim_end_ns - latest_signup, 0)
+    offsets_ns = (rng.random(n_sharing) * span_ns).astype(np.int64)
+    first_seen = pd.to_datetime(latest_signup + offsets_ns)
+
     sharing_log = pd.DataFrame({
         "buyer_id": buyers_df.iloc[sharing_idx]["buyer_id"].values,
         "shared_with_buyer_id": buyers_df.iloc[partner_idx]["buyer_id"].values,
         "shared_address_id": buyers_df.iloc[partner_idx]["address_id"].values,
         "share_type": np.where(is_fraud_link, "fraud_linked", "legitimate"),
+        "first_seen_date": first_seen,
     })
     buyers_df.loc[sharing_idx, "address_id"] = sharing_log["shared_address_id"].values
     return buyers_df, sharing_log
 
 
-def assign_shared_devices(device_mapping_df: pd.DataFrame, buyers_df: pd.DataFrame, 
+def assign_shared_devices(device_mapping_df: pd.DataFrame, buyers_df: pd.DataFrame,
                           share_rate: float = 0.08, legit_share: float = 0.50):
-    """Simulates device reuse across buyer accounts."""
+    """Simulates device reuse across buyer accounts.
+
+    Like ``assign_shared_addresses``, a ``first_seen_date`` is generated for
+    each sharing relationship so that graph features can be filtered to only
+    relationships known before a given decision timestamp.
+    """
     n = len(buyers_df)
     n_sharing = int(n * share_rate)
 
@@ -127,11 +150,21 @@ def assign_shared_devices(device_mapping_df: pd.DataFrame, buyers_df: pd.DataFra
     partner_buyer_ids = buyers_df.iloc[partner_idx]["buyer_id"].values
     partner_device = device_mapping_df.set_index("buyer_id").loc[partner_buyer_ids, "device_id"].values
 
+    # first_seen_date: uniform between max(signup_a, signup_b) and SIM_END
+    signup_a = pd.to_datetime(buyers_df.iloc[sharing_idx]["signup_date"].values)
+    signup_b = pd.to_datetime(buyers_df.iloc[partner_idx]["signup_date"].values)
+    latest_signup = np.maximum(signup_a.asi8, signup_b.asi8)
+    sim_end_ns = pd.Timestamp(SIM_END).value
+    span_ns = np.maximum(sim_end_ns - latest_signup, 0)
+    offsets_ns = (rng.random(n_sharing) * span_ns).astype(np.int64)
+    first_seen = pd.to_datetime(latest_signup + offsets_ns)
+
     sharing_log = pd.DataFrame({
         "buyer_id": sharer_buyer_ids,
         "shared_with_buyer_id": partner_buyer_ids,
         "shared_device_id": partner_device,
         "share_type": np.where(is_fraud_link, "fraud_linked", "legitimate"),
+        "first_seen_date": first_seen,
     })
     extra_rows = pd.DataFrame({
         "buyer_id": sharer_buyer_ids,
