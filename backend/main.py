@@ -184,9 +184,10 @@ app = FastAPI(
     title="TrustShield AI",
     description=(
         "E-commerce fraud intelligence API. "
-        "Returns real model output from Phase 2 (specialized detectors) "
-        "and Phase 3 (graph-augmented combined model + fraud ring detection). "
-        "All predictions are from trained scikit-learn RandomForest models — "
+        "Returns real model output from Phase 2 (specialized detectors), "
+        "Phase 3 (graph-augmented combined model + fraud ring detection), "
+        "and Phase 5 (hybrid GNN + XGBoost). "
+        "All predictions are from trained XGBoost models — "
         "no hardcoded or mocked responses."
     ),
     version="0.1.0-mvp",
