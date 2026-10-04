@@ -40,7 +40,8 @@ class UnionFind:
 # Scenario 1: Fake Listing (~40% of fraud orders)
 # ---------------------------------------------------------------------------
 
-def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings, n_traffic_tiers=5):
+def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings, n_traffic_tiers=5,
+                         rng=None):
     """
     Picks target_n_listings listings, STRATIFIED across order-traffic tiers
     (including zero/low-traffic listings) rather than only the highest-
@@ -61,6 +62,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
     Each rogue seller's flagged listings become one ring (a scam seller
     running several fake listings at once, not just one).
     """
+    gen = rng if rng is not None else globals()["rng"]
     listings_df = listings_df.copy()
     orders_df = orders_df.copy()
     listings_df["is_fraudulent"] = False
@@ -82,7 +84,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
         n_pick = per_tier_target + (1 if tier < remainder else 0)
         n_pick = min(n_pick, len(tier_ids))
         if n_pick > 0:
-            chosen_listing_ids.extend(rng.choice(tier_ids, size=n_pick, replace=False))
+            chosen_listing_ids.extend(gen.choice(tier_ids, size=n_pick, replace=False))
 
     chosen_mask = listings_df["listing_id"].isin(chosen_listing_ids)
     n_chosen = chosen_mask.sum()
@@ -91,7 +93,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
     # underpriced, some rely purely on stolen images/description) both
     # avoids perfect price-only separability and is more realistic than
     # every single fake listing being drastically cheap.
-    price_anomaly_subset = rng.random(n_chosen) < 0.6
+    price_anomaly_subset = gen.random(n_chosen) < 0.6
     chosen_idx = listings_df.index[chosen_mask]
     price_anomaly_idx = chosen_idx[price_anomaly_subset]
 
@@ -99,7 +101,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
     # (normal price noise is lognormal sigma=0.15, i.e. roughly 0.65-1.55x)
     # rather than being a cleanly separable band — a real detector has to
     # work a bit for this signal, not just threshold a disjoint range.
-    price_factor = rng.uniform(0.3, 0.7, size=len(price_anomaly_idx))
+    price_factor = gen.uniform(0.3, 0.7, size=len(price_anomaly_idx))
     listings_df.loc[price_anomaly_idx, "price"] = (
         listings_df.loc[price_anomaly_idx, "price"].values * price_factor
     ).round(2)
@@ -114,7 +116,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
     # Image mismatch: the listing shows a *different* product's image/text
     # than what product_id (the real catalog item) actually is.
     all_product_ids = products_df["product_id"].values
-    swapped_product_ids = rng.choice(all_product_ids, size=n_chosen, replace=True)
+    swapped_product_ids = gen.choice(all_product_ids, size=n_chosen, replace=True)
     listings_df.loc[chosen_mask, "displayed_product_id"] = swapped_product_ids
     listings_df.loc[chosen_mask, "image_mismatch"] = True
 
@@ -139,7 +141,7 @@ def inject_fake_listings(listings_df, orders_df, products_df, target_n_listings,
 # ---------------------------------------------------------------------------
 
 def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
-                         already_fraud_order_ids, target_fraud_orders):
+                        already_fraud_order_ids, target_fraud_orders, rng=None):
     """
     Selects a pool of "abuser" buyers and forces a high fraction of their
     remaining (not already fraud-tagged) orders into abusive returns —
@@ -151,6 +153,7 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
     abuse is often a shared-address household running the same scam
     together, not just a lone buyer.
     """
+    gen = rng if rng is not None else globals()["rng"]
     orders_df = orders_df.copy()
     eligible_orders = orders_df[~orders_df["order_id"].isin(already_fraud_order_ids)]
     orders_per_buyer = eligible_orders.groupby("buyer_id").size()
@@ -175,7 +178,7 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
             seen.add(b2)
 
     solo_candidates = sorted(eligible_buyer_set - seen)
-    rng.shuffle(solo_candidates)
+    gen.shuffle(solo_candidates)
 
     # Paired buyers go first (as a block, so both halves of a pair land
     # near each other and both get picked before budget runs out), then
@@ -197,11 +200,11 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
         if len(buyer_orders) == 0:
             continue
 
-        abuse_fraction = rng.uniform(0.6, 0.9)
+        abuse_fraction = gen.uniform(0.6, 0.9)
         n_abuse = max(1, int(round(len(buyer_orders) * abuse_fraction)))
         targeted_orders = buyer_orders.sample(
             n=min(n_abuse, len(buyer_orders)),
-            random_state=int(rng.integers(0, 2**31)),
+            random_state=int(gen.integers(0, 2**31)),
         )
 
         already_returned_ids = set(returns_df["order_id"])
@@ -212,11 +215,11 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
             if order["order_id"] in already_returned_ids:
                 updated_return_ids_to_fraud.append(order["order_id"])
             else:
-                delay = int(rng.integers(1, 6))
+                delay = int(gen.integers(1, 6))
                 # Reason drawn from the SAME pool as organic returns — a
                 # real abusive buyer states a normal-sounding reason, not
                 # something that gives away the fraud itself.
-                reason = rng.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
+                reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
                 new_return_rows.append({
                     "return_id": f"RETURN_FRAUD_{return_counter:06d}",
                     "order_id": order["order_id"],
@@ -258,7 +261,7 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
 # ---------------------------------------------------------------------------
 
 def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, device_sharing_log,
-                              already_fraud_order_ids, target_fraud_orders):
+                            already_fraud_order_ids, target_fraud_orders, rng=None):
     """
     Groups buyers connected by fraud_linked device sharing into rings
     (connected components), then for each ring reschedules a subset of
@@ -274,6 +277,7 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
     moving order_date forward without also shifting that return's date
     would leave a return dated before its own order.
     """
+    gen = rng if rng is not None else globals()["rng"]
     fraud_pairs = device_sharing_log[device_sharing_log["share_type"] == "fraud_linked"]
 
     uf = UnionFind()
@@ -307,7 +311,7 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
     reschedule_map = {}  # order_id -> new order_date
 
     ring_ids = list(rings.keys())
-    rng.shuffle(ring_ids)
+    gen.shuffle(ring_ids)
 
     for root in ring_ids:
         if running_total >= target_fraud_orders:
@@ -319,18 +323,18 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
 
         # Cap how many of this ring's orders get pulled into the burst,
         # so one large ring doesn't single-handedly blow past the target.
-        n_take = min(len(ring_orders), max(2, int(rng.integers(2, 6))))
-        taken = ring_orders.sample(n=n_take, random_state=int(rng.integers(0, 2**31)))
+        n_take = min(len(ring_orders), max(2, int(gen.integers(2, 6))))
+        taken = ring_orders.sample(n=n_take, random_state=int(gen.integers(0, 2**31)))
 
         listing_dates_for_taken = taken["listing_id"].map(listing_dates)
         signup_dates_for_taken = taken["buyer_id"].map(signup_dates)
         burst_start_floor = max(listing_dates_for_taken.max(), signup_dates_for_taken.max())
         max_start_offset = max(1, (SIM_END - burst_start_floor).days - 7)
-        burst_start = burst_start_floor + timedelta(days=int(rng.integers(1, max_start_offset + 1)))
-        burst_span_days = int(rng.integers(3, 8))
+        burst_start = burst_start_floor + timedelta(days=int(gen.integers(1, max_start_offset + 1)))
+        burst_span_days = int(gen.integers(3, 8))
 
         for order_id in taken["order_id"]:
-            offset = int(rng.integers(0, burst_span_days))
+            offset = int(gen.integers(0, burst_span_days))
             reschedule_map[order_id] = burst_start + timedelta(days=offset)
             fraud_order_ids.add(order_id)
             running_total += 1
@@ -356,7 +360,7 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
 # ---------------------------------------------------------------------------
 
 def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
-                                   already_fraud_order_ids, target_fraud_orders):
+                                  already_fraud_order_ids, target_fraud_orders, rng=None):
     """
     Picks a seller and a small group (3-6) of their repeat buyers, then
     concentrates a burst of orders + near-automatic 'approved' refund
@@ -377,6 +381,7 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
     also shifting an existing return would leave it dated before its own
     order).
     """
+    gen = rng if rng is not None else globals()["rng"]
     orders_df = orders_df.copy()
     already_returned_ids = set(returns_df["order_id"])
     eligible_orders = orders_df[
@@ -386,7 +391,7 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
 
     buyers_per_seller = eligible_orders.groupby("seller_id")["buyer_id"].nunique()
     candidate_sellers = buyers_per_seller[buyers_per_seller >= 3].index.to_numpy()
-    rng.shuffle(candidate_sellers)
+    gen.shuffle(candidate_sellers)
 
     listing_dates = listings_df.set_index("listing_id")["listing_date"]
     signup_dates = buyers_df.set_index("buyer_id")["signup_date"]
@@ -407,22 +412,22 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
         if len(buyer_pool) < 3:
             continue
 
-        group_size = min(len(buyer_pool), int(rng.integers(3, 7)))
-        colluding_buyers = rng.choice(buyer_pool, size=group_size, replace=False)
+        group_size = min(len(buyer_pool), int(gen.integers(3, 7)))
+        colluding_buyers = gen.choice(buyer_pool, size=group_size, replace=False)
 
         group_orders = seller_orders[seller_orders["buyer_id"].isin(colluding_buyers)]
-        n_take = min(len(group_orders), max(3, int(rng.integers(3, 10))))
-        taken = group_orders.sample(n=n_take, random_state=int(rng.integers(0, 2**31)))
+        n_take = min(len(group_orders), max(3, int(gen.integers(3, 10))))
+        taken = group_orders.sample(n=n_take, random_state=int(gen.integers(0, 2**31)))
 
         listing_dates_for_taken = taken["listing_id"].map(listing_dates)
         signup_dates_for_taken = taken["buyer_id"].map(signup_dates)
         burst_start_floor = max(listing_dates_for_taken.max(), signup_dates_for_taken.max())
         max_start_offset = max(1, (SIM_END - burst_start_floor).days - 14)
-        burst_start = burst_start_floor + timedelta(days=int(rng.integers(1, max_start_offset + 1)))
-        burst_span_days = int(rng.integers(5, 15))
+        burst_start = burst_start_floor + timedelta(days=int(gen.integers(1, max_start_offset + 1)))
+        burst_span_days = int(gen.integers(5, 15))
 
         for order_id in taken["order_id"]:
-            offset = int(rng.integers(0, burst_span_days))
+            offset = int(gen.integers(0, burst_span_days))
             reschedule_map[order_id] = burst_start + timedelta(days=offset)
 
         for _, order in taken.iterrows():
@@ -430,9 +435,9 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
             running_total += 1
             new_order_date = reschedule_map[order["order_id"]]
 
-            if rng.random() < 0.8:
-                delay = int(rng.integers(1, 4))
-                reason = rng.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
+            if gen.random() < 0.8:
+                delay = int(gen.integers(1, 4))
+                reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
                 new_return_rows.append({
                     "return_id": f"RETURN_COLLUSION_{return_counter:06d}",
                     "order_id": order["order_id"],
@@ -476,7 +481,9 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
 
 def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
                       address_sharing_log, device_sharing_log,
-                      total_orders=None, target_rate=TARGET_FRAUD_RATE):
+                      total_orders=None, target_rate=TARGET_FRAUD_RATE,
+                      rng=None):
+    gen = rng if rng is not None else globals()["rng"]
     total_orders = total_orders or len(orders_df)
     total_fraud_target = int(total_orders * target_rate)
     target_n_fake_listings = int(len(listings_df) * FAKE_LISTING_RATE)
@@ -487,7 +494,7 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
 
     print("Injecting fake listings...")
     listings_df, orders_df, fake_ids, ledger1 = inject_fake_listings(
-        listings_df, orders_df, products_df, target_n_fake_listings
+        listings_df, orders_df, products_df, target_n_fake_listings, rng=gen
     )
 
     # fake_listing's actual order count is a byproduct of listing selection
@@ -506,19 +513,19 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
 
     print("Injecting return abuse...")
     returns_df, abuse_ids, ledger2 = inject_return_abuse(
-        buyers_df, orders_df, returns_df, address_sharing_log, fake_ids, targets["return_abuse"]
+        buyers_df, orders_df, returns_df, address_sharing_log, fake_ids, targets["return_abuse"], rng=gen
     )
 
     print("Injecting coordinated fraud...")
     already = fake_ids | abuse_ids
     orders_df, coord_ids, ledger3 = inject_coordinated_fraud(
-        orders_df, listings_df, buyers_df, returns_df, device_sharing_log, already, targets["coordinated_fraud"]
+        orders_df, listings_df, buyers_df, returns_df, device_sharing_log, already, targets["coordinated_fraud"], rng=gen
     )
 
     print("Injecting seller-buyer collusion...")
     already = already | coord_ids
     orders_df, returns_df, collusion_ids, ledger4 = inject_seller_buyer_collusion(
-        orders_df, returns_df, listings_df, buyers_df, already, targets["seller_buyer_collusion"]
+        orders_df, returns_df, listings_df, buyers_df, already, targets["seller_buyer_collusion"], rng=gen
     )
 
     # Merge fake-listing / return-abuse fraud flags onto orders_df too, so
@@ -543,6 +550,7 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
         "orders": orders_df,
         "returns": returns_df,
         "fraud_ground_truth": fraud_ground_truth,
+        "rng": gen,
     }
 
 

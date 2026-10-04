@@ -107,11 +107,12 @@ def _abo_load_image_id_to_path(abo_metadata_path):
     return mapping
 
 
-def load_abo_catalog(abo_metadata_path):
+def load_abo_catalog(abo_metadata_path, rng: np.random.Generator | None = None):
     """Loads product records from local Amazon Berkeley Objects (ABO) files."""
     if not abo_metadata_path or not os.path.isdir(abo_metadata_path):
         return None
 
+    gen = rng if rng is not None else globals()["rng"]
     listings_dir = os.path.join(abo_metadata_path, "listings", "metadata")
     if not os.path.isdir(listings_dir):
         return None
@@ -136,7 +137,7 @@ def load_abo_catalog(abo_metadata_path):
 
                 description = _abo_first_localized_value(record.get("product_description")) or ""
                 raw_type = _abo_extract_product_type(record.get("product_type"))
-                category = (_ABO_PRODUCT_TYPE_MAP.get(raw_type) if raw_type is not None else None) or rng.choice(CATEGORIES)
+                category = (_ABO_PRODUCT_TYPE_MAP.get(raw_type) if raw_type is not None else None) or gen.choice(CATEGORIES)
 
                 main_image_id = record.get("main_image_id")
                 image_rel_path = image_id_to_path.get(main_image_id) if main_image_id else None
@@ -160,17 +161,18 @@ def load_abo_catalog(abo_metadata_path):
 
     df = pd.DataFrame(rows)
     df["base_price"] = [
-        round(max(50, rng.lognormal(mean=np.log(CATEGORY_PRICE_PARAMS[c][0]), sigma=CATEGORY_PRICE_PARAMS[c][1])), 2)
+        round(max(50, gen.lognormal(mean=np.log(CATEGORY_PRICE_PARAMS[c][0]), sigma=CATEGORY_PRICE_PARAMS[c][1])), 2)
         for c in df["category"]
     ]
     return pd.DataFrame(df[["product_id", "category", "title", "description", "base_price", "image_ref", "source"]])
 
 
-def generate_synthetic_product_catalog(n_products: int) -> pd.DataFrame:
+def generate_synthetic_product_catalog(n_products: int, rng: np.random.Generator | None = None) -> pd.DataFrame:
     """Generates synthetic product catalog when real ABO data is absent."""
-    categories = rng.choice(CATEGORIES, size=n_products)
+    gen = rng if rng is not None else globals()["rng"]
+    categories = gen.choice(CATEGORIES, size=n_products)
     base_prices = np.array([
-        max(50, rng.lognormal(mean=np.log(CATEGORY_PRICE_PARAMS[c][0]), sigma=CATEGORY_PRICE_PARAMS[c][1]))
+        max(50, gen.lognormal(mean=np.log(CATEGORY_PRICE_PARAMS[c][0]), sigma=CATEGORY_PRICE_PARAMS[c][1]))
         for c in categories
     ]).round(2)
 
@@ -185,43 +187,50 @@ def generate_synthetic_product_catalog(n_products: int) -> pd.DataFrame:
     })
 
 
-def generate_product_catalog(n_products: int = N_PRODUCTS, abo_metadata_path: str | None = None) -> pd.DataFrame:
+def generate_product_catalog(n_products: int = N_PRODUCTS, abo_metadata_path: str | None = None,
+                             rng: np.random.Generator | None = None) -> pd.DataFrame:
     """Resolves catalog source (real ABO or synthetic fallback)."""
     resolved_path = abo_metadata_path if abo_metadata_path is not None else _DEFAULT_ABO_PATH
-    real_catalog = load_abo_catalog(resolved_path)
+    real_catalog = load_abo_catalog(resolved_path, rng=rng)
     if real_catalog is not None:
         return real_catalog
-    return generate_synthetic_product_catalog(n_products)
+    return generate_synthetic_product_catalog(n_products, rng=rng)
 
 
-def assign_listing_counts(sellers_df: pd.DataFrame, total_listings: int = TARGET_TOTAL_LISTINGS, skew_sigma: float = 0.8) -> np.ndarray:
+def assign_listing_counts(sellers_df: pd.DataFrame, total_listings: int = TARGET_TOTAL_LISTINGS,
+                          skew_sigma: float = 0.8, rng: np.random.Generator | None = None) -> np.ndarray:
     """Allocates listings across sellers using a lognormal activity curve."""
+    gen = rng if rng is not None else globals()["rng"]
     n_sellers = len(sellers_df)
-    weights = rng.lognormal(mean=0.0, sigma=skew_sigma, size=n_sellers)
+    weights = gen.lognormal(mean=0.0, sigma=skew_sigma, size=n_sellers)
     weights /= weights.sum()
     counts = np.maximum(1, (weights * total_listings).round().astype(int))
 
     diff = total_listings - counts.sum()
     if diff != 0:
-        idx = rng.choice(n_sellers, size=abs(diff), replace=True)
+        idx = gen.choice(n_sellers, size=abs(diff), replace=True)
         counts[idx] += np.sign(diff)
         counts = np.maximum(1, counts)
     return counts
 
 
-def generate_listing_dates_for_seller(signup_date, n: int, sim_end=SIM_END) -> list:
+def generate_listing_dates_for_seller(signup_date, n: int, sim_end=SIM_END,
+                                      rng: np.random.Generator | None = None) -> list:
     """Staggers listing creation dates following seller signup."""
+    gen = rng if rng is not None else globals()["rng"]
     window_days = max(1, (sim_end - signup_date).days)
-    offsets = (rng.random(n) ** 1.4) * window_days
+    offsets = (gen.random(n) ** 1.4) * window_days
     return [signup_date + timedelta(days=int(d)) for d in offsets]
 
 
 def generate_listings(sellers_df: pd.DataFrame, products_df: pd.DataFrame, 
                       total_listings: int = TARGET_TOTAL_LISTINGS,
                       category_match_rate: float = 0.80, 
-                      price_variance_sigma: float = 0.15) -> pd.DataFrame:
+                      price_variance_sigma: float = 0.15,
+                      rng: np.random.Generator | None = None) -> pd.DataFrame:
     """Generates seller listings with realistic price variance against base catalog price."""
-    counts = assign_listing_counts(sellers_df, total_listings)
+    gen = rng if rng is not None else globals()["rng"]
+    counts = assign_listing_counts(sellers_df, total_listings, rng=gen)
     products_by_category = {
         c: pd.DataFrame(products_df[products_df["category"] == c]).to_dict(orient="records")
         for c in CATEGORIES
@@ -230,14 +239,14 @@ def generate_listings(sellers_df: pd.DataFrame, products_df: pd.DataFrame,
     rows = []
     listing_counter = 0
     for (_, seller), n_listings in zip(sellers_df.iterrows(), counts):
-        dates = generate_listing_dates_for_seller(seller["signup_date"], n_listings)
-        match_mask = rng.random(n_listings) < category_match_rate
+        dates = generate_listing_dates_for_seller(seller["signup_date"], n_listings, rng=gen)
+        match_mask = gen.random(n_listings) < category_match_rate
 
         for i in range(n_listings):
-            category = str(seller["category_focus"]) if match_mask[i] else str(rng.choice(CATEGORIES))
+            category = str(seller["category_focus"]) if match_mask[i] else str(gen.choice(CATEGORIES))
             pool = products_by_category[category]
-            product = pool[int(rng.integers(0, len(pool)))]
-            price = round(float(product["base_price"]) * rng.lognormal(mean=0.0, sigma=price_variance_sigma), 2)
+            product = pool[int(gen.integers(0, len(pool)))]
+            price = round(float(product["base_price"]) * gen.lognormal(mean=0.0, sigma=price_variance_sigma), 2)
 
             rows.append({
                 "listing_id": f"LISTING_{listing_counter:06d}",
@@ -253,10 +262,12 @@ def generate_listings(sellers_df: pd.DataFrame, products_df: pd.DataFrame,
     return pd.DataFrame(rows)
 
 
-def build_catalog_and_listings(sellers_df: pd.DataFrame, abo_metadata_path: str | None = None) -> dict:
+def build_catalog_and_listings(sellers_df: pd.DataFrame, abo_metadata_path: str | None = None,
+                               rng: np.random.Generator | None = None) -> dict:
     """Builds product catalog and populates listings."""
-    products_df = generate_product_catalog(abo_metadata_path=abo_metadata_path)
-    listings_df = generate_listings(sellers_df, products_df)
+    gen = rng if rng is not None else globals()["rng"]
+    products_df = generate_product_catalog(abo_metadata_path=abo_metadata_path, rng=gen)
+    listings_df = generate_listings(sellers_df, products_df, rng=gen)
 
     counts = listings_df.groupby("seller_id").size().to_dict()
     sellers_updated = sellers_df.copy()
@@ -266,6 +277,7 @@ def build_catalog_and_listings(sellers_df: pd.DataFrame, abo_metadata_path: str 
         "products": products_df,
         "listings": listings_df,
         "sellers": sellers_updated,
+        "rng": gen,
     }
 
 
