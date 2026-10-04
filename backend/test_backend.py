@@ -2,8 +2,10 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 
-from backend.main import app, store
+from backend.main import app, store, _build_feature_row
+from backend.schemas import TransactionScoreRequest
 
 
 @pytest.fixture(scope="module")
@@ -125,3 +127,101 @@ def test_listing_analysis_multimodal(client):
     assert "key_evidence" in narrative
     assert "recommended_action" in narrative
 
+
+# ---------------------------------------------------------------------------
+# Issue #1 — Amount mapping unit tests (pure, no model required)
+# ---------------------------------------------------------------------------
+
+# Sentinel column list: the model only needs "order_amount" for these tests.
+_COLS = ["order_amount", "amount", "price_vs_base_price_ratio"]
+
+
+class TestAmountMappingUnit:
+    """Direct unit tests for _build_feature_row amount / order_amount logic."""
+
+    def test_amount_only_sets_order_amount(self):
+        """Supplying only `amount` must populate both `amount` and `order_amount`."""
+        req = TransactionScoreRequest(amount=99.0)
+        row = _build_feature_row(req, _COLS)
+        assert row["amount"] == pytest.approx(99.0), "amount field should equal supplied value"
+        assert row["order_amount"] == pytest.approx(99.0), "order_amount must mirror amount"
+
+    def test_order_amount_only_sets_amount(self):
+        """Supplying only `order_amount` must populate both `order_amount` and `amount`."""
+        req = TransactionScoreRequest(order_amount=250.0)
+        row = _build_feature_row(req, _COLS)
+        assert row["order_amount"] == pytest.approx(250.0), "order_amount field should equal supplied value"
+        assert row["amount"] == pytest.approx(250.0), "amount must mirror order_amount"
+
+    def test_both_equal_passes(self):
+        """Supplying equal `amount` and `order_amount` must succeed and use that value."""
+        req = TransactionScoreRequest(amount=150.0, order_amount=150.0)
+        row = _build_feature_row(req, _COLS)
+        assert row["amount"] == pytest.approx(150.0)
+        assert row["order_amount"] == pytest.approx(150.0)
+
+    def test_conflicting_raises_http_400(self):
+        """Supplying different `amount` and `order_amount` must raise HTTP 400."""
+        req = TransactionScoreRequest(amount=100.0, order_amount=200.0)
+        with pytest.raises(HTTPException) as exc_info:
+            _build_feature_row(req, _COLS)
+        assert exc_info.value.status_code == 400
+        assert "Conflicting" in exc_info.value.detail
+
+    def test_neither_supplied_defaults_to_zero(self):
+        """When neither field is supplied both aliases should default to 0.0."""
+        req = TransactionScoreRequest()
+        row = _build_feature_row(req, _COLS)
+        assert row["amount"] == pytest.approx(0.0)
+        assert row["order_amount"] == pytest.approx(0.0)
+
+    def test_order_amount_zero_explicitly_supplied(self):
+        """Explicitly passing order_amount=0.0 must not be confused with 'not set'."""
+        req = TransactionScoreRequest(order_amount=0.0)
+        row = _build_feature_row(req, _COLS)
+        # 0.0 is a valid explicit amount; result should still be 0.0 without error.
+        assert row["order_amount"] == pytest.approx(0.0)
+        assert row["amount"] == pytest.approx(0.0)
+
+
+class TestAmountMappingEndpoint:
+    """Integration tests: the /transaction/score endpoint must reflect the fix."""
+
+    @pytest.fixture(scope="class")
+    def client(self):
+        with TestClient(app) as c:
+            yield c
+
+    def test_endpoint_amount_only(self, client):
+        """Endpoint must not silently score with amount=0 when only order_amount supplied."""
+        # Score once with amount-only
+        r_amt = client.post("/transaction/score", json={
+            "order_id": "AMT_ONLY",
+            "amount": 300.0,
+            "base_price": 300.0,
+            "category_median_price": 300.0,
+        })
+        assert r_amt.status_code == 200
+
+        # Score once with order_amount-only — result must match (same resolved amount)
+        r_ord = client.post("/transaction/score", json={
+            "order_id": "ORD_ONLY",
+            "order_amount": 300.0,
+            "base_price": 300.0,
+            "category_median_price": 300.0,
+        })
+        assert r_ord.status_code == 200
+        # Both requests represent the same amount, so probabilities must be identical.
+        assert r_amt.json()["overall_fraud_probability"] == pytest.approx(
+            r_ord.json()["overall_fraud_probability"], abs=1e-4
+        ), "amount-only and order_amount-only with same value must produce identical scores"
+
+    def test_endpoint_conflicting_amounts_returns_400(self, client):
+        """Endpoint must return 400 when amount != order_amount."""
+        r = client.post("/transaction/score", json={
+            "order_id": "CONFLICT",
+            "amount": 100.0,
+            "order_amount": 200.0,
+        })
+        assert r.status_code == 400
+        assert "Conflicting" in r.json()["detail"]
