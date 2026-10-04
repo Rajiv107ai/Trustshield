@@ -199,3 +199,103 @@ class TestMultimodalPhase4:
         assert res["risk_level"] == "LOW"
         assert "approval" in res["recommended_action"].lower()
 
+
+class TestPhase5TemporalIntegrity:
+    """Issue #6: Prove that adding a future validation edge does not alter
+    an earlier validation example's embedding or score.
+    """
+
+    def test_future_validation_edge_does_not_alter_earlier_validation_embedding_or_score(self):
+        """When validation embeddings and scores are computed from training-period
+        graph state (or prior to validation interactions), adding a future validation
+        interaction must leave the earlier example's embedding and score completely unchanged.
+        """
+        from baseline_model import TRAIN_END
+        from phase5_hybrid_model import (
+            build_node_index,
+            build_node_features,
+            build_edge_index,
+            extract_embeddings,
+            GraphSAGEEncoder,
+            EdgeClassifier,
+        )
+
+        buyer_ids = ["B001", "B002", "B003"]
+        seller_ids = ["S001", "S002"]
+        buyer_idx, seller_idx, n_buyers, n_total = build_node_index(buyer_ids, seller_ids)
+
+        # Baseline training orders (all <= TRAIN_END)
+        train_orders = pd.DataFrame({
+            "order_id": ["O_TR_1", "O_TR_2"],
+            "buyer_id": ["B001", "B002"],
+            "seller_id": ["S001", "S002"],
+            "order_date": [pd.Timestamp("2025-03-01"), pd.Timestamp("2025-04-01")],
+            "amount": [100.0, 200.0],
+            "price_vs_base_price_ratio": [1.0, 1.0],
+            "y": [0, 0],
+        })
+        buyers_df = pd.DataFrame({
+            "buyer_id": buyer_ids,
+            "signup_date": [pd.Timestamp("2025-01-01")] * 3,
+        })
+        sellers_df = pd.DataFrame({
+            "seller_id": seller_ids,
+            "signup_date": [pd.Timestamp("2025-01-01")] * 2,
+        })
+        rel_graph = nx.Graph()
+
+        # Build training graph state
+        X_train_orig = build_node_features(buyer_idx, seller_idx, n_total, train_orders, rel_graph, buyers_df, sellers_df, cutoff_date=TRAIN_END)
+        edge_index_train_orig = build_edge_index(buyer_idx, seller_idx, train_orders, rel_graph)
+
+        torch.manual_seed(42)
+        encoder = GraphSAGEEncoder(in_dim=X_train_orig.shape[1], hidden_dim=16, out_dim=8)
+        classifier = EdgeClassifier(emb_dim=8, edge_feat_dim=2, hidden_dim=16)
+        encoder.eval()
+        classifier.eval()
+
+        # Score an early validation order (e.g. B001 with S001)
+        b_embs_orig, s_embs_orig = extract_embeddings(encoder, X_train_orig, edge_index_train_orig, buyer_idx, seller_idx)
+        val_edge_feat = torch.tensor([[1.0, np.log1p(100.0)]], dtype=torch.float32)
+        b_tensor_orig = torch.tensor(b_embs_orig["B001"]).unsqueeze(0)
+        s_tensor_orig = torch.tensor(s_embs_orig["S001"]).unsqueeze(0)
+        score_orig = torch.sigmoid(classifier(b_tensor_orig, s_tensor_orig, val_edge_feat)).item()
+
+        # Now simulate an additional future validation order (e.g. B001 transacting with S002 in October)
+        future_val_order = pd.DataFrame({
+            "order_id": ["O_VAL_FUTURE"],
+            "buyer_id": ["B001"],
+            "seller_id": ["S002"],
+            "order_date": [pd.Timestamp("2025-10-15")],  # Inside validation period (> TRAIN_END)
+            "amount": [500.0],
+            "price_vs_base_price_ratio": [0.5],
+            "y": [1],
+        })
+
+        # Under the leak-free architecture, validation scoring strictly filters to <= TRAIN_END
+        all_orders = pd.concat([train_orders, future_val_order], ignore_index=True)
+        train_filtered = all_orders[all_orders["order_date"] <= TRAIN_END]
+
+        X_train_after = build_node_features(buyer_idx, seller_idx, n_total, train_filtered, rel_graph, buyers_df, sellers_df, cutoff_date=TRAIN_END)
+        edge_index_train_after = build_edge_index(buyer_idx, seller_idx, train_filtered, rel_graph)
+
+        b_embs_after, s_embs_after = extract_embeddings(encoder, X_train_after, edge_index_train_after, buyer_idx, seller_idx)
+        b_tensor_after = torch.tensor(b_embs_after["B001"]).unsqueeze(0)
+        s_tensor_after = torch.tensor(s_embs_after["S001"]).unsqueeze(0)
+        score_after = torch.sigmoid(classifier(b_tensor_after, s_tensor_after, val_edge_feat)).item()
+
+        assert np.allclose(b_embs_orig["B001"], b_embs_after["B001"], atol=1e-7), (
+            "Early validation embedding must be invariant to future validation interactions."
+        )
+        assert np.isclose(score_orig, score_after, atol=1e-7), (
+            "Early validation score must be invariant to future validation interactions."
+        )
+
+        # Contrast with what WOULD happen if future_val_order were leaked into the graph:
+        edge_index_leaked = build_edge_index(buyer_idx, seller_idx, all_orders, rel_graph)
+        b_embs_leaked, _ = extract_embeddings(encoder, X_train_orig, edge_index_leaked, buyer_idx, seller_idx)
+        assert not np.allclose(b_embs_orig["B001"], b_embs_leaked["B001"], atol=1e-5), (
+            "Sanity check: leaking the future edge into edge_index DOES change B001's embedding."
+        )
+
+

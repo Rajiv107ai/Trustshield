@@ -27,16 +27,18 @@ def build_node_index(buyer_ids, seller_ids):
     return buyer_idx, seller_idx, n_buyers, n_total
 
 
-def build_node_features(buyer_idx: dict, seller_idx: dict, n_total: int, trainval_orders: pd.DataFrame, 
-                        rel_graph: nx.Graph, buyers_df: pd.DataFrame, sellers_df: pd.DataFrame) -> torch.Tensor:
+def build_node_features(buyer_idx: dict, seller_idx: dict, n_total: int, orders_df: pd.DataFrame, 
+                        rel_graph: nx.Graph, buyers_df: pd.DataFrame, sellers_df: pd.DataFrame,
+                        cutoff_date=None) -> torch.Tensor:
     """Builds node feature matrix [is_buyer, is_seller, age_days, orders/listings, log_amount, degree, component_size]."""
     X = np.zeros((n_total, 7), dtype=np.float32)
-    buyer_order_counts = trainval_orders.groupby("buyer_id").size().to_dict()
+    ref_date = pd.Timestamp(cutoff_date) if cutoff_date is not None else VAL_END
+    buyer_order_counts = orders_df.groupby("buyer_id").size().to_dict()
     components = {node: comp for comp in nx.connected_components(rel_graph) for node in comp}
 
     buyers_indexed = buyers_df.set_index("buyer_id")
     for b, idx in buyer_idx.items():
-        age = max(0, (VAL_END - pd.to_datetime(buyers_indexed.loc[b, "signup_date"])).days) if b in buyers_indexed.index else 0
+        age = max(0, (ref_date - pd.to_datetime(buyers_indexed.loc[b, "signup_date"])).days) if b in buyers_indexed.index else 0
         X[idx, 0] = 1.0
         X[idx, 2] = age / 365.0
         X[idx, 3] = np.log1p(float(buyer_order_counts.get(b, 0)))
@@ -44,11 +46,11 @@ def build_node_features(buyer_idx: dict, seller_idx: dict, n_total: int, trainva
             X[idx, 5] = rel_graph.degree[b]
             X[idx, 6] = len(components.get(b, {b}))
 
-    seller_order_counts = pd.Series(trainval_orders.groupby("seller_id").size()).to_dict()
-    seller_avg_amount = pd.Series(trainval_orders.groupby("seller_id")["amount"].mean()).to_dict()
+    seller_order_counts = pd.Series(orders_df.groupby("seller_id").size()).to_dict()
+    seller_avg_amount = pd.Series(orders_df.groupby("seller_id")["amount"].mean()).to_dict()
     sellers_indexed = sellers_df.set_index("seller_id")
     for s, idx in seller_idx.items():
-        age = max(0, (VAL_END - pd.to_datetime(sellers_indexed.loc[s, "signup_date"])).days) if s in sellers_indexed.index else 0
+        age = max(0, (ref_date - pd.to_datetime(sellers_indexed.loc[s, "signup_date"])).days) if s in sellers_indexed.index else 0
         X[idx, 1] = 1.0
         X[idx, 2] = age / 365.0
         X[idx, 3] = np.log1p(float(seller_order_counts.get(s, 0)))
@@ -57,10 +59,10 @@ def build_node_features(buyer_idx: dict, seller_idx: dict, n_total: int, trainva
     return torch.tensor(X, dtype=torch.float32)
 
 
-def build_edge_index(buyer_idx: dict, seller_idx: dict, trainval_orders: pd.DataFrame, rel_graph: nx.Graph) -> torch.Tensor:
+def build_edge_index(buyer_idx: dict, seller_idx: dict, orders_df: pd.DataFrame, rel_graph: nx.Graph) -> torch.Tensor:
     """Constructs PyG undirected edge_index from order interactions and shared devices/addresses."""
     edges = set()
-    for b, s in zip(trainval_orders["buyer_id"], trainval_orders["seller_id"]):
+    for b, s in zip(orders_df["buyer_id"], orders_df["seller_id"]):
         if b in buyer_idx and s in seller_idx:
             u, v = buyer_idx[b], seller_idx[s]
             edges.add((u, v))
@@ -126,11 +128,16 @@ def run_gnn():
     test = df[df["order_date"] > VAL_END]
 
     buyer_idx, seller_idx, n_buyers, n_total = build_node_index(txn["buyers"]["buyer_id"], catalog["sellers"]["seller_id"])
-    rel_graph = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"])
-    X = build_node_features(buyer_idx, seller_idx, n_total, trainval, rel_graph, txn["buyers"], catalog["sellers"])
-    edge_index = build_edge_index(buyer_idx, seller_idx, trainval, rel_graph)
+    rel_graph_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
+    rel_graph_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
 
-    encoder = GraphSAGEEncoder(in_dim=X.shape[1])
+    X_train = build_node_features(buyer_idx, seller_idx, n_total, train, rel_graph_train, txn["buyers"], catalog["sellers"], cutoff_date=TRAIN_END)
+    edge_index_train = build_edge_index(buyer_idx, seller_idx, train, rel_graph_train)
+
+    X_val = build_node_features(buyer_idx, seller_idx, n_total, trainval, rel_graph_val, txn["buyers"], catalog["sellers"], cutoff_date=VAL_END)
+    edge_index_val = build_edge_index(buyer_idx, seller_idx, trainval, rel_graph_val)
+
+    encoder = GraphSAGEEncoder(in_dim=X_train.shape[1])
     classifier = EdgeClassifier(emb_dim=16, edge_feat_dim=len(edge_feature_cols))
     optimizer = torch.optim.Adam(list(encoder.parameters()) + list(classifier.parameters()), lr=0.002)
 
@@ -158,7 +165,7 @@ def run_gnn():
         encoder.train()
         classifier.train()
         optimizer.zero_grad()
-        node_emb = encoder(X, edge_index)
+        node_emb = encoder(X_train, edge_index_train)
         logits = classifier(node_emb[train_b], node_emb[train_s], train_feats)
         loss = loss_fn(logits, train_y)
         loss.backward()
@@ -169,7 +176,7 @@ def run_gnn():
             encoder.eval()
             classifier.eval()
             with torch.no_grad():
-                node_emb_eval = encoder(X, edge_index)
+                node_emb_eval = encoder(X_train, edge_index_train)
                 val_probs = torch.sigmoid(classifier(node_emb_eval[val_b], node_emb_eval[val_s], val_feats)).numpy()
                 val_auc = roc_auc_score(val_y.numpy(), val_probs)
             print(f"  epoch {epoch:02d} | train_loss={loss.item():.4f} | val_auc={val_auc:.3f}")
@@ -177,7 +184,7 @@ def run_gnn():
     encoder.eval()
     classifier.eval()
     with torch.no_grad():
-        node_emb_final = encoder(X, edge_index)
+        node_emb_final = encoder(X_val, edge_index_val)
         test_probs = torch.sigmoid(classifier(node_emb_final[test_b], node_emb_final[test_s], test_feats)).numpy()
 
     test_preds = (test_probs >= 0.5).astype(int)
