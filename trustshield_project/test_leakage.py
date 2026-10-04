@@ -187,3 +187,99 @@ class TestSameTimestampEdgeWeightLeakage:
         result = result.sort_values("order_date").reset_index(drop=True)
         assert result.loc[0, "buyer_seller_edge_weight_before"] == 0
         assert result.loc[1, "buyer_seller_edge_weight_before"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Issue #4 — Graph features temporal safety tests
+# ---------------------------------------------------------------------------
+
+class TestGraphTemporalSafety:
+    """Prove that a sharing relationship created in the future cannot affect
+    an earlier order's share_degree or share_component_size.
+    """
+
+    def test_future_sharing_does_not_affect_past_order(self):
+        """An order scored before a sharing relationship first_seen_date must see
+        share_degree=0, not the degree from the future sharing edge.
+        """
+        import pandas as pd
+        from graph_features import build_relationship_graph, compute_relationship_features
+
+        early_order_date = pd.Timestamp("2025-03-01")
+        # The sharing relationship is first seen AFTER the early order
+        future_sharing_date = pd.Timestamp("2025-06-01")
+
+        addr_log = pd.DataFrame({
+            "buyer_id": ["B001"],
+            "shared_with_buyer_id": ["B002"],
+            "shared_address_id": ["ADDR_001"],
+            "share_type": ["fraud_linked"],
+            "first_seen_date": [future_sharing_date],
+        })
+        dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id",
+                                        "shared_device_id", "share_type", "first_seen_date"])
+
+        # Build graph as seen BEFORE the sharing relationship was established
+        G_early = build_relationship_graph(addr_log, dev_log, cutoff_date=early_order_date)
+        feats_early = compute_relationship_features(G_early, ["B001", "B002"])
+
+        b001_early = feats_early[feats_early["buyer_id"] == "B001"].iloc[0]
+        assert b001_early["share_degree"] == 0, (
+            "B001 must have share_degree=0 before the sharing relationship was established."
+        )
+        assert b001_early["share_component_size"] == 1, (
+            "B001 must be in a singleton component before sharing was observed."
+        )
+
+    def test_sharing_visible_after_first_seen_date(self):
+        """An order scored AFTER a sharing relationship's first_seen_date must see
+        the actual graph degree (i.e. the relationship IS included).
+        """
+        import pandas as pd
+        from graph_features import build_relationship_graph, compute_relationship_features
+
+        sharing_date = pd.Timestamp("2025-03-01")
+        later_order_date = pd.Timestamp("2025-06-01")
+
+        addr_log = pd.DataFrame({
+            "buyer_id": ["B001"],
+            "shared_with_buyer_id": ["B002"],
+            "shared_address_id": ["ADDR_001"],
+            "share_type": ["fraud_linked"],
+            "first_seen_date": [sharing_date],
+        })
+        dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id",
+                                        "shared_device_id", "share_type", "first_seen_date"])
+
+        # Build graph as seen AFTER the sharing relationship was established
+        G_later = build_relationship_graph(addr_log, dev_log, cutoff_date=later_order_date)
+        feats_later = compute_relationship_features(G_later, ["B001", "B002"])
+
+        b001_later = feats_later[feats_later["buyer_id"] == "B001"].iloc[0]
+        assert b001_later["share_degree"] == 1, (
+            "B001 must have share_degree=1 after the sharing relationship was established."
+        )
+        assert b001_later["share_component_size"] == 2, (
+            "B001 and B002 must be in the same component after sharing was observed."
+        )
+
+    def test_no_first_seen_date_column_falls_back_to_all_relationships(self):
+        """Legacy sharing logs without first_seen_date must not crash when cutoff=None."""
+        import pandas as pd
+        from graph_features import build_relationship_graph, compute_relationship_features
+
+        addr_log = pd.DataFrame({
+            "buyer_id": ["B001"],
+            "shared_with_buyer_id": ["B002"],
+            "shared_address_id": ["ADDR_001"],
+            "share_type": ["fraud_linked"],
+            # No first_seen_date column — legacy format
+        })
+        dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id",
+                                        "shared_device_id", "share_type"])
+
+        # cutoff=None means "include all" — must not raise
+        G = build_relationship_graph(addr_log, dev_log, cutoff_date=None)
+        feats = compute_relationship_features(G, ["B001", "B002"])
+        b001 = feats[feats["buyer_id"] == "B001"].iloc[0]
+        assert b001["share_degree"] == 1  # edge included since no filter applied

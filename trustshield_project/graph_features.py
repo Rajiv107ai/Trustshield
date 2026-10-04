@@ -14,16 +14,44 @@ from baseline_model import build_features as build_tabular_features, TRAIN_END, 
 from utils import evaluate, find_cost_optimal_threshold
 
 
-def build_relationship_graph(address_sharing_log: pd.DataFrame, device_sharing_log: pd.DataFrame) -> nx.Graph:
-    """Builds undirected buyer-buyer graph from shared physical addresses and device IDs."""
+def build_relationship_graph(
+    address_sharing_log: pd.DataFrame,
+    device_sharing_log: pd.DataFrame,
+    cutoff_date=None,
+) -> nx.Graph:
+    """Builds undirected buyer-buyer graph from shared physical addresses and device IDs.
+
+    Parameters
+    ----------
+    address_sharing_log, device_sharing_log:
+        Sharing relationship tables.  Both must have a ``first_seen_date`` column
+        (added in entity_generator.py) so that relationships can be filtered by
+        observation timestamp.
+    cutoff_date:
+        Optional.  When provided, only sharing relationships with
+        ``first_seen_date < cutoff_date`` are included.  Pass the decision
+        timestamp (e.g. the order date) to build a historically-accurate graph
+        that contains no future information.
+        If None (legacy/offline mode), all relationships are included.
+    """
+    addr_log = address_sharing_log
+    dev_log = device_sharing_log
+
+    if cutoff_date is not None:
+        cutoff_ts = pd.Timestamp(cutoff_date)
+        if "first_seen_date" in addr_log.columns:
+            addr_log = addr_log[pd.to_datetime(addr_log["first_seen_date"]) < cutoff_ts]
+        if "first_seen_date" in dev_log.columns:
+            dev_log = dev_log[pd.to_datetime(dev_log["first_seen_date"]) < cutoff_ts]
+
     G = nx.Graph()
     G.add_edges_from(
         [(b1, b2, {"kind": "address"})
-         for b1, b2 in zip(address_sharing_log["buyer_id"], address_sharing_log["shared_with_buyer_id"])]
+         for b1, b2 in zip(addr_log["buyer_id"], addr_log["shared_with_buyer_id"])]
     )
     G.add_edges_from(
         [(b1, b2, {"kind": "device"})
-         for b1, b2 in zip(device_sharing_log["buyer_id"], device_sharing_log["shared_with_buyer_id"])]
+         for b1, b2 in zip(dev_log["buyer_id"], dev_log["shared_with_buyer_id"])]
     )
     return G
 
