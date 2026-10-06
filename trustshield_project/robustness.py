@@ -86,12 +86,12 @@ def simulate_prevalence_shift(
 
     if target_p <= current_prev:
         # Downsample positives
-        needed_pos = max(1, int(round(n_neg * target_p / (1.0 - target_p))))
+        needed_pos = max(1, round(n_neg * target_p / (1.0 - target_p)))
         selected_pos = rng.choice(pos_idx, size=min(needed_pos, n_pos), replace=False)
         selected_neg = neg_idx
     else:
         # Downsample negatives
-        needed_neg = max(1, int(round(n_pos * (1.0 - target_p) / target_p)))
+        needed_neg = max(1, round(n_pos * (1.0 - target_p) / target_p))
         selected_neg = rng.choice(neg_idx, size=min(needed_neg, n_neg), replace=False)
         selected_pos = pos_idx
 
