@@ -148,5 +148,35 @@
     "verification": "CONFIRMED via TestRunPhase3GraphTemporalSafety.",
     "regression_test": "trustshield_project/test_leakage.py::TestRunPhase3GraphTemporalSafety",
     "status": "VERIFIED"
+  },
+  {
+    "id": "TS-011",
+    "severity": "YELLOW",
+    "category": "Static Typing & Container Invariance",
+    "component": "Graph Subgraph Intelligence",
+    "file": "trustshield_project/advanced_ring_intelligence.py",
+    "line": "46-48",
+    "description": "Returned type list[set[_Node]] failed static type check against declared return type List[Set[str]] in discover_candidate_communities.",
+    "root_cause": "NetworkX stubs type connected_components nodes as generic hashable _Node, which is invariant with Set[str] in Python's type system.",
+    "impact": "IDE and type checker flagged static type mismatch error; potential runtime type mismatch if non-string node identifiers entered the graph.",
+    "fix": "Explicitly stringified node identifiers via comprehension {str(node) for node in c}, guaranteeing Set[str] outputs.",
+    "verification": "CONFIRMED via inline unit test and full candidate community analysis execution.",
+    "regression_test": "trustshield_project/test_phase2_suite.py::TestAdvancedRingIntelligence::test_community_discovery_and_burstiness",
+    "status": "VERIFIED"
+  },
+  {
+    "id": "TS-012",
+    "severity": "YELLOW",
+    "category": "IDE & Module Resolution",
+    "component": "FastAPI Backend Serving Layer",
+    "file": "backend/main.py, pyrightconfig.json, .vscode/settings.json",
+    "line": "43-50",
+    "description": "Fallback imports from model_loader and schemas in except ImportError: block showed redlines (reportMissingImports) in IDE language server.",
+    "root_cause": "backend directory was missing from extraPaths in pyrightconfig.json and .vscode/settings.json.",
+    "impact": "IDE redlines for developers opening backend/main.py when workspace root is project root.",
+    "fix": "Added backend to extraPaths in pyrightconfig.json and .vscode/settings.json, and added type: ignore[import-not-found] guards in backend/main.py.",
+    "verification": "CONFIRMED via successful imports in both package execution mode and direct backend directory execution mode.",
+    "regression_test": "backend/test_backend.py",
+    "status": "VERIFIED"
   }
 ]
