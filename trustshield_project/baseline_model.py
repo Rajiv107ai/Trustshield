@@ -78,11 +78,15 @@ def build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, pr
     df = df.merge(buyers_df[["buyer_id", "signup_date"]].rename(columns={"signup_date": "buyer_signup_date"}),
                   on="buyer_id", how="left")
 
-    df["price_vs_base_price_ratio"] = df["amount"] / df["base_price"]
+    df["price_vs_base_price_ratio"] = (
+        df["amount"] / df["base_price"].replace(0, np.nan)
+    ).replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     train_mask = df["order_date"] <= TRAIN_END
     category_median = df.loc[train_mask].groupby("category")["amount"].median()
-    df["price_vs_category_median_ratio"] = df["amount"] / df["category"].map(category_median)
+    df["price_vs_category_median_ratio"] = (
+        df["amount"] / df["category"].map(category_median).replace(0, np.nan)
+    ).replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     df["seller_age_days"] = (df["order_date"] - df["seller_signup_date"]).dt.days
     df["buyer_age_days"] = (df["order_date"] - df["buyer_signup_date"]).dt.days
@@ -105,8 +109,22 @@ def build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, pr
 
 
 def leakage_audit(df, feature_cols):
-    """Sanity checks features against target leakage and chronological constraints."""
-    banned = {"is_fraudulent", "fraud_type", "price_anomaly", "image_mismatch", "fraud_ring_id", "displayed_product_id"}
+    """Sanity checks features against target leakage and chronological constraints.
+
+    Banned columns fall into two categories:
+    1. Ground-truth labels — columns that ARE the answer (fraud labels, ring IDs).
+    2. Model-output columns — columns that are DERIVED FROM a model's prediction
+       and must not be fed back as features, which would create a feedback loop
+       (the model would be predicting its own past outputs).
+    """
+    banned = {
+        # Ground-truth label columns
+        "is_fraudulent", "fraud_type", "price_anomaly", "image_mismatch",
+        "fraud_ring_id", "displayed_product_id",
+        # Model-output columns (FIX-04: feedback loop guard)
+        "trust_score", "risk_score", "overall_fraud_probability",
+        "predicted_fraud", "decision", "model_reason_code", "model_probability",
+    }
     used_banned = banned.intersection(feature_cols)
     assert not used_banned, f"Leakage: banned target columns in features: {used_banned}"
     violations = (df["buyer_returns_before"] > df["buyer_orders_before"]).sum()

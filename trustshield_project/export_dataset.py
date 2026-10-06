@@ -38,11 +38,12 @@ def export_dataset(db_url: str | None = None):
     if db_url:
         from sqlalchemy import create_engine
         engine = create_engine(db_url)
-        for name, df in tables.items():
-            print(f"Exporting {name} ({len(df)} rows) to database...")
-            df_export = df.copy()
-            df_export.columns = [c.lower() for c in df_export.columns]
-            df_export.to_sql(name, engine, if_exists="replace", index=False)
+        with engine.begin() as conn:
+            for name, df in tables.items():
+                print(f"Exporting {name} ({len(df)} rows) to database...")
+                df_export = df.copy()
+                df_export.columns = [c.lower() for c in df_export.columns]
+                df_export.to_sql(name, conn, if_exists="replace", index=False)  # type: ignore[call-overload]
         print("Database export complete.")
     else:
         os.makedirs(OUTPUT_DIR, exist_ok=True)
