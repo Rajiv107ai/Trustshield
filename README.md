@@ -97,11 +97,13 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 ## 📚 Complete Project Documentation
 
-- [**Phase 0: Baseline Audit**](../docs/BASELINE_AUDIT.md)
-- [**Phase 1: 49-Point Core Re-Audit**](../docs/49_POINT_REAUDIT.md)
-- [**Phase 1: Final Before/After Report**](../docs/FINAL_BEFORE_AFTER.md)
-- [**Phase 2: Baseline State Inspection**](../docs/PHASE2_BASELINE.md)
-- [**Phase 2: Advanced Final Research Report**](../docs/PHASE2_FINAL_REPORT.md)
-- [**System Model Card**](../docs/MODEL_CARD.md)
-- [**Technical Limitations & Disclosure**](../docs/LIMITATIONS.md)
-- [**Phase 2 Long-Term Production Roadmap**](../docs/PHASE2_ROADMAP.md)
+- [**Phase 0: Baseline Audit**](docs/BASELINE_AUDIT.md)
+- [**Phase 1: 49-Point Core Re-Audit**](docs/49_POINT_REAUDIT.md)
+- [**Phase 1: Final Before/After Report**](docs/FINAL_BEFORE_AFTER.md)
+- [**Phase 2: Baseline State Inspection**](docs/PHASE2_BASELINE.md)
+- [**Phase 2: Advanced Final Research Report**](docs/PHASE2_FINAL_REPORT.md)
+- [**Full Project Master Audit Baseline**](docs/FULL_PROJECT_AUDIT_BASELINE.md)
+- [**Full Project Master Audit Report**](docs/FULL_PROJECT_AUDIT_REPORT.md)
+- [**System Model Card**](docs/MODEL_CARD.md)
+- [**Technical Limitations & Disclosure**](docs/LIMITATIONS.md)
+- [**Phase 2 Long-Term Production Roadmap**](docs/PHASE2_ROADMAP.md)

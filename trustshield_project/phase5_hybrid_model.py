@@ -233,12 +233,28 @@ def run_phase5(gnn_epochs=50):
     df["order_date"] = pd.to_datetime(df["order_date"])
     df["y"] = df["is_fraudulent"].astype(int)
 
+    # TS-AUD-01: Build temporally-correct relationship graphs per split (no future sharing leakage)
     rel_graph_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
     rel_graph_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
-    rel_graph_full = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"])
-    rel_features = compute_relationship_features(rel_graph_full, df["buyer_id"].unique())
-    df = df.merge(rel_features, on="buyer_id", how="left")
-    df[["share_degree", "share_component_size"]] = df[["share_degree", "share_component_size"]].fillna(0)
+
+    train_mask = df["order_date"] <= TRAIN_END
+    val_test_mask = ~train_mask
+
+    rel_feat_train = compute_relationship_features(rel_graph_train, df.loc[train_mask, "buyer_id"].unique())
+    rel_feat_val = compute_relationship_features(rel_graph_val, df.loc[val_test_mask, "buyer_id"].unique())
+
+    df.loc[train_mask, "share_degree"] = 0.0
+    df.loc[train_mask, "share_component_size"] = 0.0
+    df.loc[val_test_mask, "share_degree"] = 0.0
+    df.loc[val_test_mask, "share_component_size"] = 0.0
+
+    tmp_train = df.loc[train_mask, ["buyer_id"]].merge(rel_feat_train, on="buyer_id", how="left")
+    df.loc[train_mask, "share_degree"] = tmp_train["share_degree"].fillna(0).values
+    df.loc[train_mask, "share_component_size"] = tmp_train["share_component_size"].fillna(0).values
+
+    tmp_val = df.loc[val_test_mask, ["buyer_id"]].merge(rel_feat_val, on="buyer_id", how="left")
+    df.loc[val_test_mask, "share_degree"] = tmp_val["share_degree"].fillna(0).values
+    df.loc[val_test_mask, "share_component_size"] = tmp_val["share_component_size"].fillna(0).values
 
     snapshots, months = build_monthly_snapshots(
         result["orders"].assign(order_date=pd.to_datetime(result["orders"]["order_date"])),

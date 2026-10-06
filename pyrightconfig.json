@@ -10,6 +10,7 @@
   ],
   "extraPaths": [
     "trustshield_project",
+    "backend",
     "."
   ],
   "venvPath": ".",

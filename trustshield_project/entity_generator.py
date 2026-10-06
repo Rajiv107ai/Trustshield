@@ -121,6 +121,8 @@ def assign_shared_addresses(buyers_df: pd.DataFrame, share_rate: float = 0.12, l
     while mask.any():
         partner_idx[mask] = gen.choice(n, size=mask.sum(), replace=False)
         mask = sharing_idx == partner_idx
+    sharing_idx = sharing_idx.tolist()
+    partner_idx = partner_idx.tolist()
 
     is_fraud_link = gen.random(n_sharing) >= legit_share
 
@@ -128,7 +130,7 @@ def assign_shared_addresses(buyers_df: pd.DataFrame, share_rate: float = 0.12, l
     signup_a = pd.to_datetime(buyers_df.iloc[sharing_idx]["signup_date"].values)
     signup_b = pd.to_datetime(buyers_df.iloc[partner_idx]["signup_date"].values)
     latest_signup = np.maximum(signup_a.asi8, signup_b.asi8)
-    sim_end_ns = pd.Timestamp(SIM_END).value
+    sim_end_ns = int(pd.Timestamp(SIM_END).as_unit("ns").value)
     # Clamp: if latest_signup >= SIM_END, set first_seen = SIM_END
     span_ns = np.maximum(sim_end_ns - latest_signup, 0)
     offsets_ns = (gen.random(n_sharing) * span_ns).astype(np.int64)
@@ -164,17 +166,20 @@ def assign_shared_devices(device_mapping_df: pd.DataFrame, buyers_df: pd.DataFra
     while mask.any():
         partner_idx[mask] = gen.choice(n, size=mask.sum(), replace=False)
         mask = sharing_idx == partner_idx
+    sharing_idx = sharing_idx.tolist()
+    partner_idx = partner_idx.tolist()
 
     is_fraud_link = gen.random(n_sharing) >= legit_share
     sharer_buyer_ids = buyers_df.iloc[sharing_idx]["buyer_id"].values
     partner_buyer_ids = buyers_df.iloc[partner_idx]["buyer_id"].values
     partner_device = device_mapping_df.set_index("buyer_id").loc[partner_buyer_ids, "device_id"].values
 
-    # first_seen_date: uniform between max(signup_a, signup_b) and SIM_END
+    # Determine first_seen_date: uniform between max(signup_a, signup_b) and SIM_END
     signup_a = pd.to_datetime(buyers_df.iloc[sharing_idx]["signup_date"].values)
     signup_b = pd.to_datetime(buyers_df.iloc[partner_idx]["signup_date"].values)
     latest_signup = np.maximum(signup_a.asi8, signup_b.asi8)
-    sim_end_ns = pd.Timestamp(SIM_END).value
+    sim_end_ns = pd.Timestamp(SIM_END).as_unit("ns").value
+    # Clamp: if latest_signup >= SIM_END, set first_seen = SIM_END
     span_ns = np.maximum(sim_end_ns - latest_signup, 0)
     offsets_ns = (gen.random(n_sharing) * span_ns).astype(np.int64)
     first_seen = pd.to_datetime(latest_signup + offsets_ns)

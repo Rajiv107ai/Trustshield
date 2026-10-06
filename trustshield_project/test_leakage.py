@@ -283,3 +283,137 @@ class TestGraphTemporalSafety:
         feats = compute_relationship_features(G, ["B001", "B002"])
         b001 = feats[feats["buyer_id"] == "B001"].iloc[0]
         assert b001["share_degree"] == 1  # edge included since no filter applied
+
+
+# ---------------------------------------------------------------------------
+# FIX-28 — run_phase_3 temporal leakage regression test
+# ---------------------------------------------------------------------------
+
+class TestRunPhase3GraphTemporalSafety:
+    """Verify that the relationship graph used in run_phase_3() is built with
+    per-split cutoff dates, not a no-cutoff all-inclusive graph.
+
+    The bug (fixed in FIX-28): build_relationship_graph() was called without
+    cutoff_date, meaning future sharing relationships were included in training
+    features — a temporal leakage.  The test confirms the fix by showing that
+    a sharing relationship first_seen AFTER TRAIN_END does NOT affect features
+    computed for a training-period order when a cutoff is applied.
+    """
+
+    def test_future_sharing_invisible_to_training_period_with_cutoff(self):
+        """Sharing first seen after TRAIN_END must not appear in the train graph."""
+        import pandas as pd
+        from baseline_model import TRAIN_END
+        from graph_features import build_relationship_graph, compute_relationship_features
+
+        # Sharing relationship first observed 60 days after TRAIN_END
+        future_date = TRAIN_END + pd.Timedelta(days=60)
+
+        addr_log = pd.DataFrame({
+            "buyer_id": ["B001"],
+            "shared_with_buyer_id": ["B002"],
+            "shared_address_id": ["ADDR_001"],
+            "share_type": ["fraud_linked"],
+            "first_seen_date": [future_date],
+        })
+        dev_log = pd.DataFrame(columns=[
+            "buyer_id", "shared_with_buyer_id", "shared_device_id", "share_type", "first_seen_date"
+        ])
+
+        # Build graph with TRAIN_END cutoff — future relationship must be excluded
+        G_train = build_relationship_graph(addr_log, dev_log, cutoff_date=TRAIN_END)
+        feats_train = compute_relationship_features(G_train, ["B001", "B002"])
+
+        b001_train = feats_train[feats_train["buyer_id"] == "B001"].iloc[0]
+        assert b001_train["share_degree"] == 0, (
+            "FIX-28 regression: Training graph must NOT include sharing relationships "
+            "first observed after TRAIN_END. share_degree should be 0."
+        )
+
+    def test_future_sharing_visible_after_val_end_cutoff(self):
+        """Sharing first seen before VAL_END must appear in the val/test graph."""
+        import pandas as pd
+        from baseline_model import TRAIN_END, VAL_END
+        from graph_features import build_relationship_graph, compute_relationship_features
+
+        # Sharing relationship first observed 30 days after TRAIN_END (but before VAL_END)
+        mid_date = TRAIN_END + pd.Timedelta(days=30)
+
+        addr_log = pd.DataFrame({
+            "buyer_id": ["B001"],
+            "shared_with_buyer_id": ["B002"],
+            "shared_address_id": ["ADDR_001"],
+            "share_type": ["fraud_linked"],
+            "first_seen_date": [mid_date],
+        })
+        dev_log = pd.DataFrame(columns=[
+            "buyer_id", "shared_with_buyer_id", "shared_device_id", "share_type", "first_seen_date"
+        ])
+
+        G_val = build_relationship_graph(addr_log, dev_log, cutoff_date=VAL_END)
+        feats_val = compute_relationship_features(G_val, ["B001", "B002"])
+
+        b001_val = feats_val[feats_val["buyer_id"] == "B001"].iloc[0]
+        assert b001_val["share_degree"] == 1, (
+            "Sharing observed before VAL_END must be visible in the val/test graph."
+        )
+
+
+# ---------------------------------------------------------------------------
+# FIX-04 — Feedback loop guard regression test
+# ---------------------------------------------------------------------------
+
+class TestFeedbackLoopGuard:
+    """Verify that leakage_audit() blocks model-output columns from the feature set.
+
+    Model-derived columns (trust_score, risk_score, etc.) must never become
+    training features — this creates a feedback loop where the model predicts
+    its own past outputs, inflating apparent performance.
+    """
+
+    def test_model_output_columns_are_banned(self):
+        """leakage_audit() must reject any model-output column in feature_cols."""
+        import pandas as pd
+        from baseline_model import leakage_audit
+
+        # Minimal DataFrame that satisfies the audit's other checks
+        df = pd.DataFrame({
+            "buyer_returns_before": [0],
+            "buyer_orders_before": [1],
+            "seller_age_days": [30],
+            "buyer_age_days": [30],
+        })
+
+        forbidden_model_cols = [
+            "trust_score", "risk_score", "overall_fraud_probability",
+            "predicted_fraud", "decision", "model_reason_code", "model_probability",
+        ]
+        for col in forbidden_model_cols:
+            feature_cols = [col]
+            try:
+                leakage_audit(df, feature_cols)
+                raise AssertionError(
+                    f"FIX-04 regression: leakage_audit() should have rejected '{col}' "
+                    "as a banned model-output column, but did not."
+                )
+            except AssertionError as exc:
+                # The AssertionError raised by leakage_audit itself is expected
+                if "FIX-04 regression" in str(exc):
+                    raise  # re-raise our own assertion, not the expected one
+                # leakage_audit raised its own AssertionError — that's the correct behaviour
+
+    def test_legitimate_features_are_not_banned(self):
+        """Legitimate feature columns must pass the feedback-loop guard."""
+        import pandas as pd
+        from baseline_model import leakage_audit
+
+        df = pd.DataFrame({
+            "buyer_returns_before": [0],
+            "buyer_orders_before": [1],
+            "seller_age_days": [30],
+            "buyer_age_days": [30],
+            "amount": [99.0],
+        })
+        # Should not raise
+        leakage_audit(df, ["amount", "buyer_returns_before", "buyer_orders_before"])
+

@@ -16,6 +16,7 @@ to pre-computed statistics.  If the derived fields ARE supplied directly,
 the raw-input fields are ignored.
 """
 
+from enum import Enum
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -46,29 +47,34 @@ class TransactionScoreRequest(BaseModel):
     # --- Tabular features (exact model feature column names) ---
     price_vs_base_price_ratio: float = Field(
         default=0.0,
+        ge=0.0,
         description="order amount / catalog base price (computed server-side "
                     "from amount + base_price if not supplied directly)",
     )
     price_vs_category_median_ratio: float = Field(
         default=0.0,
+        ge=0.0,
         description="order amount / category median price (computed server-side "
                     "from amount + category_median_price if not supplied directly)",
     )
-    seller_age_days: float = Field(default=0.0, description="Days since seller signup at order time")
-    seller_total_listings_before: float = Field(default=0.0, description="Seller's listing count before this order")
-    buyer_age_days: float = Field(default=0.0, description="Days since buyer signup at order time")
-    buyer_orders_before: int = Field(default=0, description="Buyer's prior order count")
-    buyer_returns_before: int = Field(default=0, description="Buyer's prior return count")
+    seller_age_days: float = Field(default=0.0, ge=0.0, description="Days since seller signup at order time")
+    seller_total_listings_before: float = Field(default=0.0, ge=0.0, description="Seller's listing count before this order")
+    buyer_age_days: float = Field(default=0.0, ge=0.0, description="Days since buyer signup at order time")
+    buyer_orders_before: int = Field(default=0, ge=0, description="Buyer's prior order count")
+    buyer_returns_before: int = Field(default=0, ge=0, description="Buyer's prior return count")
     buyer_return_rate_before: float = Field(
         default=0.0,
+        ge=0.0,
+        le=1.0,
         description="buyer_returns_before / max(buyer_orders_before, 1) "
                     "(computed server-side if not supplied directly)",
     )
     device_shared_buyer_count: float = Field(
         default=1.0,
+        ge=1.0,
         description="Number of distinct buyers sharing this device (from training-set graph)",
     )
-    order_amount: float = Field(default=0.0, description="Order value")
+    order_amount: float = Field(default=0.0, ge=0.0, description="Order value")
 
     # --- Graph features (optional — filled with 0 if not provided) ---
     share_degree: float = Field(default=0.0, description="Buyer's degree in device+address sharing graph")
@@ -118,10 +124,47 @@ class TransactionScoreRequest(BaseModel):
 class TransactionScoreResponse(BaseModel):
     order_id: Optional[str]
     overall_fraud_probability: float
-    risk_label: str                # "low" | "medium" | "high"
+    risk_label: str                  # "low" | "medium" | "high"
     model_used: str
-    model_version: str = "phase3"  # "phase3" | "phase5-hybrid"
+    model_version: str = "phase3"    # "phase3" | "phase5-hybrid"
     note: str = ""
+    # FIX-01: Trust Engine integration fields
+    decision: str = Field(
+        default="ALLOW",
+        description="Unified Trust Engine decision: ALLOW, REVIEW, HOLD, or BLOCK.",
+    )
+    trust_score: float = Field(
+        default=100.0,
+        ge=0.0,
+        le=100.0,
+        description="Calibrated trust score on [0, 100] scale (100 = full trust).",
+    )
+    confidence: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score based on Shannon binary entropy [0, 1].",
+    )
+    # FIX-11: Cold-start signalling — True when the entity has minimal history
+    cold_start: bool = Field(
+        default=False,
+        description="True when buyer or seller has fewer than 3 prior interactions. "
+                    "Score confidence is reduced for cold-start entities.",
+    )
+    # FIX-03: Model disagreement — populated once Trust Engine is integrated
+    model_disagreement: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Spread between highest and lowest component model probabilities. "
+                    "High disagreement (>0.3) suggests uncertain prediction.",
+    )
+    # FIX-05: Structured reason codes — populated once Trust Engine is integrated
+    reason_codes: List[str] = Field(
+        default_factory=list,
+        description="Structured reason codes for this decision "
+                    "(e.g. HIGH_RETURN_RATE, SHARED_DEVICE_NETWORK).",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -253,4 +296,24 @@ class ListingScoreResponse(BaseModel):
         description="The image-text similarity score used for this prediction.",
     )
     investigator_narrative: Dict[str, Any]
+
+
+# ---------------------------------------------------------------------------
+# /ready (GET) - Readiness probe for service orchestrator / load balancer
+# ---------------------------------------------------------------------------
+
+class ServiceState(str, Enum):
+    READY = "ready"
+    DEGRADED = "degraded"
+    NOT_READY = "not_ready"
+
+
+class ReadyResponse(BaseModel):
+    status: ServiceState
+    models_ready: bool
+    phase3_ready: bool
+    phase5_ready: bool
+    clip_ready: bool
+    rings_ready: bool
+    details: Dict[str, Any] = Field(default_factory=dict)
 

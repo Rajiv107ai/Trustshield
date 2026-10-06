@@ -1,5 +1,7 @@
 """Graph-topological feature extraction and fraud ring detection using NetworkX."""
 
+from typing import cast
+
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -88,7 +90,7 @@ def build_monthly_snapshots(orders_df: pd.DataFrame, sim_start, n_months: int = 
         for b, s, weight in zip(edge_df["buyer_id"], edge_df["seller_id"], edge_df["size"]):
             B.add_edge(f"B_{b}", f"S_{s}", weight=weight)
 
-        pagerank = nx.pagerank(B, weight="weight") if B.number_of_edges() > 0 else {}
+        pagerank: dict[str, float] = cast(dict[str, float], nx.pagerank(B, weight="weight")) if B.number_of_edges() > 0 else {}
 
         buyer_ids = list(dict.fromkeys(cum_orders["buyer_id"]))
         buyer_rows = [
@@ -105,6 +107,10 @@ def build_monthly_snapshots(orders_df: pd.DataFrame, sim_start, n_months: int = 
         seller_rows = []
         for s in seller_ids:
             counts = seller_buyer_counts.loc[s]
+            # When a seller has only 1 unique buyer, .loc[s] returns a scalar.
+            # Wrap it in a Series so .sum() and .to_numpy() always work correctly.
+            if not isinstance(counts, pd.Series):
+                counts = pd.Series([counts])
             shares = (counts / counts.sum()).to_numpy()
             seller_rows.append({
                 "seller_id": s,
@@ -123,7 +129,7 @@ def attach_snapshot_features(df: pd.DataFrame, snapshots: dict, months: list) ->
     df = df.copy()
     df["month"] = pd.PeriodIndex(df["order_date"], freq="M")
     month_to_idx = {m: i for i, m in enumerate(months)}
-    df["_month_idx"] = df["month"].map(month_to_idx.get)
+    df["_month_idx"] = df["month"].map(month_to_idx)
 
     feature_cols = [
         "buyer_seller_degree", "buyer_pagerank",
@@ -216,7 +222,7 @@ def detect_fraud_rings(rel_graph: nx.Graph, orders_df: pd.DataFrame, score_col: 
         if len(comp) < min_ring_size:
             continue
 
-        members = sorted(comp)
+        members = sorted(str(n) for n in comp)
         all_scores = [s for b in members for s in buyer_scores.get(b, [])]
         total_orders = sum(buyer_order_counts.get(b, 0) for b in members)
 
@@ -259,10 +265,43 @@ def run_phase_3():
     df["y"] = df["is_fraudulent"].astype(int)
     leakage_audit(df, tabular_cols)
 
-    rel_graph = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"])
-    rel_features = compute_relationship_features(rel_graph, df["buyer_id"].unique())
-    df = df.merge(rel_features, on="buyer_id", how="left")
-    df[["share_degree", "share_component_size"]] = df[["share_degree", "share_component_size"]].fillna(0)
+    # FIX-28: Build temporally-correct relationship graphs per split.
+    # The graph used for training-period orders must NOT include sharing relationships
+    # first observed after TRAIN_END.  Likewise the test-period scoring graph must
+    # not include relationships first observed after VAL_END.
+    # Using a single no-cutoff graph (original code) would leak future sharing edges
+    # into the training features — a temporal leakage bug.  This mirrors the correct
+    # approach already used in phase5_hybrid_model.py (lines 236-237).
+    rel_graph_train = build_relationship_graph(
+        base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END
+    )
+    rel_graph_val = build_relationship_graph(
+        base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END
+    )
+    # For ring detection and full-dataset scoring we use the val-end graph
+    # (no future information relative to the test period).
+    rel_graph = rel_graph_val
+
+    # Attach per-split graph features (train uses train-graph, val+test use val-graph).
+    # We compute relationship features separately per epoch then stitch back.
+    train_mask = df["order_date"] <= TRAIN_END
+    val_test_mask = ~train_mask
+
+    rel_feat_train = compute_relationship_features(rel_graph_train, df.loc[train_mask, "buyer_id"].unique())
+    rel_feat_val = compute_relationship_features(rel_graph_val, df.loc[val_test_mask, "buyer_id"].unique())
+
+    df.loc[train_mask, "share_degree"] = 0.0
+    df.loc[train_mask, "share_component_size"] = 0.0
+    df.loc[val_test_mask, "share_degree"] = 0.0
+    df.loc[val_test_mask, "share_component_size"] = 0.0
+
+    tmp_train = df.loc[train_mask, ["buyer_id"]].merge(rel_feat_train, on="buyer_id", how="left")
+    df.loc[train_mask, "share_degree"] = tmp_train["share_degree"].fillna(0).values
+    df.loc[train_mask, "share_component_size"] = tmp_train["share_component_size"].fillna(0).values
+
+    tmp_val = df.loc[val_test_mask, ["buyer_id"]].merge(rel_feat_val, on="buyer_id", how="left")
+    df.loc[val_test_mask, "share_degree"] = tmp_val["share_degree"].fillna(0).values
+    df.loc[val_test_mask, "share_component_size"] = tmp_val["share_component_size"].fillna(0).values
 
     snapshots, months = build_monthly_snapshots(result["orders"].assign(order_date=pd.to_datetime(result["orders"]["order_date"])), SIM_START)
     df = attach_snapshot_features(df, snapshots, months)
@@ -304,7 +343,7 @@ def run_phase_3():
     df_scored = pd.concat([train, val, test], axis=0, ignore_index=True)
     features_full = df_scored[tabular_cols + graph_cols].fillna(0)
     df_scored = df_scored.assign(
-        fraud_score=np.asarray(rf_combined.predict_proba(features_full))[:, 1]
+        fraud_score=pd.Series(np.asarray(rf_combined.predict_proba(features_full))[:, 1], index=df_scored.index)
     )
 
     rings_df = detect_fraud_rings(rel_graph, df_scored, score_col="fraud_score", min_ring_size=2)
