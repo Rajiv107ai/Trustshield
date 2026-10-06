@@ -37,17 +37,25 @@ try:
     from backend.schemas import (
         TransactionScoreRequest, TransactionScoreResponse,
         FraudRingsResponse, FraudRingItem,
-        HealthResponse,
+        HealthResponse, ReadyResponse, ServiceState,
         ListingScoreRequest, ListingScoreResponse,
     )
 except ImportError:
-    from model_loader import store
-    from schemas import (
+    from model_loader import store  # type: ignore[import-not-found]
+    from schemas import (  # type: ignore[import-not-found]
         TransactionScoreRequest, TransactionScoreResponse,
         FraudRingsResponse, FraudRingItem,
-        HealthResponse,
+        HealthResponse, ReadyResponse, ServiceState,
         ListingScoreRequest, ListingScoreResponse,
     )
+
+try:
+    from trustshield_project.trust_engine import TrustEngine
+except ImportError:
+    try:
+        from trust_engine import TrustEngine
+    except ImportError:
+        TrustEngine = None
 
 try:
     from trustshield_project.multimodal_scoring import explain_listing_risk, MultimodalScorer as _MultimodalScorer
@@ -57,6 +65,8 @@ except ImportError:
     except ImportError:
         explain_listing_risk = None
         _MultimodalScorer = None
+
+_trust_engine = TrustEngine() if TrustEngine is not None else None
 
 
 def _risk_label(score: float) -> str:
@@ -142,7 +152,7 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
     if row.get("buyer_return_rate_before", 0.0) == 0.0:
         orders_before = row.get("buyer_orders_before", 0) or 0
         returns_before = row.get("buyer_returns_before", 0) or 0
-        row["buyer_return_rate_before"] = returns_before / max(orders_before, 1)
+        row["buyer_return_rate_before"] = min(1.0, float(returns_before) / max(orders_before, 1))
 
     # Build the final feature vector using only the columns the model expects
     return {col: (row.get(col) if row.get(col) is not None else 0.0) for col in all_cols}
@@ -216,6 +226,46 @@ def health():
 
 
 # ---------------------------------------------------------------------------
+# GET /ready - Readiness probe
+# ---------------------------------------------------------------------------
+
+@app.get("/ready", response_model=ReadyResponse, tags=["system"])
+def ready():
+    """
+    Readiness probe for orchestrators. Returns service state:
+    - 'ready' when models and graph data are fully loaded
+    - 'degraded' when Phase 3 baseline runs without Phase 5/CLIP
+    - 'not_ready' when core models are unavailable
+    """
+    models_ready = store.is_loaded and (store.combined_graph_model is not None)
+    phase3_ready = store.combined_graph_model is not None
+    phase5_ready = store.phase5_loaded
+    clip_ready = store.clip_loaded
+    rings_ready = store.rings_df is not None
+
+    if models_ready and phase5_ready and rings_ready:
+        status = ServiceState.READY
+    elif models_ready:
+        status = ServiceState.DEGRADED
+    else:
+        status = ServiceState.NOT_READY
+
+    return ReadyResponse(
+        status=status,
+        models_ready=models_ready,
+        phase3_ready=phase3_ready,
+        phase5_ready=phase5_ready,
+        clip_ready=clip_ready,
+        rings_ready=rings_ready,
+        details={
+            "n_rings": len(store.rings_df) if store.rings_df is not None else 0,
+            "phase5_loaded": phase5_ready,
+            "clip_loaded": clip_ready,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # POST /transaction/score
 # ---------------------------------------------------------------------------
 
@@ -226,17 +276,16 @@ def score_transaction(req: TransactionScoreRequest):
     (tabular + NetworkX graph features + 32-dim GNN embeddings) when loaded,
     or falling back to the Phase 3 combined tabular+graph Random Forest model.
 
-    Supply as many feature fields as you have available — missing ones
-    default to 0. The richer the feature vector, the more accurate the score.
-
-    Raw inputs (amount, base_price, category_median_price) are accepted as
-    a convenience: the server derives price ratio features from them
-    automatically when the direct ratio fields are not supplied.
-
-    Returns a fraud probability in [0, 1] and a risk label (low/medium/high).
+    Evaluated via Unified Trust Engine for calibrated risk, trust score (0-100),
+    entropy confidence, model disagreement, and decision routing (ALLOW/REVIEW/HOLD/BLOCK).
     """
     if not store.is_loaded:
         raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
+
+    # FIX-11: cold-start detection — fewer than 3 prior interactions signals a new entity.
+    is_cold_start = (
+        (req.buyer_orders_before < 3) or (req.seller_total_listings_before < 3)
+    )
 
     if store.phase5_loaded and store.phase5_meta is not None and store.hybrid_model is not None:
         p5_meta = store.phase5_meta
@@ -250,15 +299,53 @@ def score_transaction(req: TransactionScoreRequest):
         X = pd.DataFrame([row])[hybrid_cols].fillna(0.0)
         prob = float(np.asarray(store.hybrid_model.predict_proba(X))[0, 1])
         clf_name = p5_meta.get("classifier", "XGBoost")
+
+        # TS-AUD-03: Score Phase 3 tabular+graph model distinctly to prevent double-counting and capture true disagreement
+        if store.combined_graph_model is not None and store.feature_meta is not None:
+            p3_all_cols = store.feature_meta.get("all_feature_cols", p3_cols)
+            p3_row = _build_feature_row(req, p3_all_cols)
+            X_p3 = pd.DataFrame([p3_row])[p3_all_cols].fillna(0.0)
+            prob_tabular = float(np.asarray(store.combined_graph_model.predict_proba(X_p3))[0, 1])
+        else:
+            prob_tabular = float(prob)
+
+        # FIX-01 / FIX-02 / FIX-03 / FIX-05: Unified Trust Engine Scoring
+        component_risks = {
+            "tabular_risk": prob_tabular,
+            "graph_risk": float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0)),
+            "gnn_risk": float(prob),
+            "multimodal_risk": 0.05,
+            "velocity_risk": float(min(req.buyer_return_rate_before, 1.0)),
+        }
+        if _trust_engine is not None:
+            t_res = _trust_engine.score(component_risks, is_cold_start=is_cold_start)
+            decision = t_res.decision.value
+            trust_score = t_res.trust_score
+            confidence = t_res.confidence
+            model_disagreement = t_res.model_disagreement
+            reason_codes = t_res.reason_codes
+        else:
+            decision = "REVIEW" if prob >= 0.3 else "ALLOW"
+            trust_score = round(100.0 * (1.0 - prob), 2)
+            confidence = 0.8
+            model_disagreement = 0.0
+            reason_codes = []
+
         return TransactionScoreResponse(
             order_id=req.order_id,
             overall_fraud_probability=round(prob, 4),
             risk_label=_risk_label(prob),
+            decision=decision,
+            trust_score=trust_score,
+            confidence=confidence,
             model_used=f"Hybrid GNN + {clf_name} (Phase 5, tabular+graph+GNN embeddings)",
             model_version="phase5-hybrid",
+            cold_start=is_cold_start,
+            model_disagreement=model_disagreement,
+            reason_codes=reason_codes,
             note=(
-                "Scored with Phase 5 hybrid model (tabular + graph topology + 32-dim GNN embeddings). "
-                "Cold-start entities receive zero GNN embeddings automatically."
+                "Scored with Phase 5 hybrid model (tabular + graph topology + 32-dim GNN embeddings) "
+                "routed through Unified Trust Engine."
             ),
         )
 
@@ -272,18 +359,45 @@ def score_transaction(req: TransactionScoreRequest):
     X = pd.DataFrame([feature_row])[all_cols].fillna(0.0)
 
     prob = float(np.asarray(store.combined_graph_model.predict_proba(X))[0, 1])
-
     clf_name = meta.get("classifier", type(store.combined_graph_model).__name__)
+
+    # FIX-01 / FIX-02 / FIX-03 / FIX-05: Unified Trust Engine Scoring
+    component_risks = {
+        "tabular_risk": float(prob),
+        "graph_risk": float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0)),
+        "gnn_risk": 0.0,
+        "multimodal_risk": 0.05,
+        "velocity_risk": float(min(req.buyer_return_rate_before, 1.0)),
+    }
+    if _trust_engine is not None:
+        t_res = _trust_engine.score(component_risks, is_cold_start=is_cold_start)
+        decision = t_res.decision.value
+        trust_score = t_res.trust_score
+        confidence = t_res.confidence
+        model_disagreement = t_res.model_disagreement
+        reason_codes = t_res.reason_codes
+    else:
+        decision = "REVIEW" if prob >= 0.3 else "ALLOW"
+        trust_score = round(100.0 * (1.0 - prob), 2)
+        confidence = 0.8
+        model_disagreement = 0.0
+        reason_codes = []
 
     return TransactionScoreResponse(
         order_id=req.order_id,
         overall_fraud_probability=round(prob, 4),
         risk_label=_risk_label(prob),
+        decision=decision,
+        trust_score=trust_score,
+        confidence=confidence,
         model_used=f"tabular+graph RF (Phase 3, {clf_name})",
         model_version="phase3",
+        cold_start=is_cold_start,
+        model_disagreement=model_disagreement,
+        reason_codes=reason_codes,
         note=(
-            "Graph features (share_degree, share_component_size, etc.) default to 0 "
-            "if not provided. Supply them from a live graph lookup for best accuracy."
+            "Graph features default to 0 if not provided. Supply them from a live graph lookup for best accuracy. "
+            "Evaluated with Unified Trust Engine."
         ),
     )
 
