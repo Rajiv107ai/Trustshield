@@ -12,7 +12,7 @@ Combines vision-language representations and vector similarity search:
 
 from __future__ import annotations
 import math
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, cast
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -22,6 +22,7 @@ try:
     import faiss
     FAISS_AVAILABLE = True
 except ImportError:
+    faiss: Any = None
     FAISS_AVAILABLE = False
 
 
@@ -66,9 +67,16 @@ class MultimodalFAISSIndex:
         self,
         query_embs: np.ndarray,
         query_seller_ids: List[str],
+        query_listing_ids: Optional[List[str]] = None,
         k: int = 5,
     ) -> List[Dict[str, float]]:
-        """Query top-k nearest neighbor listings and extract visual reuse fraud features."""
+        """Query top-k nearest neighbor listings and extract visual reuse fraud features.
+        
+        Temporal Policy:
+            For strict historical consistency, indexed embeddings must have been observed
+            prior to the query's decision timestamp. Self-matches are strictly excluded
+            using explicit listing identity mapping.
+        """
         q = np.asarray(query_embs, dtype=np.float32)
         norms = np.linalg.norm(q, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
@@ -76,31 +84,40 @@ class MultimodalFAISSIndex:
 
         results = []
         n_queries = len(q)
+        search_k = min(k + 1, max(len(self.seller_ids), 1))
 
         if FAISS_AVAILABLE and self.index is not None:
-            D, I = self.index.search(q_norm, k)
+            D, I = self.index.search(q_norm, search_k)
         else:
             # Fallback exact dot product
             all_vecs = np.vstack(self.vectors) if self.vectors else np.empty((0, self.dim))
             if len(all_vecs) == 0:
-                return [{"nn_max_sim": 0.0, "near_duplicate_count": 0.0, "cross_seller_reuse": 0.0}] * n_queries
+                return [{"faiss_max_image_similarity": 0.0, "faiss_near_duplicate_count": 0.0, "faiss_cross_seller_image_reuse": 0.0}] * n_queries
             sims = np.dot(q_norm, all_vecs.T)
-            I = np.argsort(-sims, axis=1)[:, :k]
+            I = np.argsort(-sims, axis=1)[:, :search_k]
             D = np.take_along_axis(sims, I, axis=1)
 
         for i in range(n_queries):
             cur_seller = query_seller_ids[i] if i < len(query_seller_ids) else None
+            cur_listing = query_listing_ids[i] if (query_listing_ids and i < len(query_listing_ids)) else None
             neighbor_sims = D[i]
             neighbor_indices = I[i]
 
             max_sim = 0.0
             near_dups = 0
             cross_seller_reuse = 0.0
+            valid_neighbors = 0
 
             for sim, idx in zip(neighbor_sims, neighbor_indices):
                 if idx < 0 or idx >= len(self.seller_ids):
                     continue
-                # Skip self if similarity is ~1.0 and same index
+                # Exclude self-match using real listing ID identity
+                if cur_listing is not None and idx < len(self.listing_ids) and self.listing_ids[idx] == cur_listing:
+                    continue
+                if cur_listing is None and idx == i and len(query_embs) == len(self.listing_ids):
+                    continue
+
+                valid_neighbors += 1
                 s = float(sim)
                 if s > max_sim:
                     max_sim = s
@@ -109,6 +126,9 @@ class MultimodalFAISSIndex:
                     neighbor_seller = self.seller_ids[idx]
                     if cur_seller and neighbor_seller != cur_seller:
                         cross_seller_reuse = 1.0
+
+                if valid_neighbors >= k:
+                    break
 
             results.append({
                 "faiss_max_image_similarity": round(max_sim, 4),
@@ -127,21 +147,24 @@ def extract_multimodal_listing_features(
 ) -> pd.DataFrame:
     """Compute rich vision-language features for listing fraud detection."""
     df = listings_df.copy()
-    n = len(df)
 
     # 1. Cosine similarity between image and text
     img_norm = image_embs / np.maximum(np.linalg.norm(image_embs, axis=1, keepdims=True), 1e-8)
     txt_norm = text_embs / np.maximum(np.linalg.norm(text_embs, axis=1, keepdims=True), 1e-8)
     img_txt_sim = np.sum(img_norm * txt_norm, axis=1)
+    sim = np.clip(img_txt_sim, -1.0, 1.0).astype(np.float32)
 
-    df["clip_image_text_similarity"] = np.clip(img_txt_sim, -1.0, 1.0)
-    df["clip_semantic_mismatch"] = (df["clip_image_text_similarity"] < 0.50).astype("float32")
-    df["clip_extreme_mismatch"] = (df["clip_image_text_similarity"] < 0.25).astype("float32")
+    df = df.assign(
+        clip_image_text_similarity=sim.tolist(),
+        clip_semantic_mismatch=(sim < 0.50).astype(np.float32).tolist(),
+        clip_extreme_mismatch=(sim < 0.25).astype(np.float32).tolist(),
+    )
 
     # 2. FAISS visual reuse features if index provided
     if faiss_index is not None:
+        listing_ids = list(df["listing_id"].fillna("")) if "listing_id" in df.columns else None
         sim_feats = faiss_index.query_similarity_features(
-            image_embs, list(df["seller_id"].fillna(""))
+            image_embs, list(df["seller_id"].fillna("")), query_listing_ids=listing_ids
         )
         for k in sim_feats[0]:
             df[k] = [r[k] for r in sim_feats]
@@ -170,12 +193,12 @@ def run_multimodal_ablation_study(
         clf = RandomForestClassifier(n_estimators=50, max_depth=6, random_state=42)
         clf.fit(X_train[avail_cols].fillna(0.0), y_train)
 
-        probs = clf.predict_proba(X_val[avail_cols].fillna(0.0))[:, 1]
+        probs = np.asarray(clf.predict_proba(X_val[avail_cols].fillna(0.0)))[:, 1]
         preds = (probs >= 0.5).astype(int)
 
         roc = roc_auc_score(y_val, probs) if len(np.unique(y_val)) > 1 else 0.5
         pr = average_precision_score(y_val, probs) if len(np.unique(y_val)) > 1 else 0.0
-        f1 = f1_score(y_val, preds, zero_division=0)
+        f1 = f1_score(y_val, preds, zero_division=cast(Any, 0))
 
         results[name] = {
             "roc_auc": round(float(roc), 4),

@@ -70,7 +70,17 @@ class Neo4jInvestigator:
         """Generate Cypher CREATE statements to import a candidate fraud ring into Neo4j."""
         statements = ["// TrustShield Candidate Ring Cypher Export", "BEGIN;"]
         for node in cluster_nodes:
-            lbl = "Buyer" if "B" in node else "Seller"
+            s_node = str(node).upper()
+            if s_node.startswith("DEV") or "DEVICE" in s_node:
+                lbl = "Device"
+            elif s_node.startswith("ADDR") or "ADDRESS" in s_node:
+                lbl = "Address"
+            elif s_node.startswith("BUYER") or s_node.startswith("B_") or (s_node.startswith("B") and not s_node.startswith("BOX")):
+                lbl = "Buyer"
+            elif s_node.startswith("SELLER") or s_node.startswith("S_") or s_node.startswith("S"):
+                lbl = "Seller"
+            else:
+                lbl = "Entity"
             statements.append(f"MERGE (n:{lbl} {{id: '{node}'}});")
 
         for e in edges:

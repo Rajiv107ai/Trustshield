@@ -136,16 +136,20 @@ class CLIPEmbeddingCache:
     def exists(self) -> bool:
         return all(os.path.isfile(p) for p in self._paths())
 
-    def load(self, fingerprint: str):
+    def load(self, fingerprint: Optional[str] = None):
         """Returns (id_to_idx, text_emb, image_emb) or None if cache is stale."""
         meta_path, text_path, image_path = self._paths()
+        if not (os.path.isfile(meta_path) and os.path.isfile(text_path) and os.path.isfile(image_path)):
+            return None
         meta = np.load(meta_path, allow_pickle=False)
         raw_fp = meta["fingerprint"].item() if hasattr(meta["fingerprint"], "item") else meta["fingerprint"]
         cached_fp = raw_fp.decode("utf-8") if isinstance(raw_fp, bytes) else str(raw_fp)
         raw_ver = meta["version"].item() if hasattr(meta["version"], "item") else meta["version"]
         cached_ver = raw_ver.decode("utf-8") if isinstance(raw_ver, bytes) else str(raw_ver)
 
-        if cached_fp != fingerprint or cached_ver != _CACHE_VERSION:
+        if cached_ver != _CACHE_VERSION:
+            return None
+        if fingerprint is not None and cached_fp != fingerprint:
             logger.info(
                 "CLIP cache fingerprint/version mismatch — will re-encode. "
                 "(cached=%s/%s, current=%s/%s)",
@@ -636,18 +640,22 @@ def explain_listing_risk(
     evidence = []
 
     # Multimodal alignment analysis
-    sim_score = float(features.get("multimodal_similarity_score", 0.8))
-    if sim_score < 0.45:
-        evidence.append(
-            f"Severe visual-textual mismatch (similarity: {sim_score:.2f}). "
-            "Displayed product image does not match catalog item title/description."
-        )
-    elif sim_score < 0.65:
-        evidence.append(f"Moderate visual discrepancy detected (similarity: {sim_score:.2f}).")
+    image_available = features.get("image_available", True)
+    if not image_available:
+        evidence.append("Product image unavailable; visual alignment modality omitted from assessment.")
     else:
-        evidence.append(
-            f"Product image is visually consistent with item description (similarity: {sim_score:.2f})."
-        )
+        sim_score = float(features.get("multimodal_similarity_score", 0.8))
+        if sim_score < 0.45:
+            evidence.append(
+                f"Severe visual-textual mismatch (similarity: {sim_score:.2f}). "
+                "Displayed product image does not match catalog item title/description."
+            )
+        elif sim_score < 0.65:
+            evidence.append(f"Moderate visual discrepancy detected (similarity: {sim_score:.2f}).")
+        else:
+            evidence.append(
+                f"Product image is visually consistent with item description (similarity: {sim_score:.2f})."
+            )
 
     # Price anomaly analysis
     price_ratio = float(features.get("price_vs_base_price_ratio", 1.0))

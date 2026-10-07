@@ -233,28 +233,39 @@ def run_phase5(gnn_epochs=50):
     df["order_date"] = pd.to_datetime(df["order_date"])
     df["y"] = df["is_fraudulent"].astype(int)
 
-    # TS-AUD-01: Build temporally-correct relationship graphs per split (no future sharing leakage)
+    # TS-AUD-01 / Phase 2: Build strictly isolated relationship graphs per split.
+    # Train: information strictly prior to TRAIN_END
+    # Val: information strictly prior to validation decision time (cutoff TRAIN_END)
+    # Test: information strictly prior to test decision time (cutoff VAL_END)
     rel_graph_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
-    rel_graph_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
+    rel_graph_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
+    rel_graph_test = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
 
     train_mask = df["order_date"] <= TRAIN_END
-    val_test_mask = ~train_mask
+    val_mask = (df["order_date"] > TRAIN_END) & (df["order_date"] <= VAL_END)
+    test_mask = df["order_date"] > VAL_END
 
     rel_feat_train = compute_relationship_features(rel_graph_train, df.loc[train_mask, "buyer_id"].unique())
-    rel_feat_val = compute_relationship_features(rel_graph_val, df.loc[val_test_mask, "buyer_id"].unique())
+    rel_feat_val = compute_relationship_features(rel_graph_val, df.loc[val_mask, "buyer_id"].unique())
+    rel_feat_test = compute_relationship_features(rel_graph_test, df.loc[test_mask, "buyer_id"].unique())
 
-    df.loc[train_mask, "share_degree"] = 0.0
-    df.loc[train_mask, "share_component_size"] = 0.0
-    df.loc[val_test_mask, "share_degree"] = 0.0
-    df.loc[val_test_mask, "share_component_size"] = 0.0
+    df["share_degree"] = 0.0
+    df["share_component_size"] = 1.0
 
-    tmp_train = df.loc[train_mask, ["buyer_id"]].merge(rel_feat_train, on="buyer_id", how="left")
-    df.loc[train_mask, "share_degree"] = tmp_train["share_degree"].fillna(0).values
-    df.loc[train_mask, "share_component_size"] = tmp_train["share_component_size"].fillna(0).values
+    if train_mask.any():
+        tmp_train = df.loc[train_mask, ["buyer_id"]].merge(rel_feat_train, on="buyer_id", how="left")
+        df.loc[train_mask, "share_degree"] = tmp_train["share_degree"].fillna(0.0).values
+        df.loc[train_mask, "share_component_size"] = tmp_train["share_component_size"].fillna(1.0).values
 
-    tmp_val = df.loc[val_test_mask, ["buyer_id"]].merge(rel_feat_val, on="buyer_id", how="left")
-    df.loc[val_test_mask, "share_degree"] = tmp_val["share_degree"].fillna(0).values
-    df.loc[val_test_mask, "share_component_size"] = tmp_val["share_component_size"].fillna(0).values
+    if val_mask.any():
+        tmp_val = df.loc[val_mask, ["buyer_id"]].merge(rel_feat_val, on="buyer_id", how="left")
+        df.loc[val_mask, "share_degree"] = tmp_val["share_degree"].fillna(0.0).values
+        df.loc[val_mask, "share_component_size"] = tmp_val["share_component_size"].fillna(1.0).values
+
+    if test_mask.any():
+        tmp_test = df.loc[test_mask, ["buyer_id"]].merge(rel_feat_test, on="buyer_id", how="left")
+        df.loc[test_mask, "share_degree"] = tmp_test["share_degree"].fillna(0.0).values
+        df.loc[test_mask, "share_component_size"] = tmp_test["share_component_size"].fillna(1.0).values
 
     snapshots, months = build_monthly_snapshots(
         result["orders"].assign(order_date=pd.to_datetime(result["orders"]["order_date"])),
@@ -350,6 +361,11 @@ def run_phase5(gnn_epochs=50):
     val_auc = roc_auc_score(val_y_arr, val_hybrid_scores)
     test_auc = roc_auc_score(test_y_arr, test_hybrid_scores)
 
+    # Fit ProbabilityCalibrator on held-out validation set
+    from calibration import ProbabilityCalibrator
+    phase5_calibrator = ProbabilityCalibrator(method="isotonic")
+    phase5_calibrator.fit(val_hybrid_scores, val_y_arr)
+
     phase5_meta = {
         "tabular_cols": tabular_cols,
         "graph_cols": graph_cols,
@@ -358,6 +374,9 @@ def run_phase5(gnn_epochs=50):
         "hybrid_feature_cols": hybrid_feature_cols,
         "emb_dim": GNN_EMB_DIM,
         "classifier": "XGBoost",
+        "calibrated": True,
+        "calibrator_method": "isotonic",
+        "thresholds": [0.25, 0.55, 0.85],
     }
 
     return {
@@ -365,6 +384,7 @@ def run_phase5(gnn_epochs=50):
         "buyer_embeddings": buyer_embs_test,
         "seller_embeddings": seller_embs_test,
         "phase5_meta": phase5_meta,
+        "calibrator": phase5_calibrator,
         "val_auc": val_auc,
         "test_auc": test_auc,
     }

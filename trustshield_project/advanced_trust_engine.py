@@ -41,6 +41,10 @@ class AdvancedTrustResult:
     detector_scores: Dict[str, float]
     aggregation_method_used: str
 
+    @property
+    def risk_score(self) -> float:
+        return self.calibrated_risk
+
 
 class ConformalPredictor:
     """Split Conformal Prediction for distribution-free finite-sample error guarantees."""
@@ -87,12 +91,77 @@ class ConformalPredictor:
         return pred_set
 
 
-class StackingRiskMetaLearner:
-    """Meta-learner combining component detector scores into an optimal stacked risk score."""
+class NonNegativeLogisticRegression:
+    """Logistic regression with mathematically guaranteed non-negative coefficient bounds (w >= 0).
+    
+    Ensures that increased risk signal from any detector monotonically increases (or does not decrease)
+    the overall composite stacked risk score.
+    """
 
-    def __init__(self):
-        # LogisticRegression with non-negative constraints ensures higher detector risk increases composite risk
-        self.clf = LogisticRegression(solver="lbfgs", max_iter=200, random_state=42)
+    def __init__(self, l2_reg: float = 1.0):
+        self.l2_reg = l2_reg
+        self.coef_: np.ndarray = np.array([])
+        self.intercept_: float = 0.0
+        self.classes_ = np.array([0, 1])
+
+    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> "NonNegativeLogisticRegression":
+        from scipy.optimize import minimize
+        X_mat = np.asarray(X, dtype=float)
+        y_arr = np.asarray(y, dtype=float).ravel()
+        n, p = X_mat.shape
+
+        if n == 0 or p == 0:
+            self.coef_ = np.zeros(p)
+            self.intercept_ = 0.0
+            return self
+
+        def loss_and_grad(params: np.ndarray) -> tuple[float, np.ndarray]:
+            w = params[:p]
+            b = params[p]
+            z = np.clip(X_mat @ w + b, -30.0, 30.0)
+            p_hat = 1.0 / (1.0 + np.exp(-z))
+            # Negative log-likelihood + L2 regularization
+            eps = 1e-12
+            nll = -np.mean(y_arr * np.log(np.maximum(p_hat, eps)) + (1.0 - y_arr) * np.log(np.maximum(1.0 - p_hat, eps)))
+            reg = (self.l2_reg / (2.0 * max(n, 1))) * np.sum(w ** 2)
+            loss = float(nll + reg)
+
+            err = (p_hat - y_arr) / max(n, 1)
+            grad_w = X_mat.T @ err + (self.l2_reg / max(n, 1)) * w
+            grad_b = float(np.sum(err))
+            return loss, np.append(grad_w, grad_b)
+
+        init_w = np.full(p, 1.0 / max(p, 1))
+        mean_y = float(np.clip(np.mean(y_arr), 1e-4, 1.0 - 1e-4))
+        init_b = float(np.log(mean_y / (1.0 - mean_y)))
+        init_params = np.append(init_w, init_b)
+
+        # Bounds: weights >= 0, intercept unconstrained
+        bounds = [(0.0, None)] * p + [(None, None)]
+
+        res = minimize(loss_and_grad, init_params, method="L-BFGS-B", jac=True, bounds=bounds)
+        self.coef_ = np.maximum(res.x[:p], 0.0)
+        self.intercept_ = float(res.x[p])
+        return self
+
+    def predict_proba(self, X: np.ndarray | pd.DataFrame) -> np.ndarray:
+        X_mat = np.asarray(X, dtype=float)
+        if len(self.coef_) == 0:
+            return np.column_stack([np.ones(len(X_mat)), np.zeros(len(X_mat))])
+        z = np.clip(X_mat @ self.coef_ + self.intercept_, -30.0, 30.0)
+        p = 1.0 / (1.0 + np.exp(-z))
+        return np.column_stack([1.0 - p, p])
+
+
+class StackingRiskMetaLearner:
+    """Meta-learner combining component detector scores into an optimal stacked risk score.
+    
+    Uses NonNegativeLogisticRegression with L-BFGS-B bound constraints (w >= 0) to strictly enforce
+    that elevated component detector scores monotonically increase composite fraud risk.
+    """
+
+    def __init__(self, l2_reg: float = 1.0):
+        self.clf = NonNegativeLogisticRegression(l2_reg=l2_reg)
         self.component_names: List[str] = []
         self.is_fitted: bool = False
 
@@ -215,3 +284,7 @@ class AdvancedTrustEngine:
             detector_scores={k: round(float(v), 4) for k, v in detector_scores.items()},
             aggregation_method_used=agg_method,
         )
+
+
+# Canonical alias for the unified serving Trust Engine
+CanonicalTrustEngine = AdvancedTrustEngine
