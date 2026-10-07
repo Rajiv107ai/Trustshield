@@ -17,6 +17,12 @@ This directory serves as the centralized repository for all engineering audits, 
 ---
 
 ### 🔬 2. Scientific Audits & Empirical Benchmarks
+- [**Model Robustness & Perturbation Report (`ROBUSTNESS_REPORT.md`)**](ROBUSTNESS_REPORT.md)  
+  Empirical stress testing under Gaussian feature noise, missingness injection, extreme dollar value perturbations, and topology disconnects.
+- [**High-Throughput Scalability Report (`SCALABILITY_REPORT.md`)**](SCALABILITY_REPORT.md)  
+  Empirical benchmarking measuring QPS throughput, p50/p95/p99 inference latencies, worker thread scaling, and saturation profiles.
+- [**Delayed Feedback Simulation Report (`DELAYED_FEEDBACK_REPORT.md`)**](DELAYED_FEEDBACK_REPORT.md)  
+  Rigorous simulation of 7-day, 14-day, 30-day, and 60-day fraud label latency, measuring PR-AUC decay and evaluating streaming mitigation strategies.
 - [**49-Point Scientific Re-Audit (`49_POINT_REAUDIT.md`)**](49_POINT_REAUDIT.md)  
   Exhaustive line-by-line audit examining statistical validity, temporal leakage, graph isolation, and mathematical proofs.
 - [**Final Before/After Benchmark Report (`FINAL_BEFORE_AFTER.md`)**](FINAL_BEFORE_AFTER.md)  
@@ -30,7 +36,15 @@ This directory serves as the centralized repository for all engineering audits, 
 
 ---
 
-### 🏛️ 3. Advanced Research & Architecture
+### 🏛️ 3. Advanced Research, Infrastructure & Architecture
+- [**Enterprise Architecture & Extensions Blueprint (`ARCHITECTURE_AND_EXTENSIONS_PLAN.md`)**](ARCHITECTURE_AND_EXTENSIONS_PLAN.md)  
+  Holistic technical plan detailing the microservices layer, Redis 16D vector store, Neo4j temporal graph, SSE event streaming, TreeSHAP explainability, and observability.
+- [**Real-Time Streaming Architecture (`REALTIME_ARCHITECTURE.md`)**](REALTIME_ARCHITECTURE.md)  
+  Specifications for Server-Sent Events (SSE) `/stream/transactions`, 15-second heartbeat keepalive frames, bounded worker queues, and client disconnect lifecycles.
+- [**Infrastructure & Service Mesh (`INFRASTRUCTURE.md`)**](INFRASTRUCTURE.md)  
+  Redis 16-dimensional GNN embedding store, Neo4j temporal Cypher property graph, Docker Compose 5-service orchestration, and zero-downtime offline fallbacks.
+- [**Forensic Investigation API Specification (`INVESTIGATION_API.md`)**](INVESTIGATION_API.md)  
+  API contract for `/investigation/generate-dossier`, combining entity telemetry, 2-hop graph topology, policy RAG guidelines, and automated anti-hallucination verification.
 - [**Phase 2: Final Advanced Research Report (`PHASE2_FINAL_REPORT.md`)**](PHASE2_FINAL_REPORT.md)  
   Comprehensive mathematical synthesis of Heterogeneous GNNs (`HeteroData`), $Time2Vec$ continuous-time edge learning, multimodal CLIP/FAISS vector retrieval, and Conformal Prediction uncertainty quantification.
 - [**Phase 2: Pre-Implementation Baseline (`PHASE2_BASELINE.md`)**](PHASE2_BASELINE.md)  
@@ -42,7 +56,9 @@ This directory serves as the centralized repository for all engineering audits, 
 
 ---
 
-### 📋 4. Governance, Compliance & Safety
+### 📋 4. Governance, Compliance, Observability & Safety
+- [**Production Observability Specification (`OBSERVABILITY.md`)**](OBSERVABILITY.md)  
+  Prometheus metric registry (`/metrics`), latency histograms, Grafana dashboard templates, and low-cardinality guardrails.
 - [**System Model Card (`MODEL_CARD.md`)**](MODEL_CARD.md)  
   Standardized AI governance card detailing intended use, prohibited applications, training data distributions, fairness evaluations, and ethical considerations.
 - [**Technical Limitations & Disclosure (`LIMITATIONS.md`)**](LIMITATIONS.md)  

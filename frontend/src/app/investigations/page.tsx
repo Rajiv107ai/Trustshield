@@ -15,7 +15,13 @@ import {
   User,
   Smartphone,
   Lock,
+  Sparkles,
+  RefreshCw,
+  Cpu,
+  BookOpen,
 } from "lucide-react";
+import { TrustShieldApi } from "@/lib/api/client";
+import { DossierResponse } from "@/lib/types/api";
 
 interface CaseItem {
   id: string;
@@ -41,7 +47,7 @@ const CASES_DATA: CaseItem[] = [
     title: "Device Farm Collusion Cluster #1",
     severity: "CRITICAL",
     date: "2026-10-07 22:45",
-    primaryEntity: "RING_COLLUSION_01",
+    primaryEntity: "ORD_78901",
     assignedTo: "Senior Fraud Investigator",
     summary:
       "Nine distinct buyer identities sharing identical mobile hardware signatures placing burst orders with a common single-merchant store within a 4-hour window.",
@@ -65,7 +71,7 @@ const CASES_DATA: CaseItem[] = [
     title: "Cross-Seller Catalog Photo Theft",
     severity: "HIGH",
     date: "2026-10-07 19:20",
-    primaryEntity: "SELLER_SUSPECT_44",
+    primaryEntity: "ORD_78920",
     assignedTo: "Catalog Integrity Team",
     summary:
       "New merchant listing high-end electronics using imagery stolen from authorized merchant with 94.5% CLIP cosine similarity match.",
@@ -88,7 +94,7 @@ const CASES_DATA: CaseItem[] = [
     title: "Serial Wardrobing & Empty Box Refund Abuse",
     severity: "MEDIUM",
     date: "2026-10-07 14:10",
-    primaryEntity: "BUYER_REFUND_ABUSER",
+    primaryEntity: "ORD_78907",
     assignedTo: "Chargeback Resolution Unit",
     summary:
       "Customer with historical 80% return rate submitting another high-value 'wrong item received' chargeback claim.",
@@ -110,6 +116,26 @@ const CASES_DATA: CaseItem[] = [
 
 export default function InvestigationsPage() {
   const [selectedCase, setSelectedCase] = useState<CaseItem>(CASES_DATA[0]);
+  const [liveDossier, setLiveDossier] = useState<DossierResponse | null>(null);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [isLive, setIsLive] = useState<boolean>(false);
+
+  const handleSynthesizeDossier = async () => {
+    setIsGenerating(true);
+    try {
+      const res = await TrustShieldApi.generateDossier({
+        entity_type: "transaction",
+        entity_id: selectedCase.primaryEntity,
+        include_graph_evidence: true,
+      });
+      setLiveDossier(res.data);
+      setIsLive(res.isLive);
+    } catch (err) {
+      console.error("Dossier generation error:", err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -121,13 +147,13 @@ export default function InvestigationsPage() {
             <span>Case Management & Grounded Evidence Dossiers</span>
           </h1>
           <p className="text-xs text-[#8995A3] mt-1">
-            Forensic case files with verifiable multi-channel evidence timelines and deterministic anti-hallucination bounds.
+            Forensic case files with verifiable multi-channel evidence timelines, live Neo4j graph findings, and deterministic anti-hallucination bounds.
           </p>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111821] border border-[#202A35] text-xs font-mono">
           <span className="text-[#8995A3]">Guard:</span>
-          <span className="text-emerald-400 font-semibold">100% Grounded in Ledger</span>
+          <span className="text-emerald-400 font-semibold">100% Grounded in Evidence</span>
         </div>
       </div>
 
@@ -148,7 +174,10 @@ export default function InvestigationsPage() {
               return (
                 <div
                   key={c.id}
-                  onClick={() => setSelectedCase(c)}
+                  onClick={() => {
+                    setSelectedCase(c);
+                    setLiveDossier(null);
+                  }}
                   className={`p-3 rounded-lg border cursor-pointer transition-all ${
                     isSelected
                       ? "bg-[#151D27] border-blue-500 shadow-md ring-1 ring-blue-500/30"
@@ -205,16 +234,128 @@ export default function InvestigationsPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs font-mono font-semibold transition-colors">
-                  Export Dossier PDF
+                <button
+                  onClick={handleSynthesizeDossier}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-mono font-semibold transition-all shadow-md shadow-blue-500/20 disabled:opacity-50"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Synthesizing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+                      <span>Live GenAI Dossier</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
 
             <p className="text-xs text-[#E8EDF3] leading-relaxed bg-[#0E131A] p-3.5 rounded-lg border border-[#202A35]">
-              {selectedCase.summary}
+              {liveDossier ? liveDossier.executive_summary : selectedCase.summary}
             </p>
           </div>
+
+          {/* Live Grounded Dossier Synthesis Output */}
+          {liveDossier && (
+            <div className="p-5 rounded-xl border border-blue-500/40 bg-[#0E1521] space-y-4">
+              <div className="flex items-center justify-between border-b border-[#202A35] pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
+                    Live Grounded Forensic Synthesis ({liveDossier.case_id})
+                  </span>
+                  {isLive && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      Live FastAPI Gateway
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Hallucination Guard Verified
+                </span>
+              </div>
+
+              {/* Quadrant Separation: Observed vs Inferred vs Graph vs Recommendation */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
+                {/* 1. Observed Evidence */}
+                <div className="p-3.5 rounded-lg bg-[#0B0F14] border border-[#202A35] space-y-2">
+                  <span className="text-[11px] font-mono font-bold uppercase text-blue-400 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />
+                    1. Observed Evidence (Direct Facts)
+                  </span>
+                  <ul className="space-y-1 text-[#C4D0DE] text-xs list-disc list-inside">
+                    {liveDossier.observed_evidence.verified_facts.map((fact, i) => (
+                      <li key={i}>{fact}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 2. Model Inference */}
+                <div className="p-3.5 rounded-lg bg-[#0B0F14] border border-[#202A35] space-y-2">
+                  <span className="text-[11px] font-mono font-bold uppercase text-purple-400 flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    2. Model Inference & Uncertainty
+                  </span>
+                  <div className="space-y-1 text-xs text-[#C4D0DE] font-mono">
+                    <div>Calibrated Risk: <span className="font-bold text-white">{(liveDossier.model_inference.calibrated_risk_score * 100).toFixed(2)}%</span></div>
+                    <div>Operational Decision: <span className="font-bold text-white">{liveDossier.model_inference.operational_decision}</span></div>
+                    <div>Conformal Coverage Set: <span className="text-blue-300">{liveDossier.model_inference.conformal_prediction_set}</span></div>
+                    <div>Confidence: <span className="text-emerald-400">{(liveDossier.model_inference.confidence_level * 100).toFixed(1)}%</span></div>
+                  </div>
+                </div>
+
+                {/* 3. Graph Findings */}
+                <div className="p-3.5 rounded-lg bg-[#0B0F14] border border-[#202A35] space-y-2">
+                  <span className="text-[11px] font-mono font-bold uppercase text-amber-400 flex items-center gap-1.5">
+                    <Network className="w-3.5 h-3.5" />
+                    3. Graph Topology Findings
+                  </span>
+                  <p className="text-xs text-[#C4D0DE] leading-relaxed">
+                    {liveDossier.graph_findings.topology_summary}
+                  </p>
+                  <div className="text-[10px] font-mono text-[#8995A3]">
+                    Source: {liveDossier.graph_findings.graph_source} · Cluster Size: {liveDossier.graph_findings.cluster_size}
+                  </div>
+                </div>
+
+                {/* 4. Action Recommendation */}
+                <div className="p-3.5 rounded-lg bg-[#0B0F14] border border-[#202A35] space-y-2">
+                  <span className="text-[11px] font-mono font-bold uppercase text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    4. Recommended Action Protocol
+                  </span>
+                  <div className="text-xs font-semibold text-white">
+                    {liveDossier.recommendation.action}
+                  </div>
+                  <div className="text-[11px] text-[#8995A3]">
+                    Clear Protocol: {liveDossier.recommendation.required_evidence_to_clear}
+                  </div>
+                </div>
+              </div>
+
+              {/* RAG Policy Guidelines */}
+              {liveDossier.retrieved_policy_guidelines.length > 0 && (
+                <div className="p-3 rounded-lg bg-[#0B0F14] border border-[#202A35] space-y-1.5">
+                  <span className="text-[10px] font-mono font-bold uppercase text-zinc-400 flex items-center gap-1">
+                    <BookOpen className="w-3 h-3 text-blue-400" />
+                    Retrieved Forensic RAG Policy Guidelines
+                  </span>
+                  <div className="space-y-1 text-[11px] text-[#A2AEBD]">
+                    {liveDossier.retrieved_policy_guidelines.map((pol, idx) => (
+                      <div key={idx} className="bg-[#121822] p-2 rounded border border-[#1E2734]">
+                        {pol}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Chronological Evidence Timeline */}
           <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">

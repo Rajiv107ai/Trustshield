@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Activity, Search, Filter, ArrowUpRight, CheckCircle2, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
+import { Activity, Search, Filter, ArrowUpRight, CheckCircle2, AlertTriangle, XCircle, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { TrustShieldApi } from "@/lib/api/client";
+import { StreamTransactionEvent } from "@/lib/types/api";
 
 interface FeedItem {
   id: string;
@@ -13,9 +15,10 @@ interface FeedItem {
   risk: number;
   decision: "ALLOW" | "REVIEW" | "HOLD" | "BLOCK";
   reason: string;
+  isNew?: boolean;
 }
 
-const FEED_DATA: FeedItem[] = [
+const INITIAL_FEED_DATA: FeedItem[] = [
   { id: "ORD_78921", timestamp: "10:58:12", buyer: "BUYER_RING_MEMBER_04", seller: "SELLER_RING_LEADER_01", amount: 890.00, risk: 0.942, decision: "BLOCK", reason: "HIGH_DEVICE_COLLISION" },
   { id: "ORD_78920", timestamp: "10:57:44", buyer: "BUYER_REFUND_ABUSER", seller: "SELLER_ELECTRONICS_09", amount: 320.00, risk: 0.785, decision: "HOLD", reason: "HIGH_RETURN_VELOCITY" },
   { id: "ORD_78919", timestamp: "10:56:30", buyer: "BUYER_NEWBIE_99", seller: "SELLER_UNKNOWN_44", amount: 450.00, risk: 0.380, decision: "REVIEW", reason: "PRICE_OUTLIER_99TH_PCT" },
@@ -29,8 +32,37 @@ const FEED_DATA: FeedItem[] = [
 export default function TransactionFeedPage() {
   const [filterDecision, setFilterDecision] = useState<string>("ALL");
   const [search, setSearch] = useState<string>("");
+  const [items, setItems] = useState<FeedItem[]>(INITIAL_FEED_DATA);
+  const [streamStatus, setStreamStatus] = useState<"LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING">("CONNECTING");
 
-  const filtered = FEED_DATA.filter((tx) => {
+  useEffect(() => {
+    const cleanup = TrustShieldApi.createTransactionEventSource(
+      (event: StreamTransactionEvent) => {
+        const newItem: FeedItem = {
+          id: event.order_id,
+          timestamp: event.timestamp,
+          buyer: event.buyer_id,
+          seller: event.seller_id,
+          amount: event.amount,
+          risk: event.calibrated_risk,
+          decision: event.decision as "ALLOW" | "REVIEW" | "HOLD" | "BLOCK",
+          reason: event.reason_codes[0] || "CANONICAL_TRUST_ENGINE",
+          isNew: true,
+        };
+
+        setItems((prev) => [newItem, ...prev.slice(0, 49)]);
+      },
+      (status) => {
+        if (status === "LIVE" || status === "CONNECTING" || status === "DISCONNECTED" || status === "RECONNECTING") {
+          setStreamStatus(status);
+        }
+      }
+    );
+
+    return () => cleanup();
+  }, []);
+
+  const filtered = items.filter((tx) => {
     const matchFilter = filterDecision === "ALL" || tx.decision === filterDecision;
     const matchSearch =
       tx.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -44,12 +76,40 @@ export default function TransactionFeedPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-[#E8EDF3] flex items-center gap-2">
-            <Activity className="w-5 h-5 text-blue-400" />
-            <span>Transaction Live Stream & Audit Feed</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold tracking-tight text-[#E8EDF3] flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-400" />
+              <span>Transaction Live Stream & Audit Feed</span>
+            </h1>
+
+            {/* Stream Status Indicator */}
+            {streamStatus === "LIVE" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                LIVE STREAM
+              </span>
+            )}
+            {streamStatus === "CONNECTING" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                CONNECTING
+              </span>
+            )}
+            {streamStatus === "RECONNECTING" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                <Wifi className="w-3 h-3 animate-pulse" />
+                RECONNECTING
+              </span>
+            )}
+            {streamStatus === "DISCONNECTED" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-zinc-500/10 text-zinc-400 border border-zinc-500/30">
+                <WifiOff className="w-3 h-3" />
+                OFFLINE REPLAY
+              </span>
+            )}
+          </div>
           <p className="text-xs text-[#8995A3] mt-1">
-            Real-time chronological ingest log capturing feature states, risk calibration, and decision dispatch.
+            Real-time SSE event stream scoring incoming orders dynamically via Canonical Trust Engine.
           </p>
         </div>
 
@@ -100,57 +160,74 @@ export default function TransactionFeedPage() {
                 <th className="py-2 px-3 text-right">Inspect</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#151D27] text-xs font-mono">
+            <tbody className="divide-y divide-[#1B232D] text-xs font-mono">
               {filtered.map((tx) => (
-                <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
-                  <td className="py-3 px-3 text-[#596574]">{tx.timestamp}</td>
-                  <td className="py-3 px-3 text-blue-400 font-semibold">{tx.id}</td>
-                  <td className="py-3 px-3 text-[#E8EDF3]">{tx.buyer}</td>
-                  <td className="py-3 px-3 text-[#8995A3]">{tx.seller}</td>
-                  <td className="py-3 px-3 text-[#E8EDF3]">${tx.amount.toFixed(2)}</td>
-                  <td className="py-3 px-3">
+                <tr
+                  key={tx.id + tx.timestamp}
+                  className={`hover:bg-[#161F2A] transition-colors ${
+                    tx.isNew ? "bg-blue-500/5 animate-pulse" : ""
+                  }`}
+                >
+                  <td className="py-2.5 px-3 text-[#8995A3] whitespace-nowrap">{tx.timestamp}</td>
+                  <td className="py-2.5 px-3 font-semibold text-[#E8EDF3]">{tx.id}</td>
+                  <td className="py-2.5 px-3 text-blue-400">{tx.buyer}</td>
+                  <td className="py-2.5 px-3 text-[#A2AEBD]">{tx.seller}</td>
+                  <td className="py-2.5 px-3 text-[#E8EDF3] font-sans font-medium">
+                    ${tx.amount.toFixed(2)}
+                  </td>
+                  <td className="py-2.5 px-3">
                     <span
-                      className={`font-semibold ${
-                        tx.risk > 0.7 ? "text-rose-400" : tx.risk > 0.3 ? "text-amber-400" : "text-emerald-400"
+                      className={`font-bold ${
+                        tx.risk >= 0.7
+                          ? "text-rose-400"
+                          : tx.risk >= 0.4
+                          ? "text-amber-400"
+                          : "text-emerald-400"
                       }`}
                     >
                       {(tx.risk * 100).toFixed(1)}%
                     </span>
                   </td>
-                  <td className="py-3 px-3">
+                  <td className="py-2.5 px-3">
                     <span
-                      className={`text-[9px] px-2 py-0.5 rounded font-bold border ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
                         tx.decision === "BLOCK"
-                          ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                          ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
                           : tx.decision === "HOLD"
-                          ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                           : tx.decision === "REVIEW"
-                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                          : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                       }`}
                     >
+                      {tx.decision === "BLOCK" && <XCircle className="w-3 h-3" />}
+                      {tx.decision === "HOLD" && <AlertTriangle className="w-3 h-3" />}
+                      {tx.decision === "REVIEW" && <Activity className="w-3 h-3" />}
+                      {tx.decision === "ALLOW" && <CheckCircle2 className="w-3 h-3" />}
                       {tx.decision}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-[#8995A3]">{tx.reason}</td>
-                  <td className="py-3 px-3 text-right">
+                  <td className="py-2.5 px-3 text-[11px] text-[#8995A3] max-w-[200px] truncate">
+                    {tx.reason}
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
                     <Link
-                      href={`/transactions?preset=${
-                        tx.decision === "BLOCK"
-                          ? "preset_device_farm"
-                          : tx.decision === "HOLD"
-                          ? "preset_serial_returner"
-                          : tx.decision === "REVIEW"
-                          ? "preset_price_arbitrage"
-                          : "preset_normal_buyer"
-                      }`}
-                      className="text-blue-400 hover:underline"
+                      href={`/transactions?preset=${tx.id}`}
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 font-sans font-medium"
                     >
-                      Inspect &rarr;
+                      <span>Analyze</span>
+                      <ArrowUpRight className="w-3 h-3" />
                     </Link>
                   </td>
                 </tr>
               ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-[#596574] font-sans text-xs">
+                    No transactions match the active search or decision filter.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

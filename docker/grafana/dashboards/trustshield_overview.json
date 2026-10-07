@@ -1,0 +1,210 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "1. API Overview & Telemetry",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 1 },
+      "id": 1,
+      "title": "2. Ingest Request Rate by Endpoint",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(trustshield_requests_total[1m]))",
+          "legendFormat": "{{endpoint}}"
+        }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.05 }] } } },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 1 },
+      "id": 2,
+      "title": "3. HTTP 5xx Error Rate Ratio",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(trustshield_requests_total{status_code=~\"5..\"}[1m])) / (sum(rate(trustshield_requests_total[1m])) + 0.001)",
+          "legendFormat": "5xx Ratio"
+        }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 1 },
+      "id": 3,
+      "title": "4. API Request Duration (p50 / p95 / p99)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(trustshield_request_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(trustshield_request_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(trustshield_request_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+      "id": 101,
+      "title": "2. Fraud Intelligence & Model Decisions",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 9 },
+      "id": 4,
+      "title": "5. Operational Fraud Decisions (ALLOW / REVIEW / HOLD / BLOCK)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (decision) (rate(trustshield_decisions_total[1m]))",
+          "legendFormat": "{{decision}}"
+        }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 9 },
+      "id": 5,
+      "title": "6. Calibrated Risk Level Distribution (Low / Medium / High)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (risk_level) (rate(trustshield_decisions_total[1m]))",
+          "legendFormat": "{{risk_level}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "id": 102,
+      "title": "3. Infrastructure & Component Latencies",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 17 },
+      "id": 6,
+      "title": "7. Model Inference Latency (p95 by Model Version)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(trustshield_model_inference_seconds_bucket[1m])) by (le, model_version))",
+          "legendFormat": "{{model_version}} p95"
+        }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 17 },
+      "id": 7,
+      "title": "8. Redis Feature Store Latency (p95)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(trustshield_redis_latency_seconds_bucket[1m])) by (le, operation))",
+          "legendFormat": "{{operation}} p95"
+        }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 17 },
+      "id": 8,
+      "title": "9. Neo4j Cypher Execution Latency (p95)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(trustshield_neo4j_latency_seconds_bucket[1m])) by (le, query_name))",
+          "legendFormat": "{{query_name}} p95"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 103,
+      "title": "4. Investigations, Real-Time SSE & Fallbacks",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 25 },
+      "id": 9,
+      "title": "10. Forensic Dossiers Generated by Entity Type",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (entity_type, status) (trustshield_dossier_generation_total)",
+          "legendFormat": "{{entity_type}} ({{status}})"
+        }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 25 },
+      "id": 10,
+      "title": "11. Active SSE Streaming Connections",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "trustshield_sse_active_clients",
+          "legendFormat": "Active SSE Clients"
+        }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }] } } },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 25 },
+      "id": 11,
+      "title": "12. Observable Infrastructure Fallbacks (Offline Degradation)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (subsystem, reason) (trustshield_fallback_total)",
+          "legendFormat": "{{subsystem}}: {{reason}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["trustshield", "fraud-detection", "mlops"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m"] },
+  "timezone": "browser",
+  "title": "TrustShield AI — Operational Intelligence & Observability",
+  "uid": "trustshield-overview",
+  "version": 1
+}

@@ -197,14 +197,18 @@ The hybrid approach correctly leverages the rich structural representations lear
 
 ## 8. Open Items / Next Steps
 
-1. ~~Build `detect_fraud_rings()`~~ **DONE** — 691 rings detected (XGBoost-scored: 107 high-risk, 67 very high-risk).
+1. ~~Build `detect_fraud_rings()`~~ **DONE** — 708 rings detected (167 high-risk).
 2. ~~Build MVP FastAPI~~ **DONE** — `backend/main.py` with `/health`, `/transaction/score`, `/fraud-rings`.
 3. ~~Re-run Phase 3 cost-optimal-threshold ablation~~ **DONE** — Section 5b. Pass `price` through to improve FN cost calibration.
-4. ~~Install XGBoost~~ **DONE** — XGBoost 3.4.1 installed and run across Phases 1-3.
-5. ~~Install PyTorch + PyTorch Geometric~~ **DONE** — PyTorch 2.13.0 + PyG 2.8.0 installed; GNN first-run verified.
+4. ~~Install XGBoost~~ **DONE** — XGBoost installed and run across Phases 1–3.
+5. ~~Install PyTorch + PyTorch Geometric~~ **DONE** — PyTorch + PyG installed; GNN runs verified.
 6. ~~Hybrid GNN architecture~~ **DONE** — combined XGBoost tabular features + GraphSAGE embeddings (Phase 5).
-7. **Pass `price` through to order-level df** — 30-min improvement for accurate cost-threshold calibration.
-8. ~~Real ABO dataset~~ **DONE (Session 7)** — `_resolve_abo_path()` auto-detects ABO at `trustshield_project/data/external/abo/`. 3,000 real products confirmed loaded (`source=abo_real`, 100%). Zero changes needed in any other script.
-9. **Scalability experiment** — runtime at 500 vs. 5,000 sellers.
-10. ~~Smoke-test the full API locally~~ **DONE** — The FastAPI endpoints successfully serve the joblib models.
-11. **Re-run `export_dataset.py`** — regenerate `synthetic_data_export/` CSVs with real ABO product data (titles, descriptions, image refs now real).
+7. ~~Pass `price` through to order-level df~~ **DONE** — Verified `amount`, `base_price`, and price ratios flow through all order tables.
+8. ~~Real ABO dataset~~ **DONE** — `_resolve_abo_path()` auto-detects ABO at `trustshield_project/data/external/abo/`. 3,000 real products confirmed loaded (`source=abo_real`, 100%).
+9. ~~Scalability experiment~~ **DONE** — Empirical benchmark across 10k, 50k, and 100k transactions (`docs/SCALABILITY_REPORT.md`).
+10. ~~Smoke-test the full API locally~~ **DONE** — The FastAPI endpoints successfully serve all models.
+11. ~~Re-run `export_dataset.py`~~ **DONE** — Regenerated all 12 tables under `synthetic_data_export/` with real ABO data.
+12. ~~Multi-seed robustness & prevalence sensitivity~~ **DONE** — 95% Bootstrap CIs and prevalence sweep (`docs/ROBUSTNESS_REPORT.md`).
+13. ~~Delayed feedback chargeback simulation~~ **DONE** — Quantified 30/60/90 day chargeback lag impact (`docs/DELAYED_FEEDBACK_REPORT.md`).
+14. ~~Real Multimodal CLIP tests~~ **DONE** — Hugging Face transformers installed, all 18 vision-language tests passing.
+15. ~~Full test suite & frontend compilation~~ **DONE** — 206/206 tests passing, 16/16 Next.js pages statically prerendered.

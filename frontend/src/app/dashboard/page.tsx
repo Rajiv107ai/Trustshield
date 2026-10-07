@@ -23,6 +23,7 @@ import {
 
 export default function DashboardPage() {
   const { viewMode, isLive, readyInfo } = useViewMode();
+  const [streamStatus, setStreamStatus] = useState<"LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "OFFLINE">("CONNECTING");
   const [metrics, setMetrics] = useState({
     totalAnalyzed: 142850,
     flaggedFraud: 4210,
@@ -32,7 +33,7 @@ export default function DashboardPage() {
     savingsPrevented: "$1,842,500",
   });
 
-  const recentTransactions = [
+  const [recentTransactions, setRecentTransactions] = useState([
     {
       id: "ORD_78910",
       buyer: "BUYER_RING_MEMBER_04",
@@ -69,7 +70,37 @@ export default function DashboardPage() {
       reason: "180 days active, 15 prior successful orders, zero returns",
       timestamp: "14 mins ago",
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    const cleanup = TrustShieldApi.createTransactionEventSource(
+      (event) => {
+        setStreamStatus("LIVE");
+        setRecentTransactions((prev) => {
+          const newTx = {
+            id: event.order_id,
+            buyer: event.buyer_id,
+            amount: `$${event.amount.toFixed(2)}`,
+            risk: event.risk_score,
+            decision: event.decision,
+            reason: event.reason_codes.length > 0 ? event.reason_codes.join(", ") : "Standard baseline scoring",
+            timestamp: "Just now",
+          };
+          return [newTx, ...prev.slice(0, 5)];
+        });
+        setMetrics((prev) => ({
+          ...prev,
+          totalAnalyzed: prev.totalAnalyzed + 1,
+          flaggedFraud: event.risk_score > 0.7 ? prev.flaggedFraud + 1 : prev.flaggedFraud,
+        }));
+      },
+      (status) => {
+        setStreamStatus(status === "ERROR" ? "OFFLINE" : status);
+      }
+    );
+
+    return () => cleanup();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -140,16 +171,36 @@ export default function DashboardPage() {
       {/* System Readiness Probe Grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { name: "API Gateway", status: isLive ? "Operational" : "Offline Demo", active: true },
-          { name: "Phase 5 Hybrid", status: "Active (XGBoost)", active: true },
-          { name: "Hetero GNN", status: "Active (PyG 16D)", active: true },
-          { name: "Fraud Rings", status: "14 Clusters Loaded", active: true },
-          { name: "CLIP Vector Cache", status: "FAISS Indexed", active: true },
+          {
+            name: "API Gateway",
+            status: isLive ? "Operational" : "Offline Demo",
+            active: isLive,
+          },
+          {
+            name: "Redis Feature Store",
+            status: readyInfo?.components?.redis === "available" ? "Live (Port 6379)" : "Offline (Disk Fallback)",
+            active: readyInfo?.components?.redis === "available",
+          },
+          {
+            name: "Neo4j Graph Store",
+            status: readyInfo?.components?.neo4j === "available" ? "Live (Port 7687)" : "Offline (Disk Rings)",
+            active: readyInfo?.components?.neo4j === "available",
+          },
+          {
+            name: "Phase 5 Hybrid",
+            status: readyInfo?.components?.models === "ready" ? "Active (XGBoost)" : "Artifact Model",
+            active: true,
+          },
+          {
+            name: "Prometheus Telemetry",
+            status: readyInfo?.components?.prometheus === "available" ? "Scraping /metrics" : "Standby",
+            active: readyInfo?.components?.prometheus === "available",
+          },
         ].map((comp, idx) => (
           <div key={idx} className="p-3 rounded-lg border border-[#202A35] bg-[#111821]">
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-[#8995A3] truncate">{comp.name}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className={`w-1.5 h-1.5 rounded-full ${comp.active ? "bg-emerald-500" : "bg-amber-500"}`} />
             </div>
             <div className="text-xs font-semibold text-[#E8EDF3] mt-1 font-mono">{comp.status}</div>
           </div>
@@ -251,11 +302,29 @@ export default function DashboardPage() {
       {/* Flagged Transactions Queue */}
       <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs font-semibold text-[#E8EDF3] uppercase tracking-wider">
-              Priority Risk Queue & Incident Triage
+          <div className="flex items-center gap-3">
+            <div>
+              <div className="text-xs font-semibold text-[#E8EDF3] uppercase tracking-wider">
+                Priority Risk Queue & Incident Triage
+              </div>
+              <div className="text-[11px] text-[#8995A3]">Live stream of suspicious and scored orders requiring ops awareness.</div>
             </div>
-            <div className="text-[11px] text-[#8995A3]">Live stream of suspicious and blocked orders requiring ops awareness.</div>
+            <span
+              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1.5 ${
+                streamStatus === "LIVE"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : streamStatus === "CONNECTING"
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  : "bg-slate-500/10 text-slate-400 border-slate-500/30"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  streamStatus === "LIVE" ? "bg-emerald-400 animate-ping" : "bg-slate-400"
+                }`}
+              />
+              {streamStatus === "LIVE" ? "LIVE SSE FEED" : streamStatus === "CONNECTING" ? "CONNECTING..." : "OFFLINE REPLAY"}
+            </span>
           </div>
           <Link
             href="/transactions/feed"
