@@ -34,8 +34,11 @@ pytest>=8.0
 sqlalchemy>=2.0
 psycopg2-binary>=2.9
 
-# Explainability (Phase 7 stretch)
-# shap>=0.44
+# Explainability Layer (TreeSHAP exact local & global attributions)
+shap>=0.44
 
-# MLOps (Phase 7 stretch)
-# mlflow>=2.10
+# MLOps & Infrastructure Layer
+redis>=5.0
+neo4j>=5.20
+prometheus-client>=0.20.0
+sse-starlette>=2.0

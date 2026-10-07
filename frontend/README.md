@@ -31,16 +31,16 @@ The frontend connects by default to the FastAPI backend running at `http://local
 | Path | Screen Name | Description |
 | :--- | :--- | :--- |
 | **`/dashboard`** | **Command Center** | System readiness probe, key volume metrics, decision distribution bar, and live flagged queue. |
-| **`/transactions`** | **Risk Analyzer (Hero)** | 1-Click scenario simulator, decision banner, Trust score gauge, plain-English reasons, and conformal uncertainty. |
-| **`/transactions/feed`** | **Audit Stream** | High-density chronological transaction feed with decision and risk filtering. |
+| **`/transactions`** | **Risk Analyzer (Hero)** | 1-Click scenario simulator, decision banner, Trust score gauge, TreeSHAP attributions, and conformal uncertainty. |
+| **`/transactions/feed`** | **Audit Stream** | High-density real-time transaction feed with Server-Sent Events (SSE) live streaming and risk filtering. |
 | **`/fraud-rings`** | **Collusion Canvas** | Ranked candidate clusters, topological density, merchant concentration (HHI), and account freeze actions. |
 | **`/trust-graph`** | **Trust Graph** | Multi-entity relational graph canvas (Buyers, Sellers, Devices, Addresses) with historical timeline controls. |
 | **`/listings`** | **Listing Intelligence** | CLIP visual-semantic embeddings and FAISS nearest-neighbor indexing detecting stolen catalog photos. |
 | **`/returns`** | **Return Abuse** | Serial return abuse detector evaluating return velocity and wardrobing risk. |
-| **`/investigations`** | **Evidence Dossiers** | Formal investigation incident files with chronological evidence timelines and anti-hallucination indicators. |
+| **`/investigations`** | **Evidence Dossiers** | Formal investigation incident dossiers with TreeSHAP risk breakdowns, graph topology, and anti-hallucination indicators. |
 | **`/models`** | **Model Registry** | Model provenance, Isotonic probability calibration ECE reliability curve, and Brier metrics. |
 | **`/evaluation`** | **Evaluation Studio** | Algorithmic ablation ladders, test ROC/PR benchmarks, and dynamic decision threshold matrix. |
-| **`/monitoring`** | **Mesh Telemetry** | Kubernetes Liveness (`/health`) vs. Readiness (`/ready`), latency percentiles (p50/p95/p99), and Docker mesh status. |
+| **`/monitoring`** | **Mesh Telemetry** | Kubernetes Liveness (`/health`) vs. Readiness (`/ready`), live Prometheus metrics, latency percentiles, and Docker mesh status. |
 | **`/settings`** | **Settings** | Base API URL configuration, active model version switcher, and default persona settings. |
 
 ---

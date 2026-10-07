@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'TrustShield AI Dashboards'
+    orgId: 1
+    folder: 'TrustShield Observability'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

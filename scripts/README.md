@@ -19,6 +19,9 @@ This directory contains standalone execution scripts for end-to-end model traini
 | **`smoke_test_api.py`** | Live API smoke tester verifying HTTP status codes, schema contracts, `/ready` health, and latency against a running server. | HTTP test summary | `requests` |
 | **`build_clip_embeddings.py`** | Offline batch generator that extracts image and text CLIP embeddings from catalog items and populates the FAISS vector index cache. | `models/clip_cache/` | `transformers`, `torch`, `faiss` |
 | **`seed_mesh.py`** | Populates Neo4j property graph (constraints, collusion rings, device sharing) and hydrates Redis feature store (16D GNN vectors, ring sets) with zero-driver fallback. | `scripts/seed_graph.cypher`<br>`scripts/seed_redis.txt` | `joblib`, `pandas` |
+| **`run_robustness_experiments.py`** | Executes empirical robustness and stress benchmarks under Gaussian noise, extreme amounts, missing graph indicators, and distribution drift. | `docs/ROBUSTNESS_REPORT.md`<br>Terminal benchmark logs | `numpy`, `pandas`, `scikit-learn`, `joblib` |
+| **`run_scalability_experiment.py`** | Runs high-concurrency multi-threaded load tests, measures QPS throughput, p50/p95/p99 latency distributions, and thread saturation curves. | `docs/SCALABILITY_REPORT.md`<br>Terminal benchmark logs | `requests`, `numpy` |
+| **`run_delayed_feedback_experiment.py`** | Simulates 7-day, 14-day, 30-day, and 60-day chargeback reporting latency to quantify label delay PR-AUC degradation and evaluate mitigation policies. | `docs/DELAYED_FEEDBACK_REPORT.md`<br>Terminal benchmark logs | `numpy`, `pandas`, `scikit-learn` |
 
 ---
 
@@ -60,4 +63,23 @@ python scripts/seed_mesh.py
 
 # Offline dry-run (generates seed_graph.cypher and seed_redis.txt without network)
 python scripts/seed_mesh.py --dry-run
+```
+
+### 6. Running Adversarial Robustness & Noise Benchmarks
+Evaluates model stability against injected noise, missing attributes, and extreme value shocks:
+```bash
+python scripts/run_robustness_experiments.py
+```
+
+### 7. Running High-Concurrency Scalability Stress Tests
+Benchmarks live throughput (QPS) and latency percentiles under concurrent worker loads:
+```bash
+# Ensure API server is running on port 8000
+python scripts/run_scalability_experiment.py --host http://localhost:8000 --threads 8 --requests 200
+```
+
+### 8. Simulating Delayed Feedback & Label Latency
+Simulates 7 to 60-day delayed chargeback feedback cycles and outputs PR-AUC degradation curves:
+```bash
+python scripts/run_delayed_feedback_experiment.py
 ```

@@ -183,6 +183,49 @@ class TransactionScoreResponse(BaseModel):
         default=None,
         description="Explicit breakdown of evidence channels available for this scoring evaluation.",
     )
+    infrastructure_sources: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Explicit provenance of infrastructure lookups: 'redis' | 'neo4j' | 'disk_artifact' | 'unavailable'.",
+    )
+    shap_attributions: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Local TreeSHAP feature attributions indicating how each feature shifted predicted risk.",
+    )
+    top_risk_drivers: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Top positive risk driving features sorted by SHAP magnitude.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# /transaction/explain  (POST) — TreeSHAP Feature Attribution API
+# ---------------------------------------------------------------------------
+
+class FeatureShapDriver(BaseModel):
+    feature_name: str
+    friendly_name: str
+    feature_value: float
+    shap_value: float
+    abs_impact: float
+
+
+class TransactionExplainRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    order_id: Optional[str] = "ORDER_EXPLAIN_PROBE"
+    transaction_data: Optional[Dict[str, Any]] = None
+
+
+class TransactionExplainResponse(BaseModel):
+    order_id: str
+    base_value: float
+    overall_fraud_probability: float
+    decision: str
+    model_used: str
+    top_positive_drivers: List[FeatureShapDriver] = Field(default_factory=list)
+    top_negative_dampeners: List[FeatureShapDriver] = Field(default_factory=list)
+    all_attributions: Dict[str, float] = Field(default_factory=dict)
+    investigator_narrative: str
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +258,7 @@ class HealthResponse(BaseModel):
     models_loaded: bool
     phase5_loaded: bool = False
     clip_loaded: bool = False
+    shap_loaded: bool = False
     rings_loaded: bool
     n_rings: int
 
@@ -389,6 +433,109 @@ class ReadyResponse(BaseModel):
     phase3_ready: bool
     phase5_ready: bool
     clip_ready: bool
+    shap_ready: bool = False
     rings_ready: bool
+    redis_ready: bool = False
+    neo4j_ready: bool = False
+    components: Dict[str, str] = Field(default_factory=dict)
     details: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# /investigation/generate-dossier (POST) — Forensic Dossier API
+# ---------------------------------------------------------------------------
+
+class DossierRequest(BaseModel):
+    entity_type: str = Field(
+        default="transaction",
+        description="Type of entity under investigation: 'transaction' | 'order' | 'buyer' | 'seller' | 'ring'",
+    )
+    entity_id: str = Field(
+        description="Unique identifier of entity to investigate (e.g. ORD_78901, BUYER_000042, RING_001)",
+    )
+    transaction_data: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional explicit transaction payload to override or supply missing offline context",
+    )
+    include_graph_evidence: bool = Field(
+        default=True,
+        description="Whether to query live Neo4j/graph artifacts for multi-hop neighbor analysis",
+    )
+
+
+class DossierObservedEvidence(BaseModel):
+    transaction_amount: Optional[float] = None
+    buyer_historical_return_rate: Optional[float] = None
+    account_age_days: Optional[float] = None
+    prior_order_count: Optional[int] = None
+    hardware_collision_detected: bool = False
+    shared_device_count: int = 1
+    verified_facts: List[str] = Field(default_factory=list)
+
+
+class DossierModelInference(BaseModel):
+    calibrated_risk_score: float
+    operational_decision: str
+    confidence_level: float
+    detector_disagreement: float
+    conformal_prediction_set: str
+    triggered_reason_codes: List[str] = Field(default_factory=list)
+    shap_attributions: Optional[Dict[str, float]] = None
+    top_risk_drivers: Optional[List[Dict[str, Any]]] = None
+    shap_narrative: Optional[str] = None
+
+
+class DossierGraphFindings(BaseModel):
+    graph_source: str  # "neo4j" | "disk_artifact" | "unavailable"
+    cluster_id: Optional[str] = None
+    cluster_size: int = 1
+    topology_summary: str
+    suspicious_relationships: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class DossierRecommendation(BaseModel):
+    action: str
+    protocol_level: str
+    required_evidence_to_clear: str
+
+
+class DossierResponse(BaseModel):
+    case_id: str
+    entity_type: str
+    entity_id: str
+    generated_at: str
+    risk_score: float
+    risk_level: str
+    decision: str
+    executive_summary: str
+    observed_evidence: DossierObservedEvidence
+    model_inference: DossierModelInference
+    graph_findings: DossierGraphFindings
+    timeline: List[Dict[str, Any]] = Field(default_factory=list)
+    involved_entities: Dict[str, str] = Field(default_factory=dict)
+    retrieved_policy_guidelines: List[str] = Field(default_factory=list)
+    recommendation: DossierRecommendation
+    limitations: List[str] = Field(default_factory=list)
+    provenance: Dict[str, str] = Field(default_factory=dict)
+    grounding_verification_passed: bool = True
+
+
+# ---------------------------------------------------------------------------
+# /stream/transactions (GET SSE) — Real-time Transaction Stream
+# ---------------------------------------------------------------------------
+
+class StreamTransactionEvent(BaseModel):
+    event_id: str
+    timestamp: str
+    order_id: str
+    buyer_id: str
+    seller_id: str
+    amount: float
+    risk_score: float
+    calibrated_risk: float
+    risk_level: str
+    decision: str
+    trust_score: float
+    reason_codes: List[str] = Field(default_factory=list)
+    source: str = "simulation_stream"  # "simulation_stream" | "live_stream"
 

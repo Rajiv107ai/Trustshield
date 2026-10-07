@@ -1,8 +1,8 @@
 # TrustShield AI — Phase 2 Architecture & Engineering Roadmap
 
-**Document Revision:** 2026-10-07  
+**Document Revision:** 2026-10-08  
 **Scope:** Post-Phase-1 Infrastructure, Production Engineering, and Autonomous Agent Expansion  
-**Status:** Planned / Backlog (Intentionally decoupled from Phase 1 scientific core)  
+**Status:** Completed & Integrated (Phase A: Live Redis+Neo4j, Phase B: Dossier API, Phase C: SSE Stream, Phase D: Prometheus+Grafana)
 
 ---
 
@@ -70,10 +70,11 @@ graph TD
 
 ## 3. Implementation Phasing Matrix
 
-| Phase 2 Milestone | Target Infrastructure | Primary Value Proposition | Complexity |
-| :--- | :--- | :--- | :---: |
-| **M2.1: Distributed Features** | Redis + Kafka | Millisecond feature serving | Medium |
-| **M2.2: Live Graph DB** | Neo4j / Memgraph | Dynamic real-time ring detection | High |
-| **M2.3: MLOps Lifecycle** | MLflow + DVC | Automated CI/CD model retraining | Medium |
-| **M2.4: Forensic GenAI Agent** | LangGraph + Graph RAG | 80% reduction in human investigation time | High |
-| **M2.5: Production Hardening** | Docker + Kubernetes | Enterprise auto-scaling & 99.99% SLA | Medium |
+| Phase 2 Milestone | Target Infrastructure | Primary Value Proposition | Status |
+| :--- | :--- | :--- | :--- |
+| **M2.1: SSE Real-Time Stream** | FastAPI SSE + Keepalive | Live transaction streaming to UI console | **Completed** |
+| **M2.2: Live Graph DB** | Neo4j (Parameterized Cypher) | Dynamic ego-network & collusion retrieval | **Completed** |
+| **M2.3: Low-Latency Feature Store** | Redis 16D Vector Store | Sub-millisecond embedding & context cache | **Completed** |
+| **M2.4: Forensic Dossier Agent** | Forensic RAG + Hallucination Guard | Evidence-grounded case synthesis | **Completed** |
+| **M2.5: Production Observability** | Prometheus + Grafana Mesh | Full quantile histograms & 12-panel dashboard | **Completed** |
+| **M2.6: Production Service Mesh** | Docker Compose 5-Service Mesh | Containerized deployment with volume mounts | **Completed** |

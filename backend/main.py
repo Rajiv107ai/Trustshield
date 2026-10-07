@@ -27,33 +27,46 @@ Docs auto-generated at: http://localhost:8000/docs
 
 import logging
 from contextlib import asynccontextmanager
-from typing import List
+import time
+from datetime import datetime, timezone
+from typing import List, Dict, Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from prometheus_client import CONTENT_TYPE_LATEST
 
 logger = logging.getLogger(__name__)
 
-try:
-    from backend.model_loader import store
-    from backend.schemas import (
-        TransactionScoreRequest, TransactionScoreResponse,
-        FraudRingsResponse, FraudRingItem,
-        HealthResponse, ReadyResponse, ServiceState,
-        ListingScoreRequest, ListingScoreResponse,
-        ReturnScoreRequest, ReturnScoreResponse,
-    )
-except ImportError:
-    from model_loader import store  # type: ignore[import-not-found]
-    from schemas import (  # type: ignore[import-not-found]
-        TransactionScoreRequest, TransactionScoreResponse,
-        FraudRingsResponse, FraudRingItem,
-        HealthResponse, ReadyResponse, ServiceState,
-        ListingScoreRequest, ListingScoreResponse,
-        ReturnScoreRequest, ReturnScoreResponse,
-    )
+import os
+import sys
+
+# Ensure repository root is on sys.path so 'backend' is always imported consistently
+# regardless of whether running from workspace root or inside the backend folder.
+_ROOT_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+)
+if _ROOT_DIR not in sys.path:
+    sys.path.insert(0, _ROOT_DIR)
+
+from backend.model_loader import store
+from backend.schemas import (
+    TransactionScoreRequest, TransactionScoreResponse,
+    TransactionExplainRequest, TransactionExplainResponse, FeatureShapDriver,
+    FraudRingsResponse, FraudRingItem,
+    HealthResponse, ReadyResponse, ServiceState,
+    ListingScoreRequest, ListingScoreResponse,
+    ReturnScoreRequest, ReturnScoreResponse,
+    DossierRequest, DossierResponse,
+    StreamTransactionEvent,
+)
+from backend.services.redis_service import redis_service
+from backend.services.neo4j_service import neo4j_service
+from backend.services.investigation_service import investigation_service
+from backend.services.metrics_service import metrics_service
+from backend.services.stream_service import transaction_event_generator
 
 try:
     from trustshield_project.advanced_trust_engine import CanonicalTrustEngine, OperationalDecision
@@ -187,29 +200,64 @@ def _build_hybrid_feature_row(
     buyer_embs: dict,
     seller_embs: dict,
     emb_dim: int = 16,
-) -> dict:
+) -> Tuple[dict, Dict[str, str]]:
     """
     Build a feature dict for Phase 5 hybrid scoring by combining tabular+graph
-    features with pre-computed GNN buyer/seller embeddings. Cold-start nodes
-    default to zero embeddings.
+    features with pre-computed GNN buyer/seller embeddings retrieved via RedisService
+    (falling back to disk joblib artifacts when Redis is offline).
     """
     row = _build_feature_row(req, p3_cols)
     zero = [0.0] * emb_dim
-    b_vec = buyer_embs.get(req.buyer_id, zero) if req.buyer_id else zero
-    s_vec = seller_embs.get(req.seller_id, zero) if req.seller_id else zero
+
+    b_source = "unavailable"
+    s_source = "unavailable"
+
+    if req.buyer_id:
+        b_res = redis_service.get_embedding("buyer", req.buyer_id, disk_fallback_dict=buyer_embs)
+        b_vec = b_res.vector if b_res.found and b_res.vector is not None else zero
+        b_source = b_res.source
+        if b_source == "disk_artifact":
+            metrics_service.record_fallback("redis", "offline_fallback_to_disk")
+    else:
+        b_vec = zero
+        b_source = "not_provided"
+
+    if req.seller_id:
+        s_res = redis_service.get_embedding("seller", req.seller_id, disk_fallback_dict=seller_embs)
+        s_vec = s_res.vector if s_res.found and s_res.vector is not None else zero
+        s_source = s_res.source
+        if s_source == "disk_artifact":
+            metrics_service.record_fallback("redis", "offline_fallback_to_disk")
+    else:
+        s_vec = zero
+        s_source = "not_provided"
 
     for i in range(emb_dim):
         row[f"gnn_buyer_emb_{i}"] = float(b_vec[i])
         row[f"gnn_seller_emb_{i}"] = float(s_vec[i])
 
-    return {col: row.get(col, 0.0) for col in hybrid_cols}
+    sources = {
+        "buyer_embedding": b_source,
+        "seller_embedding": s_source,
+    }
+    return {col: row.get(col, 0.0) for col in hybrid_cols}, sources
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load models once at startup; nothing to clean up on shutdown."""
+    """Load models once at startup and probe infrastructure connectivity."""
     store.load()
+    try:
+        redis_service.ping()
+    except Exception as exc:
+        logger.warning("Redis ping on startup failed: %s", exc)
+    try:
+        neo4j_service.ping()
+    except Exception as exc:
+        logger.warning("Neo4j ping on startup failed: %s", exc)
     yield
+    redis_service.close()
+    neo4j_service.close()
 
 
 app = FastAPI(
@@ -222,9 +270,24 @@ app = FastAPI(
         "All predictions are from trained XGBoost models — "
         "no hardcoded or mocked responses."
     ),
-    version="0.1.0-mvp",
+    version="0.2.0",
     lifespan=lifespan,
 )
+
+# Prometheus HTTP metrics tracking middleware
+@app.middleware("http")
+async def prometheus_metrics_middleware(request: Request, call_next):
+    t0 = time.perf_counter()
+    response = await call_next(request)
+    duration = time.perf_counter() - t0
+    endpoint = request.url.path
+    metrics_service.requests_total.labels(
+        endpoint=endpoint,
+        method=request.method,
+        status_code=str(response.status_code),
+    ).inc()
+    metrics_service.request_duration.labels(endpoint=endpoint).observe(duration)
+    return response
 
 # Production security & dashboard integration
 app.add_middleware(
@@ -251,6 +314,7 @@ def health():
         models_loaded=store.is_loaded,
         phase5_loaded=store.phase5_loaded,
         clip_loaded=store.clip_loaded,
+        shap_loaded=store.shap_loaded,
         rings_loaded=store.rings_df is not None,
         n_rings=len(store.rings_df) if store.rings_df is not None else 0,
     )
@@ -265,7 +329,7 @@ def ready(response: Response):
     """
     Readiness probe for orchestrators. Returns service state:
     - 'ready' when models and graph data are fully loaded
-    - 'degraded' when Phase 3 baseline runs without Phase 5/CLIP
+    - 'degraded' when Phase 3 baseline runs without Phase 5/CLIP or with offline infrastructure
     - 'not_ready' when core models are unavailable
     """
     if not store.is_loaded:
@@ -278,7 +342,10 @@ def ready(response: Response):
     phase3_ready = store.combined_graph_model is not None
     phase5_ready = store.phase5_loaded
     clip_ready = store.clip_loaded
+    shap_ready = store.shap_loaded
     rings_ready = store.rings_df is not None
+    redis_ready = redis_service.is_available
+    neo4j_ready = neo4j_service.is_available
 
     if models_ready and phase5_ready and rings_ready:
         status = ServiceState.READY
@@ -294,11 +361,27 @@ def ready(response: Response):
         phase3_ready=phase3_ready,
         phase5_ready=phase5_ready,
         clip_ready=clip_ready,
+        shap_ready=shap_ready,
         rings_ready=rings_ready,
+        redis_ready=redis_ready,
+        neo4j_ready=neo4j_ready,
+        components={
+            "models": "ready" if models_ready else "unavailable",
+            "explainability": "available" if shap_ready else "unavailable",
+            "redis": "available" if redis_ready else "unavailable",
+            "neo4j": "available" if neo4j_ready else "unavailable",
+            "prometheus": "available",
+            "investigation": "available" if investigation_service.agent is not None else "unavailable",
+        },
         details={
             "n_rings": len(store.rings_df) if store.rings_df is not None else 0,
             "phase5_loaded": phase5_ready,
             "clip_loaded": clip_ready,
+            "shap_loaded": shap_ready,
+            "redis_status": "connected" if redis_ready else "unavailable",
+            "neo4j_status": "connected" if neo4j_ready else "unavailable",
+            "prometheus_instrumented": True,
+            "investigation_agent_ready": investigation_service.agent is not None,
         },
     )
 
@@ -338,12 +421,16 @@ def score_transaction(req: TransactionScoreRequest):
         hybrid_cols = p5_meta["hybrid_feature_cols"]
         p3_cols = p5_meta["phase3_feature_cols"]
         emb_dim = p5_meta.get("emb_dim", 16)
-        row = _build_hybrid_feature_row(
+        row, emb_sources = _build_hybrid_feature_row(
             req, hybrid_cols, p3_cols,
             store.buyer_embeddings, store.seller_embeddings, emb_dim
         )
+        t_infer0 = time.perf_counter()
         X = pd.DataFrame([row])[hybrid_cols].fillna(0.0)
         prob_raw = float(np.asarray(store.hybrid_model.predict_proba(X))[0, 1])
+        metrics_service.model_inference_seconds.labels(model_version="phase5-hybrid").observe(
+            time.perf_counter() - t_infer0
+        )
         clf_name = p5_meta.get("classifier", "XGBoost")
 
         # Phase 6: Calibrated probability
@@ -376,6 +463,7 @@ def score_transaction(req: TransactionScoreRequest):
                 max(0.0, min(1.0, 1.0 - req.multimodal_similarity_score))
             )
 
+        t_te0 = time.perf_counter()
         engine = _canonical_trust_engine or _trust_engine
         if engine is not None:
             t_res = engine.score(component_risks, is_cold_start=is_cold_start)
@@ -394,6 +482,21 @@ def score_transaction(req: TransactionScoreRequest):
             uncertainty = None
             model_disagreement = 0.0
             reason_codes = []
+
+        metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
+        metrics_service.record_decision(decision, _risk_label(final_risk), "phase5-hybrid")
+
+        # TreeSHAP feature attributions
+        shap_attrs = None
+        top_drivers = None
+        if store.phase5_shap_explainer is not None:
+            try:
+                shap_exp = store.phase5_shap_explainer.explain_instance(row, top_k=5)
+                if shap_exp.get("available"):
+                    shap_attrs = shap_exp.get("attributions")
+                    top_drivers = shap_exp.get("top_positive_drivers")
+            except Exception as exc:
+                logger.warning("TreeSHAP Phase 5 explanation failed: %s", exc)
 
         return TransactionScoreResponse(
             order_id=req.order_id,
@@ -417,7 +520,15 @@ def score_transaction(req: TransactionScoreRequest):
                 "gnn_embeddings": bool(req.buyer_id in store.buyer_embeddings or req.seller_id in store.seller_embeddings),
                 "multimodal": req.multimodal_similarity_score is not None,
                 "calibrator_active": store.phase5_calibrator is not None,
+                "shap_active": shap_attrs is not None,
             },
+            infrastructure_sources={
+                "buyer_embedding": emb_sources.get("buyer_embedding", "unavailable"),
+                "seller_embedding": emb_sources.get("seller_embedding", "unavailable"),
+                "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
+            },
+            shap_attributions=shap_attrs,
+            top_risk_drivers=top_drivers,
             note=(
                 "Scored with Phase 5 hybrid model routed through Canonical Trust Engine "
                 "with probability calibration and conformal uncertainty."
@@ -431,9 +542,13 @@ def score_transaction(req: TransactionScoreRequest):
     all_cols = meta["all_feature_cols"]
 
     feature_row = _build_feature_row(req, all_cols)
+    t_infer0 = time.perf_counter()
     X = pd.DataFrame([feature_row])[all_cols].fillna(0.0)
 
     prob_raw = float(np.asarray(store.combined_graph_model.predict_proba(X))[0, 1])
+    metrics_service.model_inference_seconds.labels(model_version="phase3").observe(
+        time.perf_counter() - t_infer0
+    )
     if store.calibrator is not None:
         prob_cal = float(store.calibrator.predict_proba(np.array([prob_raw]))[0])
     else:
@@ -453,6 +568,7 @@ def score_transaction(req: TransactionScoreRequest):
             max(0.0, min(1.0, 1.0 - req.multimodal_similarity_score))
         )
 
+    t_te0 = time.perf_counter()
     engine = _canonical_trust_engine or _trust_engine
     if engine is not None:
         t_res = engine.score(component_risks, is_cold_start=is_cold_start)
@@ -471,6 +587,21 @@ def score_transaction(req: TransactionScoreRequest):
         uncertainty = None
         model_disagreement = 0.0
         reason_codes = []
+
+    metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
+    metrics_service.record_decision(decision, _risk_label(final_risk), "phase3")
+
+    # TreeSHAP feature attributions
+    shap_attrs = None
+    top_drivers = None
+    if store.shap_explainer is not None:
+        try:
+            shap_exp = store.shap_explainer.explain_instance(feature_row, top_k=5)
+            if shap_exp.get("available"):
+                shap_attrs = shap_exp.get("attributions")
+                top_drivers = shap_exp.get("top_positive_drivers")
+        except Exception as exc:
+            logger.warning("TreeSHAP Phase 3 explanation failed: %s", exc)
 
     return TransactionScoreResponse(
         order_id=req.order_id,
@@ -494,12 +625,121 @@ def score_transaction(req: TransactionScoreRequest):
             "gnn_embeddings": False,
             "multimodal": req.multimodal_similarity_score is not None,
             "calibrator_active": store.calibrator is not None,
+            "shap_active": shap_attrs is not None,
         },
+        infrastructure_sources={
+            "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
+            "embeddings": "not_used_in_phase3",
+        },
+        shap_attributions=shap_attrs,
+        top_risk_drivers=top_drivers,
         note=(
             "Graph features default to 0 if not provided. Supply them from a live graph lookup for best accuracy. "
             "Evaluated with Canonical Trust Engine."
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /transaction/explain  — TreeSHAP Explainability
+# ---------------------------------------------------------------------------
+
+@app.post("/transaction/explain", response_model=TransactionExplainResponse, tags=["explainability"])
+def explain_transaction(req: TransactionExplainRequest):
+    """
+    Generate local Shapley additive explanations (TreeSHAP) for a given transaction.
+    Computes exact marginal contributions, separates risk-amplifying drivers from
+    protective trust dampeners, and synthesizes an investigator narrative.
+    """
+    if not store.is_loaded:
+        try:
+            store.load()
+        except Exception as exc:
+            logger.warning("Failed to lazy-load models in /transaction/explain: %s", exc)
+    if not store.is_loaded:
+        raise HTTPException(status_code=503, detail="Models not loaded yet.")
+
+    # Extract transaction payload
+    tx_dict: Dict[str, Any] = {}
+    if req.transaction_data:
+        tx_dict = dict(req.transaction_data)
+    else:
+        # Fall back to root extra fields if provided
+        tx_dict = req.model_dump(exclude={"order_id", "transaction_data"})
+
+    order_id = req.order_id or tx_dict.get("order_id", "ORDER_EXPLAIN_PROBE")
+    tx_dict["order_id"] = order_id
+
+    # Score the transaction to obtain calibrated risk and operational decision
+    score_req = TransactionScoreRequest(**{
+        k: v for k, v in tx_dict.items()
+        if k in TransactionScoreRequest.model_fields
+    })
+    score_res = score_transaction(score_req)
+
+    # Pick the appropriate SHAP explainer
+    explanation: Dict[str, Any] = {}
+    if (
+        store.phase5_loaded
+        and store.phase5_shap_explainer is not None
+        and store.phase5_meta is not None
+    ):
+        p5_meta = store.phase5_meta
+        hybrid_cols = p5_meta.get("hybrid_feature_cols", [])
+        p3_cols = p5_meta.get("phase3_feature_cols", [])
+        emb_dim = p5_meta.get("emb_dim", 16)
+        row, _ = _build_hybrid_feature_row(
+            score_req, hybrid_cols, p3_cols,
+            store.buyer_embeddings, store.seller_embeddings, emb_dim
+        )
+        explanation = store.phase5_shap_explainer.explain_instance(row, top_k=5)
+    elif store.shap_explainer is not None and store.feature_meta is not None:
+        all_cols = store.feature_meta.get("all_feature_cols", [])
+        feature_row = _build_feature_row(score_req, all_cols)
+        explanation = store.shap_explainer.explain_instance(feature_row, top_k=5)
+    else:
+        explanation = {
+            "available": False,
+            "base_value": 0.0,
+            "attributions": {},
+            "top_positive_drivers": [],
+            "top_negative_dampeners": [],
+            "narrative": "TreeSHAP explainer is not loaded or configured for this environment.",
+        }
+
+    pos_drivers = [
+        FeatureShapDriver(
+            feature_name=d["feature_name"],
+            friendly_name=d["friendly_name"],
+            feature_value=float(d["feature_value"]),
+            shap_value=float(d["shap_value"]),
+            abs_impact=float(d["abs_impact"]),
+        )
+        for d in explanation.get("top_positive_drivers", [])
+    ]
+    neg_dampeners = [
+        FeatureShapDriver(
+            feature_name=d["feature_name"],
+            friendly_name=d["friendly_name"],
+            feature_value=float(d["feature_value"]),
+            shap_value=float(d["shap_value"]),
+            abs_impact=float(d["abs_impact"]),
+        )
+        for d in explanation.get("top_negative_dampeners", [])
+    ]
+
+    return TransactionExplainResponse(
+        order_id=order_id,
+        base_value=float(explanation.get("base_value", 0.0)),
+        overall_fraud_probability=score_res.overall_fraud_probability,
+        decision=score_res.decision,
+        model_used=score_res.model_used,
+        top_positive_drivers=pos_drivers,
+        top_negative_dampeners=neg_dampeners,
+        all_attributions=explanation.get("attributions", {}),
+        investigator_narrative=explanation.get("narrative", "No narrative generated."),
+    )
+
 
 
 # ---------------------------------------------------------------------------
@@ -753,4 +993,144 @@ def analyze_return(req: ReturnScoreRequest):
         model_used="Return Fraud Detector (Phase 2 Specialized Model)",
         reason_codes=reasons,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /investigation/generate-dossier  (Forensic Investigation Dossier API)
+# ---------------------------------------------------------------------------
+
+@app.post("/investigation/generate-dossier", response_model=DossierResponse, tags=["investigation"])
+def generate_forensic_dossier(req: DossierRequest):
+    """
+    Generate an evidence-grounded forensic dossier for human fraud operations.
+
+    Executes:
+    1. Entity verification & feature context resolution (Redis / disk catalog)
+    2. Model inference via Unified Trust Engine & Conformal Coverage bounds
+    3. Multi-hop Neo4j graph traversal with strict temporal cutoff (event_time < decision_time)
+    4. Deterministic policy guideline retrieval via Forensic RAG
+    5. Anti-hallucination verification guard
+    """
+    if not store.is_loaded:
+        try:
+            store.load()
+        except Exception:
+            raise HTTPException(status_code=503, detail="Models not loaded yet.")
+
+    t0 = time.perf_counter()
+    try:
+        dossier = investigation_service.generate_dossier(
+            req=req,
+            scoring_fn=score_transaction,
+            store_instance=store,
+        )
+        duration = time.perf_counter() - t0
+        metrics_service.dossier_duration.observe(duration)
+        metrics_service.dossier_total.labels(entity_type=req.entity_type, status="success").inc()
+        return dossier
+    except HTTPException:
+        metrics_service.dossier_total.labels(entity_type=req.entity_type, status="error").inc()
+        raise
+    except Exception as exc:
+        metrics_service.dossier_total.labels(entity_type=req.entity_type, status="error").inc()
+        logger.error("Dossier generation failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal dossier generation failed.")
+
+
+# ---------------------------------------------------------------------------
+# GET /stream/transactions  (Server-Sent Events Real-Time Ingest Stream)
+# ---------------------------------------------------------------------------
+
+@app.get("/stream/transactions", tags=["streaming"])
+async def stream_transactions(request: Request, interval: float = Query(default=2.0, ge=0.5, le=10.0)):
+    """
+    Server-Sent Events (SSE) real-time stream of incoming transactions scored dynamically
+    through the Unified Trust Engine and active ML models.
+    """
+    if not store.is_loaded:
+        try:
+            store.load()
+        except Exception:
+            raise HTTPException(status_code=503, detail="Models not loaded yet.")
+
+    return StreamingResponse(
+        transaction_event_generator(
+            request=request,
+            scoring_fn=score_transaction,
+            interval_seconds=interval,
+            metrics_tracker=metrics_service,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /metrics  (Prometheus Metrics Exposition)
+# ---------------------------------------------------------------------------
+
+@app.get("/metrics", tags=["monitoring"])
+def prometheus_metrics():
+    """
+    Prometheus metrics exposition endpoint for scraping by Prometheus and Grafana.
+    Exposes request rates, p50/p95/p99 latency histograms, operational decisions,
+    SSE connection states, and observable fallbacks.
+    """
+    return Response(content=metrics_service.export_metrics(), media_type=CONTENT_TYPE_LATEST)
+
+
+# ---------------------------------------------------------------------------
+# GET /system/benchmark  (Empirical Infrastructure & Model Latency Measurement)
+# ---------------------------------------------------------------------------
+
+@app.get("/system/benchmark", tags=["monitoring"])
+def system_benchmark(iterations: int = Query(default=25, ge=5, le=100)):
+    """
+    Measure empirical p50, p95, and p99 latencies across system components:
+    - Model inference
+    - Redis embedding cache
+    - Neo4j Cypher graph engine
+    - Full transaction scoring pipeline
+    """
+    # 1. Benchmark Redis
+    redis_bench = redis_service.benchmark_latency(iterations=iterations)
+
+    # 2. Benchmark Neo4j
+    neo4j_bench = neo4j_service.benchmark_latency(iterations=iterations)
+
+    # 3. Benchmark Scoring Pipeline
+    test_req = TransactionScoreRequest(
+        order_id="BENCHMARK_PROBE",
+        buyer_id="BUYER_000001",
+        seller_id="SELLER_000001",
+        amount=150.0,
+        base_price=150.0,
+        category_median_price=150.0,
+    )
+    score_latencies = []
+    for _ in range(iterations):
+        t0 = time.perf_counter()
+        _ = score_transaction(test_req)
+        score_latencies.append((time.perf_counter() - t0) * 1000.0)
+
+    score_arr = np.array(score_latencies)
+    scoring_bench = {
+        "count": float(len(score_arr)),
+        "p50_ms": round(float(np.percentile(score_arr, 50)), 3),
+        "p95_ms": round(float(np.percentile(score_arr, 95)), 3),
+        "p99_ms": round(float(np.percentile(score_arr, 99)), 3),
+        "mean_ms": round(float(np.mean(score_arr)), 3),
+    }
+
+    return {
+        "iterations": iterations,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "scoring_pipeline": scoring_bench,
+        "redis_feature_store": redis_bench,
+        "neo4j_graph_engine": neo4j_bench,
+    }
 

@@ -1,0 +1,13 @@
+# TrustShield AI — Prometheus Scrape Configuration
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "trustshield-api"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["trustshield-api:8000"]
+        labels:
+          app: "trustshield-api"
+          env: "production"
