@@ -108,7 +108,7 @@ def generate_returns(orders_df: pd.DataFrame, base_return_rate: float = BASE_RET
         ])
 
     delay_days = gen.integers(1, RETURN_WINDOW_DAYS + 1, size=len(returned_orders))
-    return_dates = [od + timedelta(days=int(d)) for od, d in zip(returned_orders["order_date"], delay_days)]
+    return_dates = [min(od + timedelta(days=int(d)), SIM_END) for od, d in zip(returned_orders["order_date"], delay_days)]
     reasons = gen.choice(RETURN_REASONS, size=len(returned_orders), p=RETURN_REASON_WEIGHTS)
 
     return pd.DataFrame({

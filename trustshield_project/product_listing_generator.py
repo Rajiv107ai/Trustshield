@@ -244,8 +244,14 @@ def generate_listings(sellers_df: pd.DataFrame, products_df: pd.DataFrame,
 
         for i in range(n_listings):
             category = str(seller["category_focus"]) if match_mask[i] else str(gen.choice(CATEGORIES))
-            pool = products_by_category[category]
-            product = pool[int(gen.integers(0, len(pool)))]
+            pool = products_by_category.get(category, [])
+            if not pool:
+                all_pool = products_df.to_dict(orient="records")
+                if not all_pool:
+                    continue
+                product = all_pool[int(gen.integers(0, len(all_pool)))]
+            else:
+                product = pool[int(gen.integers(0, len(pool)))]
             price = round(float(product["base_price"]) * gen.lognormal(mean=0.0, sigma=price_variance_sigma), 2)
 
             rows.append({

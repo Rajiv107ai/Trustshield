@@ -168,7 +168,9 @@ def build_return_features(returns_df, orders_df, buyers_df, sellers_df):
     df["seller_orders_before_return"] = merged_s.set_index("_orig_index")["running_count"].reindex(df.index).fillna(0)
     df["seller_return_rate_before"] = df["seller_prior_returns"] / df["seller_orders_before_return"].clip(lower=1)
 
-    reason_dummies = pd.get_dummies(df["reason"], prefix="reason", dtype=float)
+    from order_return_generator import RETURN_REASONS
+    reason_cat = pd.Categorical(df["reason"], categories=RETURN_REASONS)
+    reason_dummies = pd.get_dummies(reason_cat, prefix="reason", dtype=float)
     df = pd.concat([df, reason_dummies], axis=1)
 
     feature_cols = [

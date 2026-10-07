@@ -74,7 +74,11 @@ class TemporalGraphAttentionLayer(nn.Module):
 
         # Scaled dot-product query-key attention
         attn_scores = (h_src * (h_dst + h_t)).sum(dim=-1, keepdim=True) / math.sqrt(self.out_features)
-        attn_weights = torch.sigmoid(attn_scores)
+        # Destination-wise softmax normalization (Issue 18)
+        exp_scores = torch.exp(torch.clamp(attn_scores, -20.0, 20.0))
+        denom = torch.zeros((h.size(0), 1), device=h.device)
+        denom.index_add_(0, v, exp_scores)
+        attn_weights = exp_scores / (denom[v] + 1e-8)
 
         # Message formulation combining node state and temporal gap
         messages = self.w_msg(torch.cat([h[u], t_enc], dim=-1))
