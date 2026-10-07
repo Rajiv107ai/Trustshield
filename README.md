@@ -6,7 +6,7 @@
 [![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-00599C.svg)](https://github.com/facebookresearch/faiss)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4+-eb5424.svg)](https://xgboost.ai)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![Test Suite](https://img.shields.io/badge/Tests-166%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Test Suite](https://img.shields.io/badge/Tests-169%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
 [![Leakage Safe](https://img.shields.io/badge/Temporal%20Leakage-Guarded%20Strict-blue.svg)](docs/FINAL_REPAIR_REPORT.md)
 
 **TrustShield AI** is an advanced, technically defensible e-commerce fraud-intelligence platform. It combines multi-entity relational graph learning, continuous-time edge dynamics, multimodal visual embedding retrieval, validated probability calibration, and an operational Trust Engine with split conformal uncertainty guarantees. All components operate under strict temporal isolation (`event_time < decision_time`).
@@ -95,12 +95,15 @@ trustshield_full_handoff/
 ├── requirements.txt                  # Production dependencies
 │
 ├── backend/                          # FastAPI Serving Layer
+│   ├── README.md                     # Serving layer architecture & API guide
 │   ├── main.py                       # HTTP API routes, lifespan loader, trust routing
 │   ├── schemas.py                    # Strict Pydantic v2 boundary schemas
 │   ├── model_loader.py               # Pre-trained artifact store & lazy cache
 │   └── test_backend.py               # Serving layer integration tests
 │
 ├── trustshield_project/              # Core ML, Graph & Forensic Research Suite
+│   ├── README.md                     # Core intelligence module guide & research docs
+│   ├── temporal_utils.py             # Canonical temporal invariants & historical filtering
 │   ├── advanced_ring_intelligence.py # Collusion ring detection & burstiness metrics
 │   ├── advanced_trust_engine.py      # Stacking meta-learner & split conformal coverage
 │   ├── trust_engine.py               # Unified Trust Engine, entropy & calibration
@@ -117,9 +120,13 @@ trustshield_full_handoff/
 │   ├── reproducibility.py            # Deterministic RNG & environment fingerprinting
 │   ├── splits.py                     # Chronological train/val/test boundary splits
 │   ├── versioning.py                 # Artifact SHA-256 fingerprinting & cataloging
+│   ├── test_repair_pipeline_regression.py # 8-point temporal invariant & regression suite
 │   └── test_phase2_suite.py          # Comprehensive Phase 2 test suite
 │
 ├── docs/                             # Engineering Audits & Governance Docs
+│   ├── README.md                     # Centralized documentation index & sitemap
+│   ├── FINAL_REPAIR_REPORT.md        # Master technical repair audit (169/169 tests)
+│   ├── REPAIR_BASELINE.md            # Pre-repair vulnerability baseline & checklist
 │   ├── BASELINE_AUDIT.md             # Initial architectural audit
 │   ├── 49_POINT_REAUDIT.md           # 49-point scientific re-audit
 │   ├── FINAL_BEFORE_AFTER.md         # Empirical before/after benchmarks
@@ -132,11 +139,19 @@ trustshield_full_handoff/
 ├── models/                           # Serialized Joblib & FAISS Artifacts
 │   ├── combined_graph_model.joblib   # Tabular + graph Random Forest
 │   ├── hybrid_model.joblib           # GNN + Tabular XGBoost model
+│   ├── calibrator.joblib             # Fitted isotonic calibrator (Phase 3)
+│   ├── phase5_calibrator.joblib      # Fitted isotonic calibrator (Phase 5)
 │   ├── fraud_rings.joblib            # Pre-ranked candidate rings
+│   ├── buyer_embeddings.joblib       # Pre-computed buyer representation vectors
+│   ├── seller_embeddings.joblib      # Pre-computed seller representation vectors
 │   └── clip_cache/                   # Cached CLIP multimodal embeddings
 │
 └── scripts/                          # Pipeline Execution & Training Scripts
-    ├── train_and_save_models.py      # Model training & artifact serialization
+    ├── README.md                     # Script execution reference & guides
+    ├── train_and_save_models.py      # Baseline model training & artifact serialization
+    ├── train_phase5.py               # Phase 5 Hybrid XGBoost model training
+    ├── e2e_smoke_validation.py       # End-to-end scoring parity & artifact validation
+    ├── smoke_test_api.py             # Live HTTP API endpoint verification client
     └── build_clip_embeddings.py      # Offline multimodal embedding generator
 ```
 
@@ -241,6 +256,9 @@ The test suite covers unit logic, temporal invariant safety, data leakage guards
 # Run core test suite (excluding heavy CLIP model downloads)
 pytest -v -m "not clip" --tb=short
 
+# Run complete regression test suite (temporal invariants, calibration & API contracts)
+pytest trustshield_project/test_repair_pipeline_regression.py -v
+
 # Run complete Phase 2 advanced research suite
 pytest trustshield_project/test_phase2_suite.py -v
 
@@ -249,12 +267,20 @@ pytest trustshield_project/test_leakage.py -v
 
 # Run backend serving integration tests
 pytest backend/test_backend.py -v
+
+# Run full end-to-end smoke validation
+python scripts/e2e_smoke_validation.py
 ```
 
 ---
 
 ## 📚 Complete Project Documentation
 
+Visit the centralized [**Documentation Hub (`docs/README.md`)**](docs/README.md) or explore the individual documents below:
+
+- [**Master Technical Repair Report**](docs/FINAL_REPAIR_REPORT.md) — Comprehensive repair evidence, temporal leakage elimination & verification (169/169 tests).
+- [**Repair Baseline State**](docs/REPAIR_BASELINE.md) — Pre-repair commit audit and defect classification.
+- [**Tracked Bug Registry**](docs/BUG_INVENTORY.json) — Comprehensive inventory of verified fixes.
 - [**Phase 0: Baseline Audit**](docs/BASELINE_AUDIT.md) — Initial codebase inspection and gap identification.
 - [**Phase 1: 49-Point Core Re-Audit**](docs/49_POINT_REAUDIT.md) — Complete line-by-line scientific audit.
 - [**Phase 1: Final Before/After Report**](docs/FINAL_BEFORE_AFTER.md) — Controlled empirical benchmark comparison.
@@ -265,5 +291,3 @@ pytest backend/test_backend.py -v
 - [**System Model Card**](docs/MODEL_CARD.md) — Intended use, ethical considerations, and performance limits.
 - [**Technical Limitations & Disclosure**](docs/LIMITATIONS.md) — Production boundary conditions.
 - [**Phase 2 Long-Term Production Roadmap**](docs/PHASE2_ROADMAP.md) — Streaming Kafka/Flink & Neo4j architecture plan.
-- [**Tracked Bug Registry**](docs/BUG_INVENTORY.json) — Comprehensive inventory of verified fixes.- [**Master Technical Repair Report**](docs/FINAL_REPAIR_REPORT.md) — Verification evidence, temporal leakage elimination & production readiness audit.
-- [**Repair Baseline State**](docs/REPAIR_BASELINE.md) — Baseline commit audit and vulnerability classification.

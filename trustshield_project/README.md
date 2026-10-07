@@ -4,7 +4,8 @@
 [![PyTorch Geometric](https://img.shields.io/badge/PyG-HeteroGNN-EE4C2C.svg)](https://pyg.org)
 [![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-00599C.svg)](https://github.com/facebookresearch/faiss)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4+-eb5424.svg)](https://xgboost.ai)
-[![Test Suite](https://img.shields.io/badge/Phase%202%20Suite-Verified-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Test Suite](https://img.shields.io/badge/Tests-169%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Temporal Safety](https://img.shields.io/badge/Temporal%20Invariant-event__time%20%3C%20decision__time-blue.svg)](../docs/FINAL_REPAIR_REPORT.md)
 
 This directory contains the core machine learning models, relational graph neural networks, continuous-time edge dynamics, multimodal vector indices, and information-theoretic decisioning algorithms powering the **TrustShield AI** platform.
 
@@ -12,9 +13,11 @@ This directory contains the core machine learning models, relational graph neura
 
 ## 🔬 Module Architecture & Breakdown
 
-### 1. Graph Neural Networks & Topology
+### 1. Graph Neural Networks, Topology & Temporal Invariants
+- **`temporal_utils.py`**:  
+  Canonical temporal invariant enforcement. Implements strict historical inequality (`event_time < decision_time`), chronological DataFrame filtering, temporal graph edge slicing, and validation boundary isolation.
 - **`hetero_gnn.py`**:  
-  Heterogeneous relational Graph Neural Network built on PyTorch Geometric `HeteroData`. Distinguishes node types (`buyer`, `seller`, `device`, `address`) and edge relations (`uses_device`, `shares_address`, `transacts_with`) without homogenizing distinct topologies.
+  Heterogeneous relational Graph Neural Network built on PyTorch Geometric `HeteroData`. Distinguishes node types (`buyer`, `seller`, `device`, `address`) and edge relations (`uses_device`, `shares_address`, `transacts_with`) with strict historical cutoff boundaries.
 - **`temporal_gnn.py`**:  
   Continuous-time edge learning with $Time2Vec$ harmonic positional encodings. Enforces strict temporal directionality ($\Delta t \ge 0$ asserted) to eliminate retrospective leakage.
 - **`advanced_ring_intelligence.py`**:  
@@ -36,7 +39,7 @@ This directory contains the core machine learning models, relational graph neura
 
 ### 3. Multimodal & Forensic Investigation
 - **`multimodal_clip_faiss.py`**:  
-  CLIP vision-language feature extraction combined with FAISS sub-millisecond similarity index. Detects cross-seller image reuse and title-image semantic divergence for counterfeit identification.
+  CLIP vision-language feature extraction combined with FAISS sub-millisecond similarity index. Features strict self-match exclusion by listing identity and detects cross-seller image reuse and title-image semantic divergence.
 - **`investigation_agent.py`**:  
   Autonomous fraud ops agent generating human-readable forensic dossiers. Features an automated hallucination guard that cross-references all claims against extracted graph evidence.
 - **`investigation_rag.py`**:  
@@ -44,7 +47,7 @@ This directory contains the core machine learning models, relational graph neura
 - **`neo4j_investigator.py`**:  
   Cypher query generators extracting 2-hop ego networks and collusion paths for forensic review.
 
-### 4. Robustness, Splitting & MLOps
+### 4. Robustness, Splitting & Testing
 - **`splits.py`**:  
   Strict chronological data partitioning (`TRAIN_END`, `VAL_END`) preventing temporal snooping.
 - **`missingness.py`**:  
@@ -57,19 +60,24 @@ This directory contains the core machine learning models, relational graph neura
   SHA-256 artifact hashing and catalog manifest generation for deployed models.
 - **`mlops_pipeline.py`**:  
   Offline-to-online feature store simulation and population stability index (PSI) drift monitoring.
+- **`test_repair_pipeline_regression.py`**:  
+  8-point temporal invariant regression suite asserting no future leakage, monotonic stacking, FAISS self-match exclusion, and offline-online scoring parity.
 
 ---
 
 ## 🧪 Running the Intelligence Test Suite
 
 ```bash
-# 1. From workspace root, run the comprehensive Phase 2 suite
+# 1. Run master technical repair regression suite
+pytest trustshield_project/test_repair_pipeline_regression.py -v
+
+# 2. Run comprehensive Phase 2 suite
 pytest trustshield_project/test_phase2_suite.py -v
 
-# 2. Run temporal leakage and data integrity guards
+# 3. Run temporal leakage and data integrity guards
 pytest trustshield_project/test_leakage.py -v
 
-# 3. Run audit regression tests
+# 4. Run audit regression tests
 pytest trustshield_project/test_audit_fixes.py -v
 pytest trustshield_project/test_core_fixes.py -v
 ```
@@ -78,7 +86,9 @@ pytest trustshield_project/test_core_fixes.py -v
 
 ## 📚 Governance & Research Documentation
 
-Detailed scientific audit logs and architectural reports are maintained in the root `docs/` directory:
+Detailed scientific audit logs and architectural reports are maintained in [`docs/`](../docs/README.md):
+- [**Master Technical Repair Report**](../docs/FINAL_REPAIR_REPORT.md)
+- [**Repair Baseline State**](../docs/REPAIR_BASELINE.md)
 - [**Phase 0: Baseline Audit**](../docs/BASELINE_AUDIT.md)
 - [**Phase 1: 49-Point Scientific Re-Audit**](../docs/49_POINT_REAUDIT.md)
 - [**Phase 1: Final Before/After Report**](../docs/FINAL_BEFORE_AFTER.md)
