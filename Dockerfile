@@ -4,6 +4,7 @@ FROM python:3.11-slim as base
 # Prevents Python from writing pyc files and buffering stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app/trustshield_project:/app/backend:/app" \
     PORT=8000
 
 WORKDIR /app
@@ -20,9 +21,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir faiss-cpu
 
-# Copy application source
+# Copy application source and pre-trained model artifacts
 COPY backend/ ./backend/
 COPY trustshield_project/ ./trustshield_project/
+COPY models/ ./models/
 
 # Security: non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app

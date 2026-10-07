@@ -23,6 +23,8 @@ def main(gnn_epochs: int = 50) -> None:
     joblib.dump(result["buyer_embeddings"], os.path.join(MODELS_DIR, "buyer_embeddings.joblib"))
     joblib.dump(result["seller_embeddings"], os.path.join(MODELS_DIR, "seller_embeddings.joblib"))
     joblib.dump(result["phase5_meta"], os.path.join(MODELS_DIR, "phase5_feature_meta.joblib"))
+    if "calibrator" in result:
+        joblib.dump(result["calibrator"], os.path.join(MODELS_DIR, "phase5_calibrator.joblib"))
 
     print(f"\nArtifacts saved to {MODELS_DIR}/")
     print(f"Val ROC-AUC: {result['val_auc']:.4f} | Test ROC-AUC: {result['test_auc']:.4f}")

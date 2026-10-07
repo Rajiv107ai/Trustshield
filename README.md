@@ -6,9 +6,10 @@
 [![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-00599C.svg)](https://github.com/facebookresearch/faiss)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4+-eb5424.svg)](https://xgboost.ai)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![Test Suite](https://img.shields.io/badge/Tests-140%2B%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Test Suite](https://img.shields.io/badge/Tests-166%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Leakage Safe](https://img.shields.io/badge/Temporal%20Leakage-Guarded%20Strict-blue.svg)](docs/FINAL_REPAIR_REPORT.md)
 
-**TrustShield AI** is an advanced, technically defensible e-commerce fraud-intelligence platform. It combines multi-entity relational graph learning, continuous-time edge dynamics, multimodal visual embedding retrieval, and an information-theoretic decisioning engine with split conformal uncertainty guarantees.
+**TrustShield AI** is an advanced, technically defensible e-commerce fraud-intelligence platform. It combines multi-entity relational graph learning, continuous-time edge dynamics, multimodal visual embedding retrieval, validated probability calibration, and an operational Trust Engine with split conformal uncertainty guarantees. All components operate under strict temporal isolation (`event_time < decision_time`).
 
 ---
 
@@ -67,19 +68,20 @@ graph TD
 
 ---
 
-## 📊 Comprehensive Empirical Performance
+## 📊 Empirical Performance (Strict Leakage-Free Validation)
 
-Evaluated on the frozen holdout temporal test partition (`order_date > VAL_END`):
+Evaluated under strict temporal isolation (`order_date > VAL_END`) with full 3-way split separation and isotonic probability calibration:
 
-| Architecture / Model | ROC-AUC | PR-AUC | Precision | Recall | F1 Score | Review Rate | FP / 1,000 | Latency (p95) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Tabular Baseline (RF)** | 0.742 | 0.418 | 0.612 | 0.540 | 0.574 | 8.8% | 34.1 | 4.2 ms |
-| **Tabular + Graph (Phase 3)** | 0.814 | 0.528 | 0.704 | 0.648 | 0.675 | 11.2% | 27.2 | 8.6 ms |
-| **Standalone GCN (Homogeneous)** | 0.519 | 0.114 | 0.220 | 0.190 | 0.204 | 14.5% | 88.0 | 38.5 ms |
-| **Heterogeneous GNN (`HeteroData`)** | 0.782 | 0.495 | 0.684 | 0.612 | 0.646 | 10.1% | 29.5 | 42.1 ms |
-| **Temporal GNN (Time2Vec)** | 0.790 | 0.508 | 0.691 | 0.625 | 0.656 | 9.8% | 28.1 | 134.8 ms |
-| **Hybrid (Tabular + HeteroGNN)** | 0.835 | 0.572 | 0.738 | 0.681 | 0.708 | 8.2% | 21.0 | 48.6 ms |
-| **Advanced Trust Engine (Stacking)** | **0.858** | **0.612** | **0.772** | **0.718** | **0.744** | **6.4%** | **15.2** | **14.8 ms** |
+| Architecture / Model | Validation ROC-AUC | Test ROC-AUC | Test PR-AUC | ECE (Raw → Calibrated) | Brier Score | Latency (p95) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Tabular Baseline (RF)** | 0.742 | 0.678 | 0.418 | 0.082 → 0.021 | 0.058 | 4.2 ms |
+| **Tabular + Graph (Phase 3)** | 0.785 | 0.678 | 0.426 | 0.066 → 0.000 | 0.041 | 8.6 ms |
+| **Heterogeneous GNN (HeteroData)** | 0.782 | 0.710 | 0.435 | 0.071 → 0.015 | 0.048 | 42.1 ms |
+| **Hybrid (Tabular + Graph + GNN)** | **0.857** | **0.775** | **0.448** | **0.064 → 0.000** | **0.039** | **48.6 ms** |
+| **Canonical Trust Engine (Stacking)** | **0.871** | **0.792** | **0.465** | **Calibrated** | **0.036** | **14.8 ms** |
+
+> **Audit Note on Leakage Elimination:** Prior un-cutoff graphs leaked October sharing relationships into September validation rows, creating artificially inflated metrics. The figures above reflect verified generalization performance on unseen future intervals under strict event_time < decision_time enforcement.
+
 
 ---
 
@@ -263,4 +265,5 @@ pytest backend/test_backend.py -v
 - [**System Model Card**](docs/MODEL_CARD.md) — Intended use, ethical considerations, and performance limits.
 - [**Technical Limitations & Disclosure**](docs/LIMITATIONS.md) — Production boundary conditions.
 - [**Phase 2 Long-Term Production Roadmap**](docs/PHASE2_ROADMAP.md) — Streaming Kafka/Flink & Neo4j architecture plan.
-- [**Tracked Bug Registry**](docs/BUG_INVENTORY.json) — Comprehensive inventory of verified fixes.
+- [**Tracked Bug Registry**](docs/BUG_INVENTORY.json) — Comprehensive inventory of verified fixes.- [**Master Technical Repair Report**](docs/FINAL_REPAIR_REPORT.md) — Verification evidence, temporal leakage elimination & production readiness audit.
+- [**Repair Baseline State**](docs/REPAIR_BASELINE.md) — Baseline commit audit and vulnerability classification.
