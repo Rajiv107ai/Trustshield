@@ -331,8 +331,8 @@ def run_phase5(gnn_epochs=50):
     train_aug, gnn_cols = attach_gnn_embeddings(train, buyer_embs_train, seller_embs_train)
     val_aug, _ = attach_gnn_embeddings(val, buyer_embs_train, seller_embs_train)
     test_aug, _ = attach_gnn_embeddings(test, buyer_embs_test, seller_embs_test)
-    df_aug = pd.concat([train_aug, val_aug, test_aug]).sort_index()
     hybrid_feature_cols = phase3_feature_cols + gnn_cols
+
 
     print(f"Training Hybrid XGBoost on {len(hybrid_feature_cols)} features...")
     hybrid_model = train_hybrid_classifier(train_aug, hybrid_feature_cols)

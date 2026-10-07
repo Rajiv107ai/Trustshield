@@ -5,11 +5,10 @@ Enables the Investigation Agent to retrieve factual policy context to support it
 CRITICAL CONSTRAINT: RAG provides context for human explanation only; it never predicts fraud risk.
 """
 
-from __future__ import annotations
-import math
-from typing import Dict, List, Tuple, Optional, Any
+from typing import List, Tuple, Optional
 from dataclasses import dataclass
-import numpy as np
+
+
 
 
 @dataclass(frozen=True)

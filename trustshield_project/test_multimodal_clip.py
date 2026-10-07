@@ -1,4 +1,4 @@
-﻿"""Dedicated integration tests for the real CLIP multimodal signal -- Phase 4.
+"""Dedicated integration tests for the real CLIP multimodal signal -- Phase 4.
 
 These tests use the ACTUAL openai/clip-vit-base-patch32 model and real ABO
 images from disk to verify the Phase 4 multimodal signal.  They are marked
@@ -26,7 +26,7 @@ import os
 import sys
 import pytest
 import numpy as np
-import pandas as pd
+
 
 _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _PROJECT_DIR not in sys.path:
@@ -116,6 +116,7 @@ class TestABODatasetPresence:
     def test_image_paths_resolve(self, abo_products):
         """At least 80% of real ABO products must resolve to existing .jpg files."""
         root = _resolve_abo_root()
+        assert root is not None, "ABO root must not be None"
         resolved = [
             _image_ref_to_path(str(ref), root)
             for ref in abo_products["image_ref"]
@@ -193,6 +194,7 @@ class TestCLIPEncoders:
     def test_clip_real_images_encoded(self, abo_products, fitted_clip_scorer):
         """At least one product must have a real ABO image (non-zero image emb)."""
         root = _resolve_abo_root()
+        assert root is not None, "ABO root must not be None"
         has_real = any(
             _image_ref_to_path(str(ref), root) is not None
             for ref in abo_products["image_ref"]

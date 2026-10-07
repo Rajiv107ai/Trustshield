@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+from typing import cast
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
@@ -25,10 +26,10 @@ def _cumulative_count_asof(orders_df: pd.DataFrame, group_col: str, date_col: st
     each other — preventing temporal leakage on same-day/same-second events.
     """
     # Build a running-count lookup keyed by (group_col, date_col)
-    sorted_df = orders_df[[group_col, date_col]].sort_values(by=date_col, kind="mergesort").copy()
+    sorted_df = cast(pd.DataFrame, orders_df[[group_col, date_col]]).sort_values(by=date_col, kind="mergesort").copy()
     sorted_df["_running"] = sorted_df.groupby(group_col).cumcount() + 1  # 1-indexed count after current row
 
-    left = orders_df[[group_col, date_col]].copy()
+    left = cast(pd.DataFrame, orders_df[[group_col, date_col]]).copy()
     left["_orig_index"] = left.index
     left_sorted = left.sort_values(by=date_col, kind="mergesort")
 

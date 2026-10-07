@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+from typing import cast
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
@@ -25,10 +26,10 @@ def _strict_prior_cumcount(df: pd.DataFrame, group_col: str, date_col: str) -> p
     same timestamp are never counted as prior history of each other.
     Same logic as baseline_model._cumulative_count_asof.
     """
-    sorted_df = df[[group_col, date_col]].sort_values(by=date_col, kind="mergesort").copy()
+    sorted_df = cast(pd.DataFrame, df[[group_col, date_col]]).sort_values(by=date_col, kind="mergesort").copy()
     sorted_df["_running"] = sorted_df.groupby(group_col).cumcount() + 1
 
-    left = df[[group_col, date_col]].copy()
+    left = cast(pd.DataFrame, df[[group_col, date_col]]).copy()
     left["_orig_index"] = left.index
     left_sorted = left.sort_values(by=date_col, kind="mergesort")
 
@@ -67,9 +68,9 @@ def train_eval(train, val, test, feature_cols, label_prefix, amount_col=None, fp
 
     rf = RandomForestClassifier(n_estimators=200, max_depth=8, class_weight="balanced_subsample", random_state=42, n_jobs=-1)
     rf.fit(Xtr, ytr)
-    rf_val_scores = np.asarray(rf.predict_proba(Xval))[:, 1]
     rf_test_scores = np.asarray(rf.predict_proba(Xte))[:, 1]
     evaluate(yte, (rf_test_scores >= 0.5).astype(int), rf_test_scores, f"{label_prefix} — Random Forest (test)")
+
 
     scale_pos_weight = (ytr == 0).sum() / (ytr == 1).sum()
     xgb = XGBClassifier(n_estimators=300, max_depth=6, learning_rate=0.05,

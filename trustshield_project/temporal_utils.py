@@ -8,7 +8,7 @@ its timestamp is strictly prior to the decision timestamp.
 
 from __future__ import annotations
 import pandas as pd
-from typing import Any
+from typing import Any, cast
 
 
 def is_strictly_before(event_time: Any, decision_time: Any) -> bool:
@@ -33,4 +33,4 @@ def filter_historical_events(
     if df.empty or timestamp_col not in df.columns or cutoff_time is None:
         return df
     cutoff_ts = pd.to_datetime(cutoff_time)
-    return df[pd.to_datetime(df[timestamp_col]) < cutoff_ts].copy()
+    return cast(pd.DataFrame, df[pd.to_datetime(df[timestamp_col]) < cutoff_ts].copy())

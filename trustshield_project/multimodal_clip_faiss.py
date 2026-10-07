@@ -11,8 +11,8 @@ Combines vision-language representations and vector similarity search:
 """
 
 from __future__ import annotations
-import math
-from typing import Dict, List, Tuple, Optional, Any, cast
+from typing import Dict, List, Optional, Any, cast
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier

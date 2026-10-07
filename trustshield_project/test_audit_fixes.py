@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from datetime import timedelta
+
 
 from baseline_model import build_features, TRAIN_END, VAL_END
 from graph_features import build_relationship_graph, compute_relationship_features

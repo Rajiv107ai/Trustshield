@@ -14,10 +14,10 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Tuple, Optional, Any, Set
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
+
 
 
 class OperationalDecision(str, Enum):

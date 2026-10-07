@@ -4,15 +4,14 @@ Verifies Phases 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 19, 21.
 Operates on REAL TrustShield pipeline functions and models.
 """
 
-import os
-import joblib
 import numpy as np
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from temporal_utils import is_strictly_before, filter_historical_events
-from entity_generator import build_base_entities, SIM_START
+from temporal_utils import filter_historical_events
+from entity_generator import build_base_entities
+
 from product_listing_generator import build_catalog_and_listings
 from order_return_generator import build_orders_and_returns
 from fraud_injection import inject_all_fraud
@@ -20,25 +19,23 @@ from baseline_model import (
     build_features as build_tabular_features,
     TRAIN_END,
     VAL_END,
-    leakage_audit,
 )
 from graph_features import (
     build_relationship_graph,
     compute_relationship_features,
-    detect_fraud_rings,
 )
 from hetero_gnn import build_hetero_graph, PYG_AVAILABLE
 from advanced_trust_engine import (
     CanonicalTrustEngine,
-    NonNegativeLogisticRegression,
     StackingRiskMetaLearner,
-    ConformalPredictor,
     OperationalDecision,
 )
 from calibration import ProbabilityCalibrator, calculate_expected_calibration_error
-from multimodal_clip_faiss import MultimodalFAISSIndex, extract_multimodal_listing_features
-from backend.main import app, _risk_label
+from multimodal_clip_faiss import MultimodalFAISSIndex
+from backend.main import app
+
 from backend.model_loader import store
+
 
 
 # ===========================================================================
@@ -77,7 +74,7 @@ def real_pipeline_data():
 class TestPipelineLeakageGuards:
     def test_pipeline_1_no_graph_edge_has_edge_time_gte_decision_time(self, real_pipeline_data):
         """TEST 1: No graph edge in relationship graph has first_seen_date >= cutoff_date."""
-        cutoff = TRAIN_END
+        cutoff = str(TRAIN_END)
         addr_log = real_pipeline_data["base"]["address_sharing_log"]
         dev_log = real_pipeline_data["base"]["device_sharing_log"]
 
@@ -87,9 +84,10 @@ class TestPipelineLeakageGuards:
         # Confirm via underlying logs that no edge was added with first_seen_date >= cutoff
         addr_filt = filter_historical_events(addr_log, "first_seen_date", cutoff)
         dev_filt = filter_historical_events(dev_log, "first_seen_date", cutoff)
+        cutoff_ts = pd.to_datetime(cutoff)
 
-        assert (pd.to_datetime(addr_filt["first_seen_date"]) < pd.to_datetime(cutoff)).all()
-        assert (pd.to_datetime(dev_filt["first_seen_date"]) < pd.to_datetime(cutoff)).all()
+        assert (pd.to_datetime(addr_filt["first_seen_date"]) < cutoff_ts).all()
+        assert (pd.to_datetime(dev_filt["first_seen_date"]) < cutoff_ts).all()
 
         # Edges in G must equal unique filtered edges
         expected_edge_count = len(addr_filt) + len(dev_filt)
@@ -100,6 +98,7 @@ class TestPipelineLeakageGuards:
         df = real_pipeline_data["df"]
         orders = real_pipeline_data["result"]["orders"]
         returns = real_pipeline_data["result"]["returns"]
+        assert len(orders) > 0 and len(returns) > 0
 
         # Check return rate validity
         assert (df["buyer_return_rate_before"] >= 0.0).all()
@@ -113,7 +112,7 @@ class TestPipelineLeakageGuards:
         if not PYG_AVAILABLE:
             pytest.skip("PyTorch Geometric not installed.")
 
-        cutoff = TRAIN_END
+        cutoff = str(TRAIN_END)
         data, id_maps = build_hetero_graph(
             real_pipeline_data["txn"]["buyers"],
             real_pipeline_data["catalog"]["sellers"],
@@ -124,11 +123,14 @@ class TestPipelineLeakageGuards:
         )
 
         orders = real_pipeline_data["result"]["orders"]
-        future_orders = orders[pd.to_datetime(orders["order_date"]) >= pd.to_datetime(cutoff)]
+        cutoff_ts = pd.to_datetime(cutoff)
+        future_orders = orders[pd.to_datetime(orders["order_date"]) >= cutoff_ts]
+        assert len(future_orders) > 0
         # Filtered graph edges must strictly be smaller than total historical orders
         assert data[("buyer", "transacts_with", "seller")].edge_index.shape[1] == len(
-            orders[pd.to_datetime(orders["order_date"]) < pd.to_datetime(cutoff)]
+            orders[pd.to_datetime(orders["order_date"]) < cutoff_ts]
         )
+
 
     def test_pipeline_4_no_val_or_test_transaction_influences_training_features(self, real_pipeline_data):
         """TEST 4: Training features are entirely isolated from validation/test data."""
@@ -193,11 +195,11 @@ class TestRepairRegressionSuite:
         if not PYG_AVAILABLE:
             pytest.skip("PyTorch Geometric not installed.")
 
-        cutoff = pd.Timestamp("2025-06-01")
+        cutoff = "2025-06-01"
         orders = pd.DataFrame({
             "buyer_id": ["B1"],
             "seller_id": ["S1"],
-            "order_date": [cutoff],  # exact equality with cutoff
+            "order_date": [pd.Timestamp(cutoff)],  # exact equality with cutoff
         })
         buyers = pd.DataFrame({"buyer_id": ["B1"], "device_id": ["D1"], "address_id": ["A1"]})
         sellers = pd.DataFrame({"seller_id": ["S1"]})
@@ -385,6 +387,7 @@ class TestOfflineOnlineConsistency:
 
             # 2. Offline scoring with identical artifacts
             meta = store.feature_meta
+            assert meta is not None, "Feature metadata must be loaded"
             cols = meta["all_feature_cols"]
             row = {c: payload.get(c, 0.0) for c in cols}
             row["price_vs_base_price_ratio"] = payload["amount"] / payload["base_price"]

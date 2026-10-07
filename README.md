@@ -6,7 +6,9 @@
 [![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-00599C.svg)](https://github.com/facebookresearch/faiss)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4+-eb5424.svg)](https://xgboost.ai)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![Test Suite](https://img.shields.io/badge/Tests-187%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-API%20%7C%20Neo4j%20%7C%20Redis-2496ED.svg)](docker-compose.yml)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-brightgreen.svg)](.github/workflows/ci.yml)
+[![Test Suite](https://img.shields.io/badge/Tests-192%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
 [![Leakage Safe](https://img.shields.io/badge/Temporal%20Leakage-Guarded%20Strict-blue.svg)](docs/FINAL_REPAIR_REPORT.md)
 
 **TrustShield AI** is an advanced, technically defensible e-commerce fraud-intelligence platform. It combines multi-entity relational graph learning, continuous-time edge dynamics, multimodal visual embedding retrieval, validated probability calibration, and an operational Trust Engine with split conformal uncertainty guarantees. All components operate under strict temporal isolation (`event_time < decision_time`).
@@ -89,7 +91,11 @@ Evaluated under strict temporal isolation (`order_date > VAL_END`) with full 3-w
 
 ```
 trustshield_full_handoff/
+├── .github/workflows/ci.yml          # Automated CI/CD pipeline (lint, typecheck, tests, container build)
+├── docker-compose.yml                # Orchestration mesh (API, Neo4j Graph DB, Redis feature store)
 ├── Dockerfile                        # Multi-stage production container definition
+├── .dockerignore                     # Build context exclusions
+├── .env.example                      # Environment variable template
 ├── pyrightconfig.json                # Static type analysis configuration (includes backend & project)
 ├── pytest.ini                        # Pytest markers and exclusion policies
 ├── requirements.txt                  # Production dependencies
@@ -100,6 +106,13 @@ trustshield_full_handoff/
 │   ├── schemas.py                    # Strict Pydantic v2 boundary schemas
 │   ├── model_loader.py               # Pre-trained artifact store & lazy cache
 │   └── test_backend.py               # Serving layer integration tests
+│
+├── frontend_master_prompts/          # Enterprise Frontend Architecture & UI Master Prompts
+│   ├── README.md                     # Frontend engineering prompt package guide
+│   ├── 00_MASTER_FRONTEND_PROMPT.md  # Complete 12-view frontend prompt for AI coding assistants
+│   ├── 01_TECH_STACK_AND_TOKENS.md   # Design tokens & color system
+│   ├── 02_API_SCHEMAS_TYPESCRIPT.md  # TypeScript API interfaces matching backend schemas
+│   └── 03_SCENARIOS_AND_DUAL_MODE.md # Interactive fraud scenarios & plain-English translations
 │
 ├── trustshield_project/              # Core ML, Graph & Forensic Research Suite
 │   ├── README.md                     # Core intelligence module guide & research docs
@@ -120,12 +133,13 @@ trustshield_full_handoff/
 │   ├── reproducibility.py            # Deterministic RNG & environment fingerprinting
 │   ├── splits.py                     # Chronological train/val/test boundary splits
 │   ├── versioning.py                 # Artifact SHA-256 fingerprinting & cataloging
-│   ├── test_repair_pipeline_regression.py # 8-point temporal invariant & regression suite
-│   └── test_phase2_suite.py          # Comprehensive Phase 2 test suite
+│   ├── test_repair_pipeline_regression.py # 20-point temporal invariant & regression suite
+│   ├── test_phase2_suite.py          # Comprehensive Phase 2 test suite
+│   └── test_seed_mesh.py             # Unit tests for Neo4j & Redis mesh seeding
 │
 ├── docs/                             # Engineering Audits & Governance Docs
 │   ├── README.md                     # Centralized documentation index & sitemap
-│   ├── FINAL_REPAIR_REPORT.md        # Master technical repair audit (169/169 tests)
+│   ├── FINAL_REPAIR_REPORT.md        # Master technical repair audit (192 passing tests)
 │   ├── REPAIR_BASELINE.md            # Pre-repair vulnerability baseline & checklist
 │   ├── BASELINE_AUDIT.md             # Initial architectural audit
 │   ├── 49_POINT_REAUDIT.md           # 49-point scientific re-audit
@@ -148,6 +162,7 @@ trustshield_full_handoff/
 │
 └── scripts/                          # Pipeline Execution & Training Scripts
     ├── README.md                     # Script execution reference & guides
+    ├── seed_mesh.py                  # Neo4j graph & Redis feature store mesh data seeder
     ├── train_and_save_models.py      # Baseline model training & artifact serialization
     ├── train_phase5.py               # Phase 5 Hybrid XGBoost model training
     ├── e2e_smoke_validation.py       # End-to-end scoring parity & artifact validation
@@ -246,26 +261,54 @@ docker logs -f trustshield-api
 curl http://localhost:8000/ready
 ```
 
+### Docker Compose (Full Service Mesh: API + Neo4j + Redis)
+```bash
+# 1. Initialize environment file from template
+cp .env.example .env
+
+# 2. Launch orchestrated service mesh in background
+docker compose up -d
+
+# 3. Inspect health and running services
+docker compose ps
+
+# Access services:
+# - TrustShield Scoring API & Swagger UI: http://localhost:8000/docs
+# - Neo4j Browser Console:                http://localhost:7474 (user: neo4j, pass: trustshield_secret)
+# - Redis In-Memory Feature Store:        localhost:6379
+
+# 4. Hydrate Neo4j property graph & Redis feature store with pre-computed GNN embeddings
+python scripts/seed_mesh.py
+# (Or offline dry-run to generate seed_graph.cypher and seed_redis.txt)
+python scripts/seed_mesh.py --dry-run
+```
+
 ---
 
 ## 🧪 Testing & Validation
 
-The test suite covers unit logic, temporal invariant safety, data leakage guards, API integration, and Phase 2 advanced models:
+The comprehensive 192-test suite covers unit logic, temporal invariant safety, data leakage guards, API integration, static typing, and Phase 2 advanced models:
 
 ```bash
-# Run core test suite (excluding heavy CLIP model downloads)
+# Static type analysis (0 errors enforced across project & backend)
+npx --yes pyright
+
+# Flake8 critical syntax & undefined symbol validation (E9, F63, F7, F82)
+flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv,external,synthetic_data_export
+
+# Run core test suite (excluding heavy CLIP model downloads: 174 tests)
 pytest -v -m "not clip" --tb=short
 
-# Run complete regression test suite (temporal invariants, calibration & API contracts)
+# Run complete regression test suite (temporal invariants, calibration & API contracts: 20 tests)
 pytest trustshield_project/test_repair_pipeline_regression.py -v
 
-# Run complete Phase 2 advanced research suite
+# Run complete Phase 2 advanced research suite (16 tests)
 pytest trustshield_project/test_phase2_suite.py -v
 
-# Run temporal leakage and data integrity guards
-pytest trustshield_project/test_leakage.py -v
+# Run Neo4j & Redis mesh seeder test suite (5 tests)
+pytest trustshield_project/test_seed_mesh.py -v
 
-# Run backend serving integration tests
+# Run backend serving integration tests (29 tests)
 pytest backend/test_backend.py -v
 
 # Run full end-to-end smoke validation

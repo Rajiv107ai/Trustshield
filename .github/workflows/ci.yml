@@ -1,0 +1,104 @@
+name: TrustShield CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  # ============================================================================
+  # 1. Code Quality, Syntax & Type Analysis
+  # ============================================================================
+  lint-and-typecheck:
+    name: Code Quality & Type Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Linting & Core Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+
+      - name: Flake8 Syntax & Critical Name Resolution Check (E9, F63, F7, F82)
+        run: |
+          # Fails if syntax errors or undefined symbols (e.g. missing imports) exist
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv,external,synthetic_data_export
+
+      - name: Setup Node.js for Pyright
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Production & Model Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Pyright Static Type Analysis
+        run: |
+          npx --yes pyright
+
+
+  # ============================================================================
+  # 2. Automated Test Suite Execution
+  # ============================================================================
+  test:
+    name: Pytest Automated Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute Core Test Suite (Excluding heavy offline CLIP downloads)
+        run: |
+          pytest -v -m "not clip" --tb=short
+
+      - name: Verify Strict Temporal Invariant Regression Suite
+        run: |
+          pytest trustshield_project/test_repair_pipeline_regression.py -v --tb=short
+
+      - name: Verify FastAPI Backend Serving Layer Integration
+        run: |
+          pytest backend/test_backend.py -v --tb=short
+
+  # ============================================================================
+  # 3. Multi-Stage Docker Container Build Verification
+  # ============================================================================
+  docker-build:
+    name: Production Container Build Check
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: trustshield-api:${{ github.sha }}

@@ -20,11 +20,10 @@ from phase2_specialized_models import (
 )
 from gnn_model import (
     build_node_index,
-    build_node_features,
-    build_edge_index,
     GraphSAGEEncoder,
     EdgeClassifier,
 )
+
 from phase5_hybrid_model import attach_gnn_embeddings
 from multimodal_scoring import compute_multimodal_similarity, explain_listing_risk
 

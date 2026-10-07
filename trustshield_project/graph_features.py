@@ -127,7 +127,7 @@ def attach_snapshot_features(df: pd.DataFrame, snapshots: dict, months: list) ->
     df = df.copy()
     df["month"] = pd.PeriodIndex(df["order_date"], freq="M")
     month_to_idx = {m: i for i, m in enumerate(months)}
-    df["_month_idx"] = df["month"].map(month_to_idx)
+    df["_month_idx"] = df["month"].map(month_to_idx.get)
 
     feature_cols = [
         "buyer_seller_degree", "buyer_pagerank",
@@ -154,17 +154,17 @@ def add_edge_weight_before(df: pd.DataFrame) -> pd.DataFrame:
     Uses merge_asof with allow_exact_matches=False so that same-timestamp orders
     for the same buyer-seller pair never count as prior history for each other.
     """
-    df = df.sort_values("order_date", kind="mergesort").copy()
+    df = df.sort_values(by="order_date", kind="mergesort").copy()
 
     # Build running count per (buyer_id, seller_id) group
-    pair_sorted = df[["buyer_id", "seller_id", "order_date"]].sort_values(
-        "order_date", kind="mergesort"
+    pair_sorted = cast(pd.DataFrame, df[["buyer_id", "seller_id", "order_date"]]).sort_values(
+        by="order_date", kind="mergesort"
     ).copy()
     pair_sorted["_running"] = pair_sorted.groupby(["buyer_id", "seller_id"]).cumcount() + 1
 
-    left = df[["buyer_id", "seller_id", "order_date"]].copy()
+    left = cast(pd.DataFrame, df[["buyer_id", "seller_id", "order_date"]]).copy()
     left["_orig_index"] = left.index
-    left_sorted = left.sort_values("order_date", kind="mergesort")
+    left_sorted = left.sort_values(by="order_date", kind="mergesort")
 
     merged = pd.merge_asof(
         left_sorted, pair_sorted[["buyer_id", "seller_id", "order_date", "_running"]],

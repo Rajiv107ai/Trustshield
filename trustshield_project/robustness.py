@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 import numpy as np
-from typing import Dict, List, Callable, Any, Tuple
+from typing import Dict, List, Callable, Tuple
+
 
 
 def multiseed_summary(scores: List[float]) -> Dict[str, float]:

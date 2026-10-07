@@ -4,7 +4,7 @@
 [![PyTorch Geometric](https://img.shields.io/badge/PyG-HeteroGNN-EE4C2C.svg)](https://pyg.org)
 [![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-00599C.svg)](https://github.com/facebookresearch/faiss)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4+-eb5424.svg)](https://xgboost.ai)
-[![Test Suite](https://img.shields.io/badge/Tests-187%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Test Suite](https://img.shields.io/badge/Tests-192%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
 [![Temporal Safety](https://img.shields.io/badge/Temporal%20Invariant-event__time%20%3C%20decision__time-blue.svg)](../docs/FINAL_REPAIR_REPORT.md)
 
 This directory contains the core machine learning models, relational graph neural networks, continuous-time edge dynamics, multimodal vector indices, and information-theoretic decisioning algorithms powering the **TrustShield AI** platform.
@@ -61,23 +61,28 @@ This directory contains the core machine learning models, relational graph neura
 - **`mlops_pipeline.py`**:  
   Offline-to-online feature store simulation and population stability index (PSI) drift monitoring.
 - **`test_repair_pipeline_regression.py`**:  
-  8-point temporal invariant regression suite asserting no future leakage, monotonic stacking, FAISS self-match exclusion, and offline-online scoring parity.
+  20-point temporal invariant regression suite asserting no future leakage, monotonic stacking, FAISS self-match exclusion, and offline-online scoring parity.
+- **`test_seed_mesh.py`**:  
+  Unit test suite for Neo4j Cypher constraint/collusion generation and Redis RESP serialization protocols.
 
 ---
 
 ## 🧪 Running the Intelligence Test Suite
 
 ```bash
-# 1. Run master technical repair regression suite
+# 1. Run master technical repair regression suite (20 tests)
 pytest trustshield_project/test_repair_pipeline_regression.py -v
 
-# 2. Run comprehensive Phase 2 suite
+# 2. Run comprehensive Phase 2 suite (16 tests)
 pytest trustshield_project/test_phase2_suite.py -v
 
-# 3. Run temporal leakage and data integrity guards
+# 3. Run Neo4j & Redis mesh seeder tests (5 tests)
+pytest trustshield_project/test_seed_mesh.py -v
+
+# 4. Run temporal leakage and data integrity guards
 pytest trustshield_project/test_leakage.py -v
 
-# 4. Run audit regression tests
+# 5. Run audit regression tests
 pytest trustshield_project/test_audit_fixes.py -v
 pytest trustshield_project/test_core_fixes.py -v
 ```

@@ -1,0 +1,25 @@
+# Git and Environment
+.git
+.gitignore
+.gitattributes
+.venv/
+venv/
+env/
+.agents/
+.vscode/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Documentation and Development Artifacts
+docs/
+*.md
+pyrightconfig.json
+pytest.ini

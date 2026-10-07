@@ -13,21 +13,29 @@ Preserves distinct relationship semantics without collapsing into homogeneous ad
 Enforces strict temporal safety: graphs are built strictly with events prior to cutoff_date.
 """
 
-from __future__ import annotations
-import math
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, cast, TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-try:
+if TYPE_CHECKING:
     from torch_geometric.data import HeteroData
     from torch_geometric.nn import HeteroConv, SAGEConv, Linear
-    PYG_AVAILABLE = True
-except ImportError:
-    PYG_AVAILABLE = False
+    PYG_AVAILABLE: bool = True
+else:
+    try:
+        from torch_geometric.data import HeteroData
+        from torch_geometric.nn import HeteroConv, SAGEConv, Linear
+        PYG_AVAILABLE = True
+    except ImportError:
+        HeteroData = None
+        HeteroConv = None
+        SAGEConv = None
+        Linear = None
+        PYG_AVAILABLE = False
 
 
 def build_hetero_graph(
@@ -46,23 +54,27 @@ def build_hetero_graph(
     if not PYG_AVAILABLE:
         raise RuntimeError("torch_geometric is required for HeteroGNN.")
 
-    data = HeteroData()
+    data: Any = HeteroData()
 
     # Apply temporal filtering to dynamic events
+    orders_filt: pd.DataFrame
+    dev_filt: pd.DataFrame
+    addr_filt: pd.DataFrame
+
     if cutoff_date is not None:
         c_date = pd.to_datetime(cutoff_date)
         if "order_date" in orders_df.columns:
-            orders_filt = orders_df[pd.to_datetime(orders_df["order_date"]) < c_date]
+            orders_filt = cast(pd.DataFrame, orders_df[pd.to_datetime(orders_df["order_date"]) < c_date])
         else:
             orders_filt = orders_df
 
         if "first_seen_date" in device_sharing_log.columns:
-            dev_filt = device_sharing_log[pd.to_datetime(device_sharing_log["first_seen_date"]) < c_date]
+            dev_filt = cast(pd.DataFrame, device_sharing_log[pd.to_datetime(device_sharing_log["first_seen_date"]) < c_date])
         else:
             dev_filt = device_sharing_log
 
         if "first_seen_date" in address_sharing_log.columns:
-            addr_filt = address_sharing_log[pd.to_datetime(address_sharing_log["first_seen_date"]) < c_date]
+            addr_filt = cast(pd.DataFrame, address_sharing_log[pd.to_datetime(address_sharing_log["first_seen_date"]) < c_date])
         else:
             addr_filt = address_sharing_log
     else:
@@ -181,53 +193,51 @@ def build_hetero_graph(
     return data, id_maps
 
 
-if PYG_AVAILABLE:
-    class HeteroGNN(nn.Module):
-        """Heterogeneous Graph Neural Network with per-relation message passing."""
+class HeteroGNN(nn.Module):
+    """Heterogeneous Graph Neural Network with per-relation message passing."""
 
-        def __init__(self, metadata: Tuple[List[str], List[Tuple[str, str, str]]], hidden_channels: int = 16, out_channels: int = 16):
-            super().__init__()
-            node_types, edge_types = metadata
+    def __init__(self, metadata: Tuple[List[str], List[Tuple[str, str, str]]], hidden_channels: int = 16, out_channels: int = 16):
+        super().__init__()
+        if not PYG_AVAILABLE:
+            raise RuntimeError("torch_geometric is required for HeteroGNN.")
+        node_types, edge_types = metadata
 
-            # Node feature projection to common hidden dimension
-            self.input_projections = nn.ModuleDict({
-                "buyer": nn.Linear(3, hidden_channels),
-                "seller": nn.Linear(2, hidden_channels),
-                "device": nn.Linear(2, hidden_channels),
-                "address": nn.Linear(2, hidden_channels),
-            })
+        # Node feature projection to common hidden dimension
+        self.input_projections = nn.ModuleDict({
+            "buyer": nn.Linear(3, hidden_channels),
+            "seller": nn.Linear(2, hidden_channels),
+            "device": nn.Linear(2, hidden_channels),
+            "address": nn.Linear(2, hidden_channels),
+        })
 
-            # Layer 1 HeteroConv
-            conv1_dict = {}
-            for edge_type in edge_types:
-                conv1_dict[edge_type] = SAGEConv((-1, -1), hidden_channels)
-            self.conv1 = HeteroConv(conv1_dict, aggr="sum")
+        # Layer 1 HeteroConv
+        conv1_dict = {}
+        for edge_type in edge_types:
+            conv1_dict[edge_type] = SAGEConv((-1, -1), hidden_channels)
+        self.conv1: Any = HeteroConv(conv1_dict, aggr="sum")
 
-            # Layer 2 HeteroConv
-            conv2_dict = {}
-            for edge_type in edge_types:
-                conv2_dict[edge_type] = SAGEConv((-1, -1), out_channels)
-            self.conv2 = HeteroConv(conv2_dict, aggr="sum")
+        # Layer 2 HeteroConv
+        conv2_dict = {}
+        for edge_type in edge_types:
+            conv2_dict[edge_type] = SAGEConv((-1, -1), out_channels)
+        self.conv2: Any = HeteroConv(conv2_dict, aggr="sum")
 
-        def forward(self, x_dict: Dict[str, torch.Tensor], edge_index_dict: Dict[Tuple[str, str, str], torch.Tensor]) -> Dict[str, torch.Tensor]:
-            # Project inputs
-            h_dict = {}
-            for node_type, x in x_dict.items():
-                if node_type in self.input_projections:
-                    h_dict[node_type] = F.relu(self.input_projections[node_type](x))
-                else:
-                    h_dict[node_type] = x
+    def forward(self, x_dict: Dict[str, torch.Tensor], edge_index_dict: Dict[Tuple[str, str, str], torch.Tensor]) -> Dict[str, torch.Tensor]:
+        # Project inputs
+        h_dict = {}
+        for node_type, x in x_dict.items():
+            if node_type in self.input_projections:
+                h_dict[node_type] = F.relu(self.input_projections[node_type](x))
+            else:
+                h_dict[node_type] = x
 
-            # Conv 1
-            h_dict = self.conv1(h_dict, edge_index_dict)
-            h_dict = {k: F.relu(v) for k, v in h_dict.items()}
+        # Conv 1
+        h_dict = self.conv1(h_dict, edge_index_dict)
+        h_dict = {k: F.relu(v) for k, v in h_dict.items()}
 
-            # Conv 2
-            h_dict = self.conv2(h_dict, edge_index_dict)
-            return h_dict
-else:
-    class HeteroGNN:
-        pass
+        # Conv 2
+        h_dict = self.conv2(h_dict, edge_index_dict)
+        return h_dict
 
 
 def extract_hetero_embeddings(
