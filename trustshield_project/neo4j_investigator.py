@@ -19,22 +19,49 @@ class Neo4jInvestigator:
         self.graph = in_memory_graph or nx.MultiGraph()
 
     @staticmethod
+    def cypher_shared_device_query_parameterized() -> Tuple[str, Dict[str, Any]]:
+        """Generate safe parameterized Cypher query preventing injection (Issue 66)."""
+        query = """
+        MATCH (s:Seller {seller_id: $seller_id})-[r1:USES_DEVICE]->(d:Device)<-[r2:USES_DEVICE]-(b:Buyer)
+        WHERE r1.first_seen_date >= date() - duration({days: $days})
+        RETURN b.buyer_id AS buyer_id, d.device_id AS shared_device_id, b.orders_before AS orders_before
+        ORDER BY b.orders_before DESC;
+        """.strip()
+        return query, {"seller_id": str, "days": int}
+
+    @staticmethod
     def cypher_shared_device_query(seller_id: str, days: int = 30) -> str:
         """Generate Cypher query to find buyers connected to a seller through a shared device."""
+        # Sanitize seller_id to prevent Cypher injection
+        clean_id = str(seller_id).replace("'", "").replace('"', "").replace("\\", "").strip()
+        clean_days = int(days)
         return f"""
-        MATCH (s:Seller {{seller_id: '{seller_id}'}})-[r1:USES_DEVICE]->(d:Device)<-[r2:USES_DEVICE]-(b:Buyer)
-        WHERE r1.first_seen_date >= date() - duration({{days: {days}}})
+        MATCH (s:Seller {{seller_id: '{clean_id}'}})-[r1:USES_DEVICE]->(d:Device)<-[r2:USES_DEVICE]-(b:Buyer)
+        WHERE r1.first_seen_date >= date() - duration({{days: {clean_days}}})
         RETURN b.buyer_id AS buyer_id, d.device_id AS shared_device_id, b.orders_before AS orders_before
         ORDER BY b.orders_before DESC;
         """.strip()
 
     @staticmethod
+    def cypher_collusion_cycle_query_parameterized() -> Tuple[str, Dict[str, Any]]:
+        """Generate safe parameterized Cypher query for merchant collusion cycles."""
+        query = """
+        MATCH path = (b:Buyer)-[t:TRANSACTS_WITH]->(s:Seller)-[:USES_ADDRESS]->(a:Address)<-[:USES_ADDRESS]-(b)
+        WITH b, s, a, count(t) AS txn_count
+        WHERE txn_count >= $min_txns
+        RETURN b.buyer_id AS buyer_id, s.seller_id AS seller_id, a.address_id AS shared_address_id, txn_count
+        ORDER BY txn_count DESC;
+        """.strip()
+        return query, {"min_txns": int}
+
+    @staticmethod
     def cypher_collusion_cycle_query(min_txns: int = 3) -> str:
         """Generate Cypher query to detect triangular merchant-buyer device/address collusion."""
+        clean_txns = int(min_txns)
         return f"""
         MATCH path = (b:Buyer)-[t:TRANSACTS_WITH]->(s:Seller)-[:USES_ADDRESS]->(a:Address)<-[:USES_ADDRESS]-(b)
         WITH b, s, a, count(t) AS txn_count
-        WHERE txn_count >= {min_txns}
+        WHERE txn_count >= {clean_txns}
         RETURN b.buyer_id AS buyer_id, s.seller_id AS seller_id, a.address_id AS shared_address_id, txn_count
         ORDER BY txn_count DESC;
         """.strip()

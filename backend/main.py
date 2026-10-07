@@ -398,6 +398,9 @@ def score_transaction(req: TransactionScoreRequest):
         return TransactionScoreResponse(
             order_id=req.order_id,
             overall_fraud_probability=round(final_risk, 4),
+            raw_fraud_probability=round(prob_raw, 4),
+            calibrated_fraud_probability=round(prob_cal, 4),
+            canonical_trust_engine_risk=round(final_risk, 4),
             risk_label=_risk_label(final_risk),
             decision=decision,
             trust_score=trust_score,
@@ -408,6 +411,13 @@ def score_transaction(req: TransactionScoreRequest):
             cold_start=is_cold_start,
             model_disagreement=model_disagreement,
             reason_codes=reason_codes,
+            evidence_availability={
+                "tabular": True,
+                "graph": bool(req.share_degree > 0 or req.buyer_pagerank > 0),
+                "gnn_embeddings": bool(req.buyer_id in store.buyer_embeddings or req.seller_id in store.seller_embeddings),
+                "multimodal": req.multimodal_similarity_score is not None,
+                "calibrator_active": store.phase5_calibrator is not None,
+            },
             note=(
                 "Scored with Phase 5 hybrid model routed through Canonical Trust Engine "
                 "with probability calibration and conformal uncertainty."
@@ -465,6 +475,9 @@ def score_transaction(req: TransactionScoreRequest):
     return TransactionScoreResponse(
         order_id=req.order_id,
         overall_fraud_probability=round(final_risk, 4),
+        raw_fraud_probability=round(prob_raw, 4),
+        calibrated_fraud_probability=round(prob_cal, 4),
+        canonical_trust_engine_risk=round(final_risk, 4),
         risk_label=_risk_label(final_risk),
         decision=decision,
         trust_score=trust_score,
@@ -475,6 +488,13 @@ def score_transaction(req: TransactionScoreRequest):
         cold_start=is_cold_start,
         model_disagreement=model_disagreement,
         reason_codes=reason_codes,
+        evidence_availability={
+            "tabular": True,
+            "graph": bool(req.share_degree > 0 or req.buyer_pagerank > 0),
+            "gnn_embeddings": False,
+            "multimodal": req.multimodal_similarity_score is not None,
+            "calibrator_active": store.calibrator is not None,
+        },
         note=(
             "Graph features default to 0 if not provided. Supply them from a live graph lookup for best accuracy. "
             "Evaluated with Canonical Trust Engine."

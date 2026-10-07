@@ -1,7 +1,24 @@
 # Multi-stage production container build for TrustShield AI
-FROM python:3.11-slim as base
+# Stage 1: Builder stage for compiling wheels and installing dependencies
+FROM python:3.11-slim as builder
 
-# Prevents Python from writing pyc files and buffering stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt && \
+    pip install --no-cache-dir --prefix=/install faiss-cpu
+
+# Stage 2: Minimal runtime image
+FROM python:3.11-slim as runner
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH="/app/trustshield_project:/app/backend:/app" \
@@ -9,17 +26,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system runtime dependencies
+# Install minimal runtime utility for readiness probe
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir faiss-cpu
+# Copy installed python packages from builder
+COPY --from=builder /install /usr/local
 
 # Copy application source and pre-trained model artifacts
 COPY backend/ ./backend/
@@ -32,9 +45,9 @@ USER appuser
 
 EXPOSE 8000
 
-# Readiness and Healthcheck
+# Readiness and Healthcheck (using orchestrator readiness probe)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8000/ready || exit 1
 
 # Production server entrypoint
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

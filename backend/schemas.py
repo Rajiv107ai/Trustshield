@@ -130,6 +130,18 @@ class TransactionScoreRequest(BaseModel):
 class TransactionScoreResponse(BaseModel):
     order_id: Optional[str] = None
     overall_fraud_probability: float
+    raw_fraud_probability: Optional[float] = Field(
+        default=None,
+        description="Raw uncalibrated classifier probability output from active ML model.",
+    )
+    calibrated_fraud_probability: Optional[float] = Field(
+        default=None,
+        description="Isotonically calibrated probability from primary predictive model.",
+    )
+    canonical_trust_engine_risk: Optional[float] = Field(
+        default=None,
+        description="Canonical Trust Engine composite risk score governing decision routing.",
+    )
     risk_label: str                  # "low" | "medium" | "high"
     model_used: str
     model_version: str = "phase3"    # "phase3" | "phase5-hybrid"
@@ -166,6 +178,10 @@ class TransactionScoreResponse(BaseModel):
     reason_codes: List[str] = Field(
         default_factory=list,
         description="Structured explainable reason codes for this decision.",
+    )
+    evidence_availability: Optional[Dict[str, bool]] = Field(
+        default=None,
+        description="Explicit breakdown of evidence channels available for this scoring evaluation.",
     )
 
 
