@@ -107,6 +107,11 @@ trustshield_full_handoff/
 │   ├── model_loader.py               # Pre-trained artifact store & lazy cache
 │   └── test_backend.py               # Serving layer integration tests
 │
+├── frontend/                         # Production Next.js 16 Enterprise Console
+│   ├── README.md                     # Frontend console guide & run commands
+│   ├── FRONTEND_IMPLEMENTATION_REPORT.md # Full architecture & component report
+│   └── src/                          # 12 views, Dual-Audience switch & ⌘K search
+│
 ├── frontend_master_prompts/          # Enterprise Frontend Architecture & UI Master Prompts
 │   ├── README.md                     # Frontend engineering prompt package guide
 │   ├── 00_MASTER_FRONTEND_PROMPT.md  # Complete 12-view frontend prompt for AI coding assistants
@@ -247,6 +252,19 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Interactive API documentation will be available at `http://localhost:8000/docs`.
+
+### Frontend Console Quickstart (Next.js 16)
+```bash
+# 1. Navigate to frontend directory
+cd frontend
+
+# 2. Install dependencies (Node 20+)
+npm install
+
+# 3. Launch interactive web console
+npm run dev
+# Access the enterprise console at http://localhost:3000
+```
 
 ### Docker Deployment
 ```bash
