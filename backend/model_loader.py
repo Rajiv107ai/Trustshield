@@ -87,6 +87,10 @@ class ModelStore:
         self.phase5_meta: Optional[dict] = None
         self._phase5_loaded: bool = False
 
+        # --- Explainability Layer (TreeSHAP) ---
+        self.shap_explainer: Any = None
+        self.phase5_shap_explainer: Any = None
+
     def load(self):
         # ---- Phase 3 ----
         missing = [
@@ -125,6 +129,23 @@ class ModelStore:
                 f"[model_loader] {len(self.rings_df)} fraud rings pre-computed "
                 f"({(self.rings_df['avg_risk_score'] >= 0.3).sum()} high-risk)"
             )
+
+        # ---- Explainability: Initialize TreeSHAP Explainer for Phase 3 ----
+        try:
+            from shap_explainer import TrustShieldSHAPExplainer
+            p3_cols = self.feature_meta.get("all_feature_cols", []) if self.feature_meta is not None else []
+            self.shap_explainer = TrustShieldSHAPExplainer(
+                model=self.combined_graph_model,
+                feature_names=p3_cols,
+                model_name="Combined Graph Detector (Phase 3)",
+            )
+            print(
+                f"[model_loader] Phase 3 TreeSHAP explainer initialized "
+                f"({len(p3_cols)} features)"
+            )
+        except Exception as exc:
+            print(f"[model_loader] TreeSHAP Phase 3 explainer init failed: {exc}")
+            self.shap_explainer = None
 
         # ---- Phase 4: CLIP embedding cache (optional) ----
         clip_cache_dir = os.path.join(MODELS_DIR, "clip_cache")
@@ -214,6 +235,20 @@ class ModelStore:
                     f"{len(meta['hybrid_feature_cols'])} features, "
                     f"classifier={meta.get('classifier', 'XGBoost')})"
                 )
+                try:
+                    from shap_explainer import TrustShieldSHAPExplainer
+                    self.phase5_shap_explainer = TrustShieldSHAPExplainer(
+                        model=self.hybrid_model,
+                        feature_names=meta.get("hybrid_feature_cols", []),
+                        model_name="Hybrid GNN Detector (Phase 5)",
+                    )
+                    print(
+                        f"[model_loader] Phase 5 TreeSHAP explainer initialized "
+                        f"({len(meta.get('hybrid_feature_cols', []))} features)"
+                    )
+                except Exception as exc:
+                    print(f"[model_loader] TreeSHAP Phase 5 explainer init failed: {exc}")
+                    self.phase5_shap_explainer = None
         else:
             print(
                 "[model_loader] Phase 5 artifacts not found — "
@@ -232,6 +267,12 @@ class ModelStore:
     @property
     def clip_loaded(self) -> bool:
         return self._clip_loaded
+
+    @property
+    def shap_loaded(self) -> bool:
+        return (self.shap_explainer is not None and self.shap_explainer.is_available) or (
+            self.phase5_shap_explainer is not None and self.phase5_shap_explainer.is_available
+        )
 
 
 # Global singleton — imported by main.py

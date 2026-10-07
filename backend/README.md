@@ -3,7 +3,8 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
 [![Pydantic](https://img.shields.io/badge/Pydantic-v2.0+-e92063.svg)](https://docs.pydantic.dev)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/Tests-Backend%20Passing-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Tests](https://img.shields.io/badge/Tests-51%20Backend%20Passing-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Explainability](https://img.shields.io/badge/Explainability-TreeSHAP%20Exact-8A2BE2.svg)](../trustshield_project/shap_explainer.py)
 
 Production-grade serving gateway for the **TrustShield AI** fraud intelligence platform. Built with FastAPI, Pydantic v2, and ASGI server optimizations, delivering sub-20ms inference latency, strict boundary schema validation, isotonic probability calibration, and orchestrator readiness probes.
 
@@ -101,7 +102,84 @@ curl -X POST http://localhost:8000/transaction/score \
 
 ---
 
-### 3. Collusion Fraud Rings Intelligence
+---
+
+### 3. TreeSHAP Explainability Engine
+- **`POST /transaction/explain`**  
+  **Purpose:** Computes sub-10ms exact local Shapley attributions for any transaction, highlighting features driving fraud risk higher vs. legitimate mitigating factors.  
+  **Key Features:**
+  - Fast `TreeExplainer` computing local feature contributions.
+  - Automatically splits into `top_positive_drivers` (risk amplifiers) and `top_negative_dampeners` (trust factors).
+  - Translates machine feature keys to human-friendly names (e.g. `share_degree` → `"Hardware / Address Sharing Degree"`).
+  - Synthesizes professional, evidence-backed natural language summaries for fraud operations.
+
+#### Example Request:
+```bash
+curl -X POST http://localhost:8000/transaction/explain \
+  -H "Content-Type: application/json" \
+  -d '{
+    "order_id": "ORD_98124",
+    "amount": 890.0,
+    "base_price": 120.0,
+    "share_degree": 6.0,
+    "share_component_size": 7.0,
+    "seller_age_days": 4.0,
+    "buyer_return_rate_before": 0.75
+  }'
+```
+
+#### Example Response:
+```json
+{
+  "order_id": "ORD_98124",
+  "base_value": -1.2450,
+  "overall_fraud_probability": 0.8421,
+  "decision": "BLOCK",
+  "top_positive_drivers": [
+    {
+      "feature_name": "share_degree",
+      "friendly_name": "Hardware / Address Sharing Degree",
+      "feature_value": 6.0,
+      "shap_value": 1.482,
+      "abs_impact": 1.482
+    }
+  ],
+  "top_negative_dampeners": [],
+  "all_attributions": { "share_degree": 1.482, "amount": 0.312 },
+  "investigator_narrative": "Elevated risk is primarily propelled by: Hardware / Address Sharing Degree (6.0, SHAP: +1.482)."
+}
+```
+
+---
+
+### 4. Forensic Investigation Dossier API
+- **`POST /investigation/generate-dossier`**  
+  **Purpose:** Generates comprehensive, evidence-grounded forensic investigation packages combining entity facts, model inference, graph topology, TreeSHAP attributions, and policy RAG guidelines.  
+  **Key Features:**
+  - Automated anti-hallucination verification cross-checking generated assertions against recorded telemetry.
+  - Reconstructed graph topology context (shared device collisions, multi-account clusters).
+  - Verifiable hypothesis synthesis and concrete investigator next steps.
+
+---
+
+### 5. Real-Time Transaction SSE Stream
+- **`GET /stream/transactions?interval=2.0`**  
+  **Purpose:** Server-Sent Events (SSE) streaming endpoint for live fraud operations dashboards (`frontend/src/app/transactions/feed/`).  
+  **Key Features:**
+  - Pushes live scored transactions with calibrated probabilities and decision routing.
+  - Automatic 15-second heartbeat keepalive frames preventing proxy timeouts.
+  - Clean client disconnect cancellation lifecycle management.
+  - Bounded concurrency guarantees.
+
+---
+
+### 6. Production Metrics & Observability
+- **`GET /metrics`**: Prometheus text format exporter tracking scoring request counters, p50/p95/p99 latency histograms (`scoring_latency_seconds`), decision counters (`decisions_total`), and error fallbacks.
+- **`GET /system/benchmark`**: High-resolution empirical hardware benchmark returning percentile latencies across model inference, Trust Engine, Redis vector lookup, and Neo4j graph traversal.
+
+---
+
+### 7. Collusion Fraud Rings Intelligence
 - **`GET /fraud-rings`**  
   **Query Parameters:**
   - `min_risk_score` (float, default: `0.0`): Filter rings above a composite risk threshold.
@@ -110,16 +188,41 @@ curl -X POST http://localhost:8000/transaction/score \
 
 ---
 
-### 4. Multimodal Listing Integrity
+### 8. Multimodal Listing Integrity
 - **`POST /listing/analyze`**  
   **Purpose:** Analyzes product listings for catalog counterfeits and cross-seller image theft using CLIP visual-semantic embeddings and FAISS nearest-neighbor indexing.  
   **Response:** Semantic similarity score, near-duplicate collision count, and cross-seller reuse flags.
 
 ---
 
-### 5. Return Abuse Evaluation
+### 9. Return Abuse Evaluation
 - **`POST /return/analyze`**  
   **Purpose:** Evaluates return request risk based on historical return velocities, claim history, and seller return exposure.
+
+---
+
+## 🏗️ Services Integration Architecture (`backend/services/`)
+
+The backend encapsulates auxiliary infrastructure and domain logic into modular service singletons:
+
+1. **`CacheService` (`backend/services/cache_service.py`)**:
+   - Manages connection pooling to the Redis feature store (`redis:6379`).
+   - Caches 16-dimensional GNN node embeddings and candidate fraud ring membership sets.
+   - Built-in circuit breaker fallback: seamlessly degrades to local memory cache if Redis is unavailable.
+
+2. **`GraphService` (`backend/services/graph_service.py`)**:
+   - Manages official Neo4j driver connections (`bolt://neo4j:7687`).
+   - Executes parameterized Cypher queries to extract 2-hop ego graphs and collusion paths.
+   - Graceful fallback: returns structured synthetic topology if the graph database is offline.
+
+3. **`AuditLogService` (`backend/services/audit_service.py`)**:
+   - Append-only structured audit logger recording transaction decisions, model versions, and investigator interventions.
+   - Thread-safe in-memory ring buffer with optional persistent file backend.
+
+4. **`InvestigationService` (`backend/services/investigation_service.py`)**:
+   - Orchestrates multi-source evidence extraction (scoring, graph, TreeSHAP).
+   - Generates verified facts, executive summaries, and investigator action items.
+   - Enforces strict anti-hallucination guard preventing speculative assertions.
 
 ---
 
@@ -142,6 +245,8 @@ The serving layer operates standalone or orchestrated within a containerized mic
 - **FastAPI Gateway (`trustshield-api`)**: Sub-20ms inference server exposing REST and OpenAPI documentation.
 - **Neo4j Property Graph (`trustshield-neo4j`)**: Multi-relational graph store mapping collusion communities, shared devices, and address networks.
 - **Redis In-Memory Feature Store (`trustshield-redis`)**: High-throughput sub-millisecond key-value lookup for 16-dimensional GNN embeddings and fraud ring member sets.
+- **Prometheus (`trustshield-prometheus`)**: Metrics collection scraping `/metrics` every 15s.
+- **Grafana (`trustshield-grafana`)**: Live dashboard visualization for latency percentiles and throughput.
 
 ### Environment Configuration (`.env.example`)
 Configure runtime settings by copying `.env.example`:
@@ -160,22 +265,35 @@ NEO4J_USER=neo4j
 NEO4J_PASSWORD=trustshield_secret
 
 REDIS_URL=redis://redis:6379/0
+PROMETHEUS_ENABLED=true
 ```
 
 ---
 
 ## 🎨 Frontend Contract Alignment (`frontend_master_prompts/`)
 
-The Pydantic v2 schemas defined in `backend/schemas.py` (`HealthResponse`, `ReadyResponse`, `TransactionScoreRequest`, `TransactionScoreResponse`, `FraudRingsResponse`, `ListingScoreRequest`, `ReturnScoreRequest`) are 100% matched in TypeScript definitions under `frontend_master_prompts/02_API_SCHEMAS_TYPESCRIPT.md`, guaranteeing end-to-end type safety between backend responses and UI components.
+The Pydantic v2 schemas defined in `backend/schemas.py` (`HealthResponse`, `ReadyResponse`, `TransactionScoreRequest`, `TransactionScoreResponse`, `FraudRingsResponse`, `ListingScoreRequest`, `ReturnScoreRequest`, `ExplainResponse`, `InvestigationDossierResponse`) are 100% matched in TypeScript definitions under `frontend_master_prompts/02_API_SCHEMAS_TYPESCRIPT.md` and `frontend/src/lib/types/api.ts`, guaranteeing end-to-end type safety between backend responses and UI components.
 
 ---
 
 ## 🧪 Testing the Serving Layer
 
-Execute backend integration tests and static typing validation:
+Execute complete backend test suites and static typing validation (51 tests passing):
 ```bash
 # Run all backend endpoint and schema tests (29 tests)
 pytest backend/test_backend.py -v
+
+# Run new extension tests: Dossier, SSE, Metrics (9 tests)
+pytest backend/test_new_extensions.py -v
+
+# Run live driver & service fallback tests (5 tests)
+pytest backend/test_services.py -v
+
+# Run TreeSHAP explainability unit & integration tests (8 tests)
+pytest trustshield_project/test_shap_explainer.py -v
+
+# Run entire backend & serving test suite together (51 tests)
+pytest backend trustshield_project/test_shap_explainer.py -v
 
 # Run Pyright static type checker across backend
 npx --yes pyright backend/
