@@ -4,7 +4,7 @@
 [![PyTorch Geometric](https://img.shields.io/badge/PyG-HeteroGNN-EE4C2C.svg)](https://pyg.org)
 [![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-00599C.svg)](https://github.com/facebookresearch/faiss)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4+-eb5424.svg)](https://xgboost.ai)
-[![Test Suite](https://img.shields.io/badge/Tests-169%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Test Suite](https://img.shields.io/badge/Tests-187%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
 [![Temporal Safety](https://img.shields.io/badge/Temporal%20Invariant-event__time%20%3C%20decision__time-blue.svg)](../docs/FINAL_REPAIR_REPORT.md)
 
 This directory contains the core machine learning models, relational graph neural networks, continuous-time edge dynamics, multimodal vector indices, and information-theoretic decisioning algorithms powering the **TrustShield AI** platform.
