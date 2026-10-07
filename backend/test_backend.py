@@ -435,3 +435,57 @@ class TestModelUsedField:
         assert "Phase 4" in model_used, (
             f"Listing model_used must reference Phase 4; got: {model_used!r}"
         )
+
+    def test_return_analyze_endpoint(self, client):
+        """Test POST /return/analyze evaluates return fraud model properly."""
+        payload = {
+            "return_id": "RET_TEST_001",
+            "order_id": "ORD_TEST_001",
+            "buyer_id": "BUYER_TEST_01",
+            "seller_id": "SELLER_TEST_01",
+            "days_to_return": 1.0,
+            "buyer_age_days_at_return": 10.0,
+            "seller_age_days_at_return": 200.0,
+            "order_amount": 150.0,
+            "buyer_prior_returns": 5,
+            "buyer_orders_before_return": 6,
+            "buyer_return_rate_before": 0.83,
+            "seller_prior_returns": 3,
+            "seller_orders_before_return": 50,
+            "seller_return_rate_before": 0.06,
+            "reason": "defective",
+        }
+        r = client.post("/return/analyze", json=payload)
+        assert r.status_code == 200
+        d = r.json()
+        assert d["return_id"] == "RET_TEST_001"
+        assert 0.0 <= d["return_fraud_probability"] <= 1.0
+        assert d["risk_label"] in ("low", "medium", "high")
+        assert d["decision"] in ("ALLOW", "REVIEW", "HOLD", "BLOCK")
+        assert "REPEAT_RETURN_ABUSER" in d["reason_codes"]
+        assert "RAPID_RETURN_VELOCITY" in d["reason_codes"]
+
+    def test_transaction_scoring_with_multimodal_signal(self, client):
+        """Test POST /transaction/score ingests multimodal_similarity_score."""
+        low_sim_payload = {
+            "order_id": "ORD_MM_001",
+            "buyer_id": "BUYER_000001",
+            "seller_id": "SELLER_000001",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+            "multimodal_similarity_score": 0.10,  # strong mismatch
+        }
+        r = client.post("/transaction/score", json=low_sim_payload)
+        assert r.status_code == 200
+        d = r.json()
+        assert 0.0 <= d["overall_fraud_probability"] <= 1.0
+
+    def test_cors_headers(self, client):
+        """Test CORS headers are returned for preflight/requests."""
+        r = client.options("/health", headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        })
+        assert r.status_code == 200
+        assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"

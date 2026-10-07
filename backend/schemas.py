@@ -71,7 +71,7 @@ class TransactionScoreRequest(BaseModel):
     )
     device_shared_buyer_count: float = Field(
         default=1.0,
-        ge=1.0,
+        ge=0.0,
         description="Number of distinct buyers sharing this device (from training-set graph)",
     )
     order_amount: float = Field(default=0.0, ge=0.0, description="Order value")
@@ -100,6 +100,12 @@ class TransactionScoreRequest(BaseModel):
         default=None,
         description="Median listing price for the product's category (training-set statistic).",
     )
+    multimodal_similarity_score: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Cosine similarity between listing image and text [0, 1]. When supplied, drives multimodal_risk in the trust engine.",
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -122,48 +128,44 @@ class TransactionScoreRequest(BaseModel):
 
 
 class TransactionScoreResponse(BaseModel):
-    order_id: Optional[str]
+    order_id: Optional[str] = None
     overall_fraud_probability: float
     risk_label: str                  # "low" | "medium" | "high"
     model_used: str
     model_version: str = "phase3"    # "phase3" | "phase5-hybrid"
     note: str = ""
-    # FIX-01: Trust Engine integration fields
+    # Canonical Trust Engine real output fields (no fake defaults)
     decision: str = Field(
-        default="ALLOW",
-        description="Unified Trust Engine decision: ALLOW, REVIEW, HOLD, or BLOCK.",
+        description="Canonical Trust Engine decision: ALLOW, REVIEW, HOLD, or BLOCK.",
     )
     trust_score: float = Field(
-        default=100.0,
         ge=0.0,
         le=100.0,
         description="Calibrated trust score on [0, 100] scale (100 = full trust).",
     )
     confidence: float = Field(
-        default=1.0,
         ge=0.0,
         le=1.0,
         description="Confidence score based on Shannon binary entropy [0, 1].",
     )
-    # FIX-11: Cold-start signalling — True when the entity has minimal history
-    cold_start: bool = Field(
-        default=False,
-        description="True when buyer or seller has fewer than 3 prior interactions. "
-                    "Score confidence is reduced for cold-start entities.",
+    predictive_uncertainty: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Predictive uncertainty (Shannon entropy in [0, 1]).",
     )
-    # FIX-03: Model disagreement — populated once Trust Engine is integrated
+    cold_start: bool = Field(
+        description="True when buyer or seller has minimal interaction history.",
+    )
     model_disagreement: float = Field(
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="Spread between highest and lowest component model probabilities. "
-                    "High disagreement (>0.3) suggests uncertain prediction.",
+        description="Spread between highest and lowest component model probabilities.",
     )
-    # FIX-05: Structured reason codes — populated once Trust Engine is integrated
     reason_codes: List[str] = Field(
         default_factory=list,
-        description="Structured reason codes for this decision "
-                    "(e.g. HIGH_RETURN_RATE, SHARED_DEVICE_NETWORK).",
+        description="Structured explainable reason codes for this decision.",
     )
 
 
@@ -296,6 +298,63 @@ class ListingScoreResponse(BaseModel):
         description="The image-text similarity score used for this prediction.",
     )
     investigator_narrative: Dict[str, Any]
+
+
+# ---------------------------------------------------------------------------
+# /return/analyze  (POST) — Phase 2 Specialized Return Fraud Detector
+# ---------------------------------------------------------------------------
+
+class ReturnScoreRequest(BaseModel):
+    return_id: Optional[str] = None
+    order_id: Optional[str] = None
+    buyer_id: Optional[str] = None
+    seller_id: Optional[str] = None
+
+    days_to_return: float = Field(default=7.0, ge=0.0, description="Days between order date and return request")
+    buyer_age_days_at_return: float = Field(default=90.0, ge=0.0, description="Buyer account age in days at return time")
+    seller_age_days_at_return: float = Field(default=180.0, ge=0.0, description="Seller account age in days at return time")
+    order_amount: float = Field(default=50.0, ge=0.0, description="Monetary value of the returned item")
+    buyer_prior_returns: int = Field(default=0, ge=0, description="Buyer's historical return count")
+    buyer_orders_before_return: int = Field(default=5, ge=0, description="Buyer's historical order count")
+    buyer_return_rate_before: float = Field(default=0.0, ge=0.0, le=1.0, description="Buyer's prior return rate")
+    seller_prior_returns: int = Field(default=2, ge=0, description="Seller's historical return count")
+    seller_orders_before_return: int = Field(default=20, ge=0, description="Seller's historical order count")
+    seller_return_rate_before: float = Field(default=0.1, ge=0.0, le=1.0, description="Seller's prior return rate")
+    reason: Optional[str] = Field(
+        default="defective",
+        description="Return reason: 'changed_mind', 'defective', 'size_issue', 'wrong_item_received'",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "return_id": "RET_000456",
+                "order_id": "ORD_000123",
+                "buyer_id": "BUYER_000042",
+                "seller_id": "SELLER_000007",
+                "days_to_return": 3.0,
+                "buyer_age_days_at_return": 14.0,
+                "seller_age_days_at_return": 300.0,
+                "order_amount": 120.0,
+                "buyer_prior_returns": 4,
+                "buyer_orders_before_return": 5,
+                "buyer_return_rate_before": 0.8,
+                "seller_prior_returns": 2,
+                "seller_orders_before_return": 50,
+                "seller_return_rate_before": 0.04,
+                "reason": "defective",
+            }
+        }
+    )
+
+
+class ReturnScoreResponse(BaseModel):
+    return_id: Optional[str] = None
+    return_fraud_probability: float
+    risk_label: str  # "low" | "medium" | "high"
+    decision: str    # "ALLOW" | "REVIEW" | "HOLD" | "BLOCK"
+    model_used: str = "Return Fraud Detector (Phase 2 Specialized Model)"
+    reason_codes: List[str] = []
 
 
 # ---------------------------------------------------------------------------
