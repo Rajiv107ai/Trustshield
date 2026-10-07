@@ -6,7 +6,7 @@
 [![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-00599C.svg)](https://github.com/facebookresearch/faiss)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4+-eb5424.svg)](https://xgboost.ai)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![Test Suite](https://img.shields.io/badge/Tests-169%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Test Suite](https://img.shields.io/badge/Tests-187%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
 [![Leakage Safe](https://img.shields.io/badge/Temporal%20Leakage-Guarded%20Strict-blue.svg)](docs/FINAL_REPAIR_REPORT.md)
 
 **TrustShield AI** is an advanced, technically defensible e-commerce fraud-intelligence platform. It combines multi-entity relational graph learning, continuous-time edge dynamics, multimodal visual embedding retrieval, validated probability calibration, and an operational Trust Engine with split conformal uncertainty guarantees. All components operate under strict temporal isolation (`event_time < decision_time`).
