@@ -25,12 +25,16 @@ Start:
 Docs auto-generated at: http://localhost:8000/docs
 """
 
+import logging
 from contextlib import asynccontextmanager
 from typing import List
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi.middleware.cors import CORSMiddleware
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.model_loader import store
@@ -39,6 +43,7 @@ try:
         FraudRingsResponse, FraudRingItem,
         HealthResponse, ReadyResponse, ServiceState,
         ListingScoreRequest, ListingScoreResponse,
+        ReturnScoreRequest, ReturnScoreResponse,
     )
 except ImportError:
     from model_loader import store  # type: ignore[import-not-found]
@@ -47,7 +52,17 @@ except ImportError:
         FraudRingsResponse, FraudRingItem,
         HealthResponse, ReadyResponse, ServiceState,
         ListingScoreRequest, ListingScoreResponse,
+        ReturnScoreRequest, ReturnScoreResponse,
     )
+
+try:
+    from trustshield_project.advanced_trust_engine import CanonicalTrustEngine, OperationalDecision
+except ImportError:
+    try:
+        from advanced_trust_engine import CanonicalTrustEngine, OperationalDecision
+    except ImportError:
+        CanonicalTrustEngine = None
+        OperationalDecision = None
 
 try:
     from trustshield_project.trust_engine import TrustEngine
@@ -66,13 +81,15 @@ except ImportError:
         explain_listing_risk = None
         _MultimodalScorer = None
 
+_canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not None else None
 _trust_engine = TrustEngine() if TrustEngine is not None else None
 
 
 def _risk_label(score: float) -> str:
-    if score >= 0.5:
+    """Canonical risk label mapping aligned with Trust Engine thresholds (0.25, 0.55)."""
+    if score >= 0.55:
         return "high"
-    if score >= 0.3:
+    if score >= 0.25:
         return "medium"
     return "low"
 
@@ -154,6 +171,11 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
         returns_before = row.get("buyer_returns_before", 0) or 0
         row["buyer_return_rate_before"] = min(1.0, float(returns_before) / max(orders_before, 1))
 
+    # Clamp device_shared_buyer_count to at least 1.0 (self) if missing or <= 0
+    dev_count = row.get("device_shared_buyer_count")
+    if dev_count is None or dev_count <= 0:
+        row["device_shared_buyer_count"] = 1.0
+
     # Build the final feature vector using only the columns the model expects
     return {col: (row.get(col) if row.get(col) is not None else 0.0) for col in all_cols}
 
@@ -204,6 +226,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Production security & dashboard integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"^https?://.*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ---------------------------------------------------------------------------
 # GET /health
@@ -230,13 +261,19 @@ def health():
 # ---------------------------------------------------------------------------
 
 @app.get("/ready", response_model=ReadyResponse, tags=["system"])
-def ready():
+def ready(response: Response):
     """
     Readiness probe for orchestrators. Returns service state:
     - 'ready' when models and graph data are fully loaded
     - 'degraded' when Phase 3 baseline runs without Phase 5/CLIP
     - 'not_ready' when core models are unavailable
     """
+    if not store.is_loaded:
+        try:
+            store.load()
+        except Exception as exc:
+            logger.warning("Failed to lazy-load models in /ready: %s", exc)
+
     models_ready = store.is_loaded and (store.combined_graph_model is not None)
     phase3_ready = store.combined_graph_model is not None
     phase5_ready = store.phase5_loaded
@@ -249,6 +286,7 @@ def ready():
         status = ServiceState.DEGRADED
     else:
         status = ServiceState.NOT_READY
+        response.status_code = 503
 
     return ReadyResponse(
         status=status,
@@ -280,11 +318,19 @@ def score_transaction(req: TransactionScoreRequest):
     entropy confidence, model disagreement, and decision routing (ALLOW/REVIEW/HOLD/BLOCK).
     """
     if not store.is_loaded:
+        try:
+            store.load()
+        except Exception as exc:
+            logger.warning("Failed to lazy-load models in /transaction/score: %s", exc)
+    if not store.is_loaded:
         raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
 
-    # FIX-11: cold-start detection — fewer than 3 prior interactions signals a new entity.
-    is_cold_start = (
-        (req.buyer_orders_before < 3) or (req.seller_total_listings_before < 3)
+    # Phase 10: Multi-signal cold-start detection (insufficient buyer/seller history)
+    is_cold_start = bool(
+        (req.buyer_orders_before < 3)
+        or (req.seller_total_listings_before < 3)
+        or (req.buyer_age_days < 7.0)
+        or (req.seller_age_days < 7.0)
     )
 
     if store.phase5_loaded and store.phase5_meta is not None and store.hybrid_model is not None:
@@ -297,55 +343,74 @@ def score_transaction(req: TransactionScoreRequest):
             store.buyer_embeddings, store.seller_embeddings, emb_dim
         )
         X = pd.DataFrame([row])[hybrid_cols].fillna(0.0)
-        prob = float(np.asarray(store.hybrid_model.predict_proba(X))[0, 1])
+        prob_raw = float(np.asarray(store.hybrid_model.predict_proba(X))[0, 1])
         clf_name = p5_meta.get("classifier", "XGBoost")
 
-        # TS-AUD-03: Score Phase 3 tabular+graph model distinctly to prevent double-counting and capture true disagreement
+        # Phase 6: Calibrated probability
+        if store.phase5_calibrator is not None:
+            prob_cal = float(store.phase5_calibrator.predict_proba(np.array([prob_raw]))[0])
+        else:
+            prob_cal = prob_raw
+
+        # TS-AUD-03: Score Phase 3 tabular+graph model distinctly
         if store.combined_graph_model is not None and store.feature_meta is not None:
             p3_all_cols = store.feature_meta.get("all_feature_cols", p3_cols)
             p3_row = _build_feature_row(req, p3_all_cols)
             X_p3 = pd.DataFrame([p3_row])[p3_all_cols].fillna(0.0)
-            prob_tabular = float(np.asarray(store.combined_graph_model.predict_proba(X_p3))[0, 1])
+            raw_tab = float(np.asarray(store.combined_graph_model.predict_proba(X_p3))[0, 1])
+            prob_tabular = float(store.calibrator.predict_proba(np.array([raw_tab]))[0]) if store.calibrator is not None else raw_tab
         else:
-            prob_tabular = float(prob)
+            prob_tabular = float(prob_cal)
 
-        # FIX-01 / FIX-02 / FIX-03 / FIX-05: Unified Trust Engine Scoring
+        # Canonical Trust Engine scoring
+        graph_sig = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
+        ring_sig = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
         component_risks = {
             "tabular_risk": prob_tabular,
-            "graph_risk": float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0)),
-            "gnn_risk": float(prob),
-            "multimodal_risk": 0.05,
-            "velocity_risk": float(min(req.buyer_return_rate_before, 1.0)),
+            "graph_risk": graph_sig,
+            "hetero_gnn_risk": prob_cal,
+            "ring_risk": ring_sig,
         }
-        if _trust_engine is not None:
-            t_res = _trust_engine.score(component_risks, is_cold_start=is_cold_start)
+        if req.multimodal_similarity_score is not None:
+            component_risks["multimodal_risk"] = float(
+                max(0.0, min(1.0, 1.0 - req.multimodal_similarity_score))
+            )
+
+        engine = _canonical_trust_engine or _trust_engine
+        if engine is not None:
+            t_res = engine.score(component_risks, is_cold_start=is_cold_start)
+            final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
             decision = t_res.decision.value
             trust_score = t_res.trust_score
             confidence = t_res.confidence
-            model_disagreement = t_res.model_disagreement
+            uncertainty = getattr(t_res, "predictive_uncertainty", None)
+            model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
             reason_codes = t_res.reason_codes
         else:
-            decision = "REVIEW" if prob >= 0.3 else "ALLOW"
-            trust_score = round(100.0 * (1.0 - prob), 2)
+            final_risk = prob_cal
+            decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
+            trust_score = round(100.0 * (1.0 - final_risk), 2)
             confidence = 0.8
+            uncertainty = None
             model_disagreement = 0.0
             reason_codes = []
 
         return TransactionScoreResponse(
             order_id=req.order_id,
-            overall_fraud_probability=round(prob, 4),
-            risk_label=_risk_label(prob),
+            overall_fraud_probability=round(final_risk, 4),
+            risk_label=_risk_label(final_risk),
             decision=decision,
             trust_score=trust_score,
             confidence=confidence,
+            predictive_uncertainty=uncertainty,
             model_used=f"Hybrid GNN + {clf_name} (Phase 5, tabular+graph+GNN embeddings)",
             model_version="phase5-hybrid",
             cold_start=is_cold_start,
             model_disagreement=model_disagreement,
             reason_codes=reason_codes,
             note=(
-                "Scored with Phase 5 hybrid model (tabular + graph topology + 32-dim GNN embeddings) "
-                "routed through Unified Trust Engine."
+                "Scored with Phase 5 hybrid model routed through Canonical Trust Engine "
+                "with probability calibration and conformal uncertainty."
             ),
         )
 
@@ -358,46 +423,61 @@ def score_transaction(req: TransactionScoreRequest):
     feature_row = _build_feature_row(req, all_cols)
     X = pd.DataFrame([feature_row])[all_cols].fillna(0.0)
 
-    prob = float(np.asarray(store.combined_graph_model.predict_proba(X))[0, 1])
+    prob_raw = float(np.asarray(store.combined_graph_model.predict_proba(X))[0, 1])
+    if store.calibrator is not None:
+        prob_cal = float(store.calibrator.predict_proba(np.array([prob_raw]))[0])
+    else:
+        prob_cal = prob_raw
+
     clf_name = meta.get("classifier", type(store.combined_graph_model).__name__)
 
-    # FIX-01 / FIX-02 / FIX-03 / FIX-05: Unified Trust Engine Scoring
+    graph_sig = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
+    ring_sig = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
     component_risks = {
-        "tabular_risk": float(prob),
-        "graph_risk": float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0)),
-        "gnn_risk": 0.0,
-        "multimodal_risk": 0.05,
-        "velocity_risk": float(min(req.buyer_return_rate_before, 1.0)),
+        "tabular_risk": prob_cal,
+        "graph_risk": graph_sig,
+        "ring_risk": ring_sig,
     }
-    if _trust_engine is not None:
-        t_res = _trust_engine.score(component_risks, is_cold_start=is_cold_start)
+    if req.multimodal_similarity_score is not None:
+        component_risks["multimodal_risk"] = float(
+            max(0.0, min(1.0, 1.0 - req.multimodal_similarity_score))
+        )
+
+    engine = _canonical_trust_engine or _trust_engine
+    if engine is not None:
+        t_res = engine.score(component_risks, is_cold_start=is_cold_start)
+        final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
         decision = t_res.decision.value
         trust_score = t_res.trust_score
         confidence = t_res.confidence
-        model_disagreement = t_res.model_disagreement
+        uncertainty = getattr(t_res, "predictive_uncertainty", None)
+        model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
         reason_codes = t_res.reason_codes
     else:
-        decision = "REVIEW" if prob >= 0.3 else "ALLOW"
-        trust_score = round(100.0 * (1.0 - prob), 2)
+        final_risk = prob_cal
+        decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
+        trust_score = round(100.0 * (1.0 - final_risk), 2)
         confidence = 0.8
+        uncertainty = None
         model_disagreement = 0.0
         reason_codes = []
 
     return TransactionScoreResponse(
         order_id=req.order_id,
-        overall_fraud_probability=round(prob, 4),
-        risk_label=_risk_label(prob),
+        overall_fraud_probability=round(final_risk, 4),
+        risk_label=_risk_label(final_risk),
         decision=decision,
         trust_score=trust_score,
         confidence=confidence,
-        model_used=f"tabular+graph RF (Phase 3, {clf_name})",
+        predictive_uncertainty=uncertainty,
+        model_used=f"tabular+graph {clf_name} (Phase 3)",
         model_version="phase3",
         cold_start=is_cold_start,
         model_disagreement=model_disagreement,
         reason_codes=reason_codes,
         note=(
             "Graph features default to 0 if not provided. Supply them from a live graph lookup for best accuracy. "
-            "Evaluated with Unified Trust Engine."
+            "Evaluated with Canonical Trust Engine."
         ),
     )
 
@@ -531,8 +611,12 @@ def analyze_listing(req: ListingScoreRequest):
         # This is reproducible and avoids the silent 0.85-default trap.
         try:
             if _MultimodalScorer is not None:
-                _tfidf = _MultimodalScorer()
-                _tfidf.fit(store.clip_products_df)
+                if getattr(store, "_tfidf_scorer", None) is None:
+                    _tfidf = _MultimodalScorer()
+                    _tfidf.fit(store.clip_products_df)
+                    store._tfidf_scorer = _tfidf
+                else:
+                    _tfidf = store._tfidf_scorer
                 displayed_pid = req.displayed_product_id or req.product_id
                 listing_row = pd.DataFrame([
                     {
@@ -543,8 +627,7 @@ def analyze_listing(req: ListingScoreRequest):
                 sim_score = float(_tfidf.score_listings(listing_row).iloc[0])
                 tfidf_scored = True
         except Exception as exc2:
-            import logging as _logging
-            _logging.getLogger(__name__).warning(
+            logger.warning(
                 "TF-IDF fallback also failed for listing %s (%s). "
                 "Using caller-supplied multimodal_similarity_score=%.3f.",
                 req.listing_id, exc2, req.multimodal_similarity_score,
@@ -585,5 +668,69 @@ def analyze_listing(req: ListingScoreRequest):
         clip_scored=clip_scored,
         multimodal_similarity_score=round(sim_score, 4),
         investigator_narrative=narrative,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /return/analyze  (Phase 2 Return Fraud Detector)
+# ---------------------------------------------------------------------------
+
+@app.post("/return/analyze", response_model=ReturnScoreResponse, tags=["scoring"])
+@app.post("/return/score", response_model=ReturnScoreResponse, tags=["scoring"], include_in_schema=False)
+def analyze_return(req: ReturnScoreRequest):
+    """
+    Score a return request for fraud / abuse using the Phase 2 specialized Return Fraud Detector
+    trained on return velocity, account tenure, order amount, and return reasons.
+    """
+    if not store.is_loaded or store.return_fraud_model is None or store.feature_meta is None:
+        raise HTTPException(status_code=503, detail="Return model not loaded yet.")
+
+    cols = store.feature_meta.get("return_feature_cols", [
+        "days_to_return", "buyer_age_days_at_return", "seller_age_days_at_return", "order_amount",
+        "buyer_prior_returns", "buyer_orders_before_return", "buyer_return_rate_before",
+        "seller_prior_returns", "seller_orders_before_return", "seller_return_rate_before",
+        "reason_changed_mind", "reason_defective", "reason_size_issue", "reason_wrong_item_received",
+    ])
+
+    clean_reason = req.reason.strip().lower() if isinstance(req.reason, str) else ""
+    features = {
+        "days_to_return": req.days_to_return,
+        "buyer_age_days_at_return": req.buyer_age_days_at_return,
+        "seller_age_days_at_return": req.seller_age_days_at_return,
+        "order_amount": req.order_amount,
+        "buyer_prior_returns": float(req.buyer_prior_returns),
+        "buyer_orders_before_return": float(req.buyer_orders_before_return),
+        "buyer_return_rate_before": req.buyer_return_rate_before,
+        "seller_prior_returns": float(req.seller_prior_returns),
+        "seller_orders_before_return": float(req.seller_orders_before_return),
+        "seller_return_rate_before": req.seller_return_rate_before,
+        "reason_changed_mind": 1.0 if clean_reason == "changed_mind" else 0.0,
+        "reason_defective": 1.0 if clean_reason == "defective" else 0.0,
+        "reason_size_issue": 1.0 if clean_reason == "size_issue" else 0.0,
+        "reason_wrong_item_received": 1.0 if clean_reason == "wrong_item_received" else 0.0,
+    }
+
+    X = pd.DataFrame([{c: features.get(c, 0.0) for c in cols}])[cols].fillna(0.0)
+    prob = float(np.asarray(store.return_fraud_model.predict_proba(X))[0, 1])
+
+    decision = "BLOCK" if prob >= 0.85 else ("HOLD" if prob >= 0.55 else ("REVIEW" if prob >= 0.25 else "ALLOW"))
+
+    reasons = []
+    if req.buyer_return_rate_before >= 0.50:
+        reasons.append("HIGH_BUYER_RETURN_RATE_BEFORE")
+    if req.buyer_prior_returns >= 3:
+        reasons.append("REPEAT_RETURN_ABUSER")
+    if req.days_to_return <= 1.0:
+        reasons.append("RAPID_RETURN_VELOCITY")
+    if prob >= 0.50:
+        reasons.append("RETURN_FRAUD_MODEL_SCORE_ELEVATED")
+
+    return ReturnScoreResponse(
+        return_id=req.return_id,
+        return_fraud_probability=round(prob, 4),
+        risk_label=_risk_label(prob),
+        decision=decision,
+        model_used="Return Fraud Detector (Phase 2 Specialized Model)",
+        reason_codes=reasons,
     )
 

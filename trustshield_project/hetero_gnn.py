@@ -52,17 +52,17 @@ def build_hetero_graph(
     if cutoff_date is not None:
         c_date = pd.to_datetime(cutoff_date)
         if "order_date" in orders_df.columns:
-            orders_filt = orders_df[pd.to_datetime(orders_df["order_date"]) <= c_date]
+            orders_filt = orders_df[pd.to_datetime(orders_df["order_date"]) < c_date]
         else:
             orders_filt = orders_df
 
         if "first_seen_date" in device_sharing_log.columns:
-            dev_filt = device_sharing_log[pd.to_datetime(device_sharing_log["first_seen_date"]) <= c_date]
+            dev_filt = device_sharing_log[pd.to_datetime(device_sharing_log["first_seen_date"]) < c_date]
         else:
             dev_filt = device_sharing_log
 
         if "first_seen_date" in address_sharing_log.columns:
-            addr_filt = address_sharing_log[pd.to_datetime(address_sharing_log["first_seen_date"]) <= c_date]
+            addr_filt = address_sharing_log[pd.to_datetime(address_sharing_log["first_seen_date"]) < c_date]
         else:
             addr_filt = address_sharing_log
     else:

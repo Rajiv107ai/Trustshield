@@ -29,9 +29,16 @@ predictions without error — no configuration needed.
 """
 
 import os
+import sys
 import joblib
 import pandas as pd
-from typing import Optional
+from typing import Optional, Any
+
+_PROJECT_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "trustshield_project")
+)
+if _PROJECT_DIR not in sys.path:
+    sys.path.insert(0, _PROJECT_DIR)
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models")
 
@@ -56,24 +63,29 @@ class ModelStore:
 
     def __init__(self):
         # --- Phase 3 (required) ---
-        self.combined_graph_model = None
-        self.fake_listing_model   = None
-        self.return_fraud_model   = None
+        self.combined_graph_model: Any = None
+        self.fake_listing_model: Any   = None
+        self.return_fraud_model: Any   = None
         self.rings_df: Optional[pd.DataFrame] = None
         self.feature_meta: Optional[dict] = None
-        self._loaded = False
+        self._loaded: bool = False
 
         # --- Phase 4 CLIP scorer (optional) ---
-        self.clip_scorer = None          # CLIPMultimodalScorer instance, or None
+        self.clip_scorer: Any = None          # CLIPMultimodalScorer instance, or None
         self.clip_products_df: Optional[pd.DataFrame] = None
-        self._clip_loaded = False
+        self._clip_loaded: bool = False
+        self._tfidf_scorer: Any = None        # Cached MultimodalScorer surrogate
+
+        # --- Calibration (Phase 6) ---
+        self.calibrator: Any = None
+        self.phase5_calibrator: Any = None
 
         # --- Phase 5 (optional) ---
-        self.hybrid_model         = None
+        self.hybrid_model: Any         = None
         self.buyer_embeddings:  dict = {}
         self.seller_embeddings: dict = {}
         self.phase5_meta: Optional[dict] = None
-        self._phase5_loaded = False
+        self._phase5_loaded: bool = False
 
     def load(self):
         # ---- Phase 3 ----
@@ -102,6 +114,10 @@ class ModelStore:
         self.feature_meta         = joblib.load(
             os.path.join(MODELS_DIR, "feature_meta.joblib")
         )
+        calibrator_path = os.path.join(MODELS_DIR, "calibrator.joblib")
+        if os.path.isfile(calibrator_path):
+            self.calibrator = joblib.load(calibrator_path)
+            print("[model_loader] Loaded ProbabilityCalibrator from models/calibrator.joblib")
         self._loaded = True
         print(f"[model_loader] Loaded Phase 3 models from {MODELS_DIR}")
         if self.rings_df is not None:
@@ -133,6 +149,9 @@ class ModelStore:
                 cache = CLIPEmbeddingCache(clip_cache_dir)
                 fingerprint = _product_fingerprint(list(self.clip_products_df["product_id"].astype(str)))
                 cached = cache.load(fingerprint)
+                if cached is None and cache.exists():
+                    # Fallback: load available cached product embeddings
+                    cached = cache.load(None)
                 if cached is not None:
                     self.clip_scorer = CLIPMultimodalScorer(cache_dir=clip_cache_dir)
                     self.clip_scorer.id_to_idx, self.clip_scorer.text_embeddings, self.clip_scorer.image_embeddings = cached
@@ -181,6 +200,10 @@ class ModelStore:
             self.phase5_meta        = joblib.load(
                 os.path.join(MODELS_DIR, "phase5_feature_meta.joblib")
             )
+            p5_cal_path = os.path.join(MODELS_DIR, "phase5_calibrator.joblib")
+            if os.path.isfile(p5_cal_path):
+                self.phase5_calibrator = joblib.load(p5_cal_path)
+                print("[model_loader] Loaded Phase 5 ProbabilityCalibrator from models/phase5_calibrator.joblib")
             self._phase5_loaded = True
             meta = self.phase5_meta
             if meta is not None:

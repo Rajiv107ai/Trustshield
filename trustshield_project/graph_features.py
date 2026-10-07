@@ -104,20 +104,18 @@ def build_monthly_snapshots(orders_df: pd.DataFrame, sim_start, n_months: int = 
 
         seller_ids = list(dict.fromkeys(cum_orders["seller_id"]))
         seller_buyer_counts = cum_orders.groupby(["seller_id", "buyer_id"]).size()
-        seller_rows = []
-        for s in seller_ids:
-            counts = seller_buyer_counts.loc[s]
-            # When a seller has only 1 unique buyer, .loc[s] returns a scalar.
-            # Wrap it in a Series so .sum() and .to_numpy() always work correctly.
-            if not isinstance(counts, pd.Series):
-                counts = pd.Series([counts])
-            shares = (counts / counts.sum()).to_numpy()
-            seller_rows.append({
+        seller_totals = cum_orders.groupby("seller_id").size()
+        shares = seller_buyer_counts.div(seller_totals, level="seller_id")
+        hhi_map = (shares ** 2).groupby(level=0).sum().to_dict()
+        seller_rows = [
+            {
                 "seller_id": s,
                 "seller_buyer_degree": B.degree[f"S_{s}"] if f"S_{s}" in B else 0,
                 "seller_pagerank": pagerank.get(f"S_{s}", 0.0),
-                "seller_buyer_concentration_hhi": float((shares ** 2).sum()),
-            })
+                "seller_buyer_concentration_hhi": float(hhi_map.get(s, 0.0)),
+            }
+            for s in seller_ids
+        ]
 
         snapshots[i] = (pd.DataFrame(buyer_rows), pd.DataFrame(seller_rows))
 
@@ -272,36 +270,47 @@ def run_phase_3():
     # Using a single no-cutoff graph (original code) would leak future sharing edges
     # into the training features — a temporal leakage bug.  This mirrors the correct
     # approach already used in phase5_hybrid_model.py (lines 236-237).
+    # TS-AUD-01 / Phase 2: Build strictly isolated relationship graphs per split.
+    # Train: information strictly prior to TRAIN_END
+    # Val: information strictly prior to validation decision time (cutoff TRAIN_END)
+    # Test: information strictly prior to test decision time (cutoff VAL_END)
     rel_graph_train = build_relationship_graph(
         base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END
     )
     rel_graph_val = build_relationship_graph(
+        base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END
+    )
+    rel_graph_test = build_relationship_graph(
         base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END
     )
-    # For ring detection and full-dataset scoring we use the val-end graph
-    # (no future information relative to the test period).
-    rel_graph = rel_graph_val
+    # For serving ring detection relative to test period:
+    rel_graph = rel_graph_test
 
-    # Attach per-split graph features (train uses train-graph, val+test use val-graph).
-    # We compute relationship features separately per epoch then stitch back.
     train_mask = df["order_date"] <= TRAIN_END
-    val_test_mask = ~train_mask
+    val_mask = (df["order_date"] > TRAIN_END) & (df["order_date"] <= VAL_END)
+    test_mask = df["order_date"] > VAL_END
 
     rel_feat_train = compute_relationship_features(rel_graph_train, df.loc[train_mask, "buyer_id"].unique())
-    rel_feat_val = compute_relationship_features(rel_graph_val, df.loc[val_test_mask, "buyer_id"].unique())
+    rel_feat_val = compute_relationship_features(rel_graph_val, df.loc[val_mask, "buyer_id"].unique())
+    rel_feat_test = compute_relationship_features(rel_graph_test, df.loc[test_mask, "buyer_id"].unique())
 
-    df.loc[train_mask, "share_degree"] = 0.0
-    df.loc[train_mask, "share_component_size"] = 0.0
-    df.loc[val_test_mask, "share_degree"] = 0.0
-    df.loc[val_test_mask, "share_component_size"] = 0.0
+    df["share_degree"] = 0.0
+    df["share_component_size"] = 1.0
 
-    tmp_train = df.loc[train_mask, ["buyer_id"]].merge(rel_feat_train, on="buyer_id", how="left")
-    df.loc[train_mask, "share_degree"] = tmp_train["share_degree"].fillna(0).values
-    df.loc[train_mask, "share_component_size"] = tmp_train["share_component_size"].fillna(0).values
+    if train_mask.any():
+        tmp_train = df.loc[train_mask, ["buyer_id"]].merge(rel_feat_train, on="buyer_id", how="left")
+        df.loc[train_mask, "share_degree"] = tmp_train["share_degree"].fillna(0.0).values
+        df.loc[train_mask, "share_component_size"] = tmp_train["share_component_size"].fillna(1.0).values
 
-    tmp_val = df.loc[val_test_mask, ["buyer_id"]].merge(rel_feat_val, on="buyer_id", how="left")
-    df.loc[val_test_mask, "share_degree"] = tmp_val["share_degree"].fillna(0).values
-    df.loc[val_test_mask, "share_component_size"] = tmp_val["share_component_size"].fillna(0).values
+    if val_mask.any():
+        tmp_val = df.loc[val_mask, ["buyer_id"]].merge(rel_feat_val, on="buyer_id", how="left")
+        df.loc[val_mask, "share_degree"] = tmp_val["share_degree"].fillna(0.0).values
+        df.loc[val_mask, "share_component_size"] = tmp_val["share_component_size"].fillna(1.0).values
+
+    if test_mask.any():
+        tmp_test = df.loc[test_mask, ["buyer_id"]].merge(rel_feat_test, on="buyer_id", how="left")
+        df.loc[test_mask, "share_degree"] = tmp_test["share_degree"].fillna(0.0).values
+        df.loc[test_mask, "share_component_size"] = tmp_test["share_component_size"].fillna(1.0).values
 
     snapshots, months = build_monthly_snapshots(result["orders"].assign(order_date=pd.to_datetime(result["orders"]["order_date"])), SIM_START)
     df = attach_snapshot_features(df, snapshots, months)
