@@ -18,6 +18,7 @@ This directory contains standalone execution scripts for end-to-end model traini
 | **`e2e_smoke_validation.py`** | Holistic end-to-end validation harness verifying model loading, offline vs. online consistency, calibration, FAISS index queries, and cold start paths. | Terminal diagnostic report (`PASS` / `FAIL`) | `requests`, `joblib`, `numpy` |
 | **`smoke_test_api.py`** | Live API smoke tester verifying HTTP status codes, schema contracts, `/ready` health, and latency against a running server. | HTTP test summary | `requests` |
 | **`build_clip_embeddings.py`** | Offline batch generator that extracts image and text CLIP embeddings from catalog items and populates the FAISS vector index cache. | `models/clip_cache/` | `transformers`, `torch`, `faiss` |
+| **`seed_mesh.py`** | Populates Neo4j property graph (constraints, collusion rings, device sharing) and hydrates Redis feature store (16D GNN vectors, ring sets) with zero-driver fallback. | `scripts/seed_graph.cypher`<br>`scripts/seed_redis.txt` | `joblib`, `pandas` |
 
 ---
 
@@ -49,4 +50,14 @@ python scripts/smoke_test_api.py --host http://localhost --port 8000
 To regenerate the CLIP embeddings cache used by `/listing/analyze`:
 ```bash
 python scripts/build_clip_embeddings.py
+```
+
+### 5. Seeding Neo4j & Redis Mesh Containers
+Populates the Neo4j property graph with fraud ring collision topology and hydrates Redis with pre-computed GNN embeddings:
+```bash
+# Auto-detect running containers and seed
+python scripts/seed_mesh.py
+
+# Offline dry-run (generates seed_graph.cypher and seed_redis.txt without network)
+python scripts/seed_mesh.py --dry-run
 ```
