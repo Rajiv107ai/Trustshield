@@ -59,8 +59,9 @@ def analyze_candidate_community(
     n_members = len(cluster_nodes)
 
     # Filter cluster orders
+    cluster_list = list(cluster_nodes)
     c_orders = orders_df[
-        orders_df["buyer_id"].isin(cluster_nodes) | orders_df["seller_id"].isin(cluster_nodes)
+        orders_df["buyer_id"].isin(cluster_list) | orders_df["seller_id"].isin(cluster_list)
     ]
     n_orders = len(c_orders)
 
@@ -88,15 +89,14 @@ def analyze_candidate_community(
 
     # 3. Merchant Concentration HHI
     if n_orders > 0 and "seller_id" in c_orders.columns:
-        seller_shares = c_orders["seller_id"].value_counts(normalize=True).values
-        # pyrefly: ignore [no-matching-overload, unsupported-operation]
+        seller_shares = np.asarray(c_orders["seller_id"].value_counts(normalize=True))
         hhi = float(np.sum(seller_shares ** 2))
     else:
         hhi = 0.0
 
     # 4. Coordinated Return Rate
     if n_orders > 0 and "order_id" in c_orders.columns:
-        order_ids = set(c_orders["order_id"])
+        order_ids = list(set(c_orders["order_id"]))
         c_returns = returns_df[returns_df["order_id"].isin(order_ids)]
         ret_rate = float(len(c_returns) / n_orders)
     else:

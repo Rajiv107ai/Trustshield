@@ -1,6 +1,8 @@
 """Tests for entity shapes, onboarding timelines, and structural invariants."""
 
+import numpy as np
 import pandas as pd
+from pandas.util import hash_pandas_object
 from entity_generator import N_SELLERS, N_BUYERS, SIM_START, SIM_END
 
 
@@ -119,7 +121,7 @@ class TestPipelineDeterminism:
             assert df1.equals(df2), f"Pipeline result '{frame_name}' differs across runs"
 
         # Compare stable hashes of orders table
-        h1 = hashlib.sha256(pd.util.hash_pandas_object(p1["result"]["orders"]).values).hexdigest()
-        h2 = hashlib.sha256(pd.util.hash_pandas_object(p2["result"]["orders"]).values).hexdigest()
+        h1 = hashlib.sha256(np.asarray(hash_pandas_object(p1["result"]["orders"])).tobytes()).hexdigest()
+        h2 = hashlib.sha256(np.asarray(hash_pandas_object(p2["result"]["orders"])).tobytes()).hexdigest()
         assert h1 == h2, f"Orders hash mismatch: {h1} != {h2}"
 

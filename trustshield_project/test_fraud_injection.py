@@ -1,7 +1,8 @@
 """Tests validating synthetic fraud injection rates, labels, and entity links."""
 
 import pandas as pd
-from fraud_injection import TARGET_FRAUD_RATE, FAKE_LISTING_RATE, FRAUD_TYPE_SHARE
+from fraud_injection import TARGET_FRAUD_RATE, FAKE_LISTING_RATE
+
 
 
 class TestFraudRates:

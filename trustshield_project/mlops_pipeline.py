@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 
-from trustshield_project.versioning import sha256_file, FEATURE_SCHEMA_VERSION, MODEL_METADATA_VERSION
+from trustshield_project.versioning import sha256_file, FEATURE_SCHEMA_VERSION
+
 
 
 @dataclass

@@ -9,7 +9,6 @@
 - Part 11: MLOps Experiment Lineage Tracker (parameter logging, SHA256 artifact hashing)
 """
 
-import math
 import numpy as np
 import pandas as pd
 import pytest
@@ -24,9 +23,9 @@ from trustshield_project.hetero_gnn import (
 )
 from trustshield_project.temporal_gnn import (
     Time2Vec,
-    TemporalGraphAttentionLayer,
     TemporalGNN,
 )
+
 from trustshield_project.multimodal_clip_faiss import (
     MultimodalFAISSIndex,
     extract_multimodal_listing_features,

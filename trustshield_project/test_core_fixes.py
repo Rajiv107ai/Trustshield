@@ -15,7 +15,8 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from trustshield_project.trust_engine import TrustEngine, Decision, TrustResult
+from trustshield_project.trust_engine import TrustEngine, Decision
+
 from trustshield_project.calibration import (
     ProbabilityCalibrator,
     calculate_brier_score,

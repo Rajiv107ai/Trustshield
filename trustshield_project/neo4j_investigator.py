@@ -8,7 +8,7 @@ Provides multi-hop relationship exploration and Cypher query capabilities for hu
 """
 
 from __future__ import annotations
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import networkx as nx
 
 

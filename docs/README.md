@@ -8,9 +8,9 @@ This directory serves as the centralized repository for all engineering audits, 
 
 ### 🛠️ 1. Technical Repair & Verification (Current State)
 - [**Master Technical Repair Report (`FINAL_REPAIR_REPORT.md`)**](FINAL_REPAIR_REPORT.md)  
-  *Authoritative record of the engineering repair campaign.* Documents the resolution of all 22 cataloged defects (`TS-001` to `TS-022`), temporal leakage elimination, production probability calibration, and empirical verification (169/169 tests passing).
+  *Authoritative record of the engineering repair campaign.* Documents the resolution of all 22 cataloged defects (`TS-001` to `TS-022`), temporal leakage elimination, production probability calibration, and empirical verification (192 passing tests across unit, regression, serving, and mesh seeder suites).
 - [**Repair Baseline State (`REPAIR_BASELINE.md`)**](REPAIR_BASELINE.md)  
-  Pre-repair vulnerability inventory, checklist, and architectural baseline.
+  Pre-repair vulnerability baseline, checklist, and architectural baseline.
 - [**Tracked Bug Registry (`BUG_INVENTORY.json`)**](BUG_INVENTORY.json)  
   Machine-readable JSON registry of tracked defects, files modified, and verification evidence.
 
@@ -51,3 +51,14 @@ This directory serves as the centralized repository for all engineering audits, 
   Guidelines for running unit, integration, temporal leakage, and regression test suites.
 - [**Project Rules & Conventions (`rules.md`)**](rules.md)  
   Coding standards, temporal safety invariants, and commit conventions.
+
+---
+
+### 🎨 5. Enterprise Frontend & UX Specification
+- [**Frontend Master Prompts Package (`../frontend_master_prompts/README.md`)**](../frontend_master_prompts/README.md)  
+  Production-grade frontend specifications for autonomous UI creation:
+  - `00_MASTER_FRONTEND_PROMPT.md`: 12 enterprise console views with strict Zero-Fake-Data backend grounding.
+  - `01_TECH_STACK_AND_TOKENS.md`: Dark console palette, decision color tokens, and JetBrains Mono typography.
+  - `02_API_SCHEMAS_TYPESCRIPT.md`: TypeScript contracts mirroring 100% of Pydantic v2 schemas.
+  - `03_SCENARIOS_AND_DUAL_MODE.md`: 4 interactive demo scenarios and plain-English reason translations.
+

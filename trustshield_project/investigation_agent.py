@@ -15,7 +15,8 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from trustshield_project.investigation_rag import ForensicRAGIndex, KnowledgeChunk
+from trustshield_project.investigation_rag import ForensicRAGIndex
+
 
 
 @dataclass(frozen=True)
@@ -51,11 +52,8 @@ class GenAIInvestigationAgent:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
         risk = float(getattr(trust_engine_result, "calibrated_risk", getattr(trust_engine_result, "risk_score", 0.0)))
-        raw_decision = getattr(trust_engine_result, "decision", "REVIEW")
-        if hasattr(raw_decision, "value"):
-            decision = str(raw_decision.value)
-        else:
-            decision = str(raw_decision).replace("OperationalDecision.", "").replace("Decision.", "")
+        raw_decision: Any = getattr(trust_engine_result, "decision", "REVIEW")
+        decision = str(getattr(raw_decision, "value", raw_decision)).replace("OperationalDecision.", "").replace("Decision.", "")
 
         confidence = float(getattr(trust_engine_result, "confidence", 0.5))
         disagreement = float(getattr(trust_engine_result, "detector_disagreement", getattr(trust_engine_result, "model_disagreement", 0.0)))

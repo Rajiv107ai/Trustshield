@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 from datetime import timedelta
 
-from entity_generator import rng, SIM_START, SIM_END, build_base_entities
+from entity_generator import rng, SIM_END, build_base_entities
+
+
 from product_listing_generator import build_catalog_and_listings
 
 TARGET_TOTAL_ORDERS = 50000

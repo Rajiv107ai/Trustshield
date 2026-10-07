@@ -136,12 +136,52 @@ The `ModelStore` singleton lazily initializes and caches production artifacts fr
 
 ---
 
+## 🌐 Orchestration & Service Mesh Integration
+
+The serving layer operates standalone or orchestrated within a containerized microservice mesh (`docker-compose.yml`):
+- **FastAPI Gateway (`trustshield-api`)**: Sub-20ms inference server exposing REST and OpenAPI documentation.
+- **Neo4j Property Graph (`trustshield-neo4j`)**: Multi-relational graph store mapping collusion communities, shared devices, and address networks.
+- **Redis In-Memory Feature Store (`trustshield-redis`)**: High-throughput sub-millisecond key-value lookup for 16-dimensional GNN embeddings and fraud ring member sets.
+
+### Environment Configuration (`.env.example`)
+Configure runtime settings by copying `.env.example`:
+```bash
+cp .env.example .env
+```
+Key configuration keys:
+```ini
+FASTAPI_HOST=0.0.0.0
+FASTAPI_PORT=8000
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+
+NEO4J_URI=bolt://neo4j:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=trustshield_secret
+
+REDIS_URL=redis://redis:6379/0
+```
+
+---
+
+## 🎨 Frontend Contract Alignment (`frontend_master_prompts/`)
+
+The Pydantic v2 schemas defined in `backend/schemas.py` (`HealthResponse`, `ReadyResponse`, `TransactionScoreRequest`, `TransactionScoreResponse`, `FraudRingsResponse`, `ListingScoreRequest`, `ReturnScoreRequest`) are 100% matched in TypeScript definitions under `frontend_master_prompts/02_API_SCHEMAS_TYPESCRIPT.md`, guaranteeing end-to-end type safety between backend responses and UI components.
+
+---
+
 ## 🧪 Testing the Serving Layer
 
-Execute backend integration tests:
+Execute backend integration tests and static typing validation:
 ```bash
-# Run all backend endpoint and schema tests
+# Run all backend endpoint and schema tests (29 tests)
 pytest backend/test_backend.py -v
+
+# Run Pyright static type checker across backend
+npx --yes pyright backend/
+
+# Run Flake8 syntax and undefined symbol linter
+flake8 backend/ --count --select=E9,F63,F7,F82 --show-source
 
 # Run smoke test client against live API
 python scripts/smoke_test_api.py --port 8000

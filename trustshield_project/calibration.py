@@ -10,9 +10,9 @@ This module provides:
 
 from __future__ import annotations
 import numpy as np
-from typing import Dict, Tuple, Optional, Any
-from sklearn.calibration import CalibratedClassifierCV
+from typing import Dict, Optional, Any
 from sklearn.isotonic import IsotonicRegression
+
 
 
 def calculate_brier_score(y_true: np.ndarray, y_prob: np.ndarray) -> float:
@@ -120,7 +120,6 @@ def optimize_cost_sensitive_threshold(
 
     thresholds = np.linspace(0.01, 0.99, n_candidates)
     best_cost = float("inf")
-    best_threshold = 0.5
     best_metrics = {}
 
     for t in thresholds:
@@ -133,8 +132,8 @@ def optimize_cost_sensitive_threshold(
         cost = fn_cost * fn + fp_cost * fp
         if cost < best_cost:
             best_cost = float(cost)
-            best_threshold = float(t)
             best_metrics = {
+
                 "tp": tp,
                 "tn": tn,
                 "fp": fp,

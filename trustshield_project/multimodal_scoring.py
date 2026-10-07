@@ -234,9 +234,8 @@ class CLIPMultimodalScorer:
         from transformers import CLIPModel, CLIPProcessor
         logger.info("Loading CLIP model %s on %s…", self.model_id, self.device)
         self._processor = CLIPProcessor.from_pretrained(self.model_id)
-        self._model = CLIPModel.from_pretrained(
-            self.model_id, use_safetensors=False
-        ).to(self.device)
+        loaded = CLIPModel.from_pretrained(self.model_id, use_safetensors=False)
+        self._model = getattr(loaded, "to")(self.device)
         self._model.eval()
         logger.info("CLIP model loaded.")
 
@@ -256,7 +255,7 @@ class CLIPMultimodalScorer:
             with torch.no_grad():
                 out = self._model.get_text_features(**inputs)
                 # transformers ≥5.x may return a dataclass; extract the tensor.
-                feats: torch.Tensor = out if isinstance(out, torch.Tensor) else out.pooler_output
+                feats = out if isinstance(out, torch.Tensor) else getattr(out, "pooler_output", out[0])
                 feats = F.normalize(feats.float(), dim=-1)
             all_embeds.append(feats.cpu().numpy())
         return np.vstack(all_embeds)
@@ -293,7 +292,7 @@ class CLIPMultimodalScorer:
                 with torch.no_grad():
                     out = self._model.get_image_features(**inputs)
                     # transformers ≥5.x may return a dataclass; extract the tensor.
-                    feats: torch.Tensor = out if isinstance(out, torch.Tensor) else out.pooler_output
+                    feats = out if isinstance(out, torch.Tensor) else getattr(out, "pooler_output", out[0])
                     feats = F.normalize(feats.float(), dim=-1)
                 for local_i, global_i in enumerate(valid_idxs):
                     result[global_i] = feats[local_i].cpu().numpy()
@@ -548,10 +547,11 @@ def compute_multimodal_similarity(
                 cache_dir=effective_cache_dir
             )
             result = scorer.fit(products_df).score_listings(listings_df)
+            res_arr = np.asarray(result, dtype=float)
             logger.info(
                 "CLIP multimodal similarity computed (mean=%.3f, std=%.3f)",
-                float(result.mean()),
-                float(result.std()),
+                float(np.mean(res_arr)),
+                float(np.std(res_arr)),
             )
             return result
         except Exception as exc:
