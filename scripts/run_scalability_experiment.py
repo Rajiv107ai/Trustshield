@@ -1,6 +1,18 @@
 """
 TrustShield AI — Empirical Scalability & Throughput Benchmark Experiment.
 
+HISTORICAL AUDIT NOTICE (Phase 1 & Phase 2 Integrity Review):
+-------------------------------------------------------------------------
+Step 7 ("Simulated Inference Throughput Benchmark") in this historical script
+evaluates in-memory NumPy matrix multiplication (`np.dot(sample_features, weights)`)
+as a proxy for algorithmic vectorization. It does NOT measure end-to-end HTTP API
+scoring throughput (FastAPI validation, Pydantic serialization, feature extraction,
+XGBoost tree traversal, or network roundtrips).
+
+For true HTTP endpoint latency, throughput, concurrency, and p50/p95/p99 benchmarking,
+see `scripts/benchmark_scoring_http.py` and `docs/HTTP_BENCHMARK_REPORT.md`.
+-------------------------------------------------------------------------
+
 Evaluates pipeline scalability across multiple scale tiers:
 - Tier 1: Small/Micro (~100 sellers, 1,000 buyers, ~10k orders)
 - Tier 2: Baseline MVP (~500 sellers, 5,000 buyers, ~50k orders)
@@ -11,7 +23,7 @@ Measures:
 2. Transaction & fraud injection runtime (seconds)
 3. Temporal feature engineering latency (seconds)
 4. NetworkX graph snapshot construction time (seconds)
-5. Model inference throughput (orders / second)
+5. Model inference throughput (orders / second - in-memory matrix proxy)
 6. Peak memory utilization (MB via tracemalloc)
 7. Generates docs/SCALABILITY_REPORT.md
 """

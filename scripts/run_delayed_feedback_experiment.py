@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import sys
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import numpy as np
 import pandas as pd
@@ -101,9 +101,9 @@ def main():
 
         roc = float(roc_auc_score(y_test_true, test_probs))
         pr = float(average_precision_score(y_test_true, test_probs))
-        f1 = float(f1_score(y_test_true, test_preds, zero_division=0))
-        rec = float(recall_score(y_test_true, test_preds, zero_division=0))
-        prec = float(precision_score(y_test_true, test_preds, zero_division=0))
+        f1 = float(f1_score(y_test_true, test_preds, zero_division=cast(Any, 0)))
+        rec = float(recall_score(y_test_true, test_preds, zero_division=cast(Any, 0)))
+        prec = float(precision_score(y_test_true, test_preds, zero_division=cast(Any, 0)))
 
         results.append({
             "delay_days": delay_days,

@@ -33,7 +33,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST
@@ -67,6 +67,7 @@ from backend.services.neo4j_service import neo4j_service
 from backend.services.investigation_service import investigation_service
 from backend.services.metrics_service import metrics_service
 from backend.services.stream_service import transaction_event_generator
+from backend.auth import authenticate_request, require_role, Role, validate_security_configuration
 
 try:
     from trustshield_project.advanced_trust_engine import CanonicalTrustEngine, OperationalDecision
@@ -246,6 +247,7 @@ def _build_hybrid_feature_row(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load models once at startup and probe infrastructure connectivity."""
+    validate_security_configuration()
     store.load()
     try:
         redis_service.ping()
@@ -289,12 +291,21 @@ async def prometheus_metrics_middleware(request: Request, call_next):
     metrics_service.request_duration.labels(endpoint=endpoint).observe(duration)
     return response
 
-# Production security & dashboard integration
+# Explicit validated CORS configuration (strict origin whitelist)
+_raw_origins = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000",
+)
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+# Security safeguard: Never combine wildcard '*' with allow_credentials=True
+_allow_creds = "*" not in _allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://.*",
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=_allowed_origins,
+    allow_credentials=_allow_creds,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -390,7 +401,7 @@ def ready(response: Response):
 # POST /transaction/score
 # ---------------------------------------------------------------------------
 
-@app.post("/transaction/score", response_model=TransactionScoreResponse, tags=["scoring"])
+@app.post("/transaction/score", response_model=TransactionScoreResponse, tags=["scoring"], dependencies=[Depends(authenticate_request)])
 def score_transaction(req: TransactionScoreRequest):
     """
     Score an incoming order for fraud using either the Phase 5 Hybrid model
@@ -532,6 +543,8 @@ def score_transaction(req: TransactionScoreRequest):
             },
             shap_attributions=shap_attrs,
             top_risk_drivers=top_drivers,
+            scoring_mode="production_model_phase5_hybrid",
+            is_simulation=False,
             note=(
                 "Scored with Phase 5 hybrid model routed through Canonical Trust Engine "
                 "with probability calibration and conformal uncertainty."
@@ -636,6 +649,8 @@ def score_transaction(req: TransactionScoreRequest):
         },
         shap_attributions=shap_attrs,
         top_risk_drivers=top_drivers,
+        scoring_mode="production_model_phase3_fallback",
+        is_simulation=False,
         note=(
             "Graph features default to 0 if not provided. Supply them from a live graph lookup for best accuracy. "
             "Evaluated with Canonical Trust Engine."
@@ -647,7 +662,7 @@ def score_transaction(req: TransactionScoreRequest):
 # POST /transaction/explain  — TreeSHAP Explainability
 # ---------------------------------------------------------------------------
 
-@app.post("/transaction/explain", response_model=TransactionExplainResponse, tags=["explainability"])
+@app.post("/transaction/explain", response_model=TransactionExplainResponse, tags=["explainability"], dependencies=[Depends(authenticate_request)])
 def explain_transaction(req: TransactionExplainRequest):
     """
     Generate local Shapley additive explanations (TreeSHAP) for a given transaction.
@@ -749,7 +764,7 @@ def explain_transaction(req: TransactionExplainRequest):
 # GET /fraud-rings
 # ---------------------------------------------------------------------------
 
-@app.get("/fraud-rings", response_model=FraudRingsResponse, tags=["rings"])
+@app.get("/fraud-rings", response_model=FraudRingsResponse, tags=["rings"], dependencies=[Depends(authenticate_request)])
 def get_fraud_rings(
     min_risk_score: float = Query(
         default=0.0,
@@ -810,7 +825,7 @@ def get_fraud_rings(
 # POST /listing/analyze  (Phase 4 Multimodal Fake Listing Scoring)
 # ---------------------------------------------------------------------------
 
-@app.post("/listing/analyze", response_model=ListingScoreResponse, tags=["scoring"])
+@app.post("/listing/analyze", response_model=ListingScoreResponse, tags=["scoring"], dependencies=[Depends(authenticate_request)])
 def analyze_listing(req: ListingScoreRequest):
     """
     Score a product listing for fraud / fake-listing risk using the Phase 4
@@ -938,8 +953,8 @@ def analyze_listing(req: ListingScoreRequest):
 # POST /return/analyze  (Phase 2 Return Fraud Detector)
 # ---------------------------------------------------------------------------
 
-@app.post("/return/analyze", response_model=ReturnScoreResponse, tags=["scoring"])
-@app.post("/return/score", response_model=ReturnScoreResponse, tags=["scoring"], include_in_schema=False)
+@app.post("/return/analyze", response_model=ReturnScoreResponse, tags=["scoring"], dependencies=[Depends(authenticate_request)])
+@app.post("/return/score", response_model=ReturnScoreResponse, tags=["scoring"], include_in_schema=False, dependencies=[Depends(authenticate_request)])
 def analyze_return(req: ReturnScoreRequest):
     """
     Score a return request for fraud / abuse using the Phase 2 specialized Return Fraud Detector
@@ -1002,7 +1017,7 @@ def analyze_return(req: ReturnScoreRequest):
 # POST /investigation/generate-dossier  (Forensic Investigation Dossier API)
 # ---------------------------------------------------------------------------
 
-@app.post("/investigation/generate-dossier", response_model=DossierResponse, tags=["investigation"])
+@app.post("/investigation/generate-dossier", response_model=DossierResponse, tags=["investigation"], dependencies=[Depends(require_role(Role.OPERATOR))])
 def generate_forensic_dossier(req: DossierRequest):
     """
     Generate an evidence-grounded forensic dossier for human fraud operations.
@@ -1044,7 +1059,7 @@ def generate_forensic_dossier(req: DossierRequest):
 # GET /stream/transactions  (Server-Sent Events Real-Time Ingest Stream)
 # ---------------------------------------------------------------------------
 
-@app.get("/stream/transactions", tags=["streaming"])
+@app.get("/stream/transactions", tags=["streaming"], dependencies=[Depends(authenticate_request)])
 async def stream_transactions(request: Request, interval: float = Query(default=2.0, ge=0.5, le=10.0)):
     """
     Server-Sent Events (SSE) real-time stream of incoming transactions scored dynamically
@@ -1090,8 +1105,8 @@ def prometheus_metrics():
 # GET /system/benchmark  (Empirical Infrastructure & Model Latency Measurement)
 # ---------------------------------------------------------------------------
 
-@app.get("/system/benchmark", tags=["monitoring"])
-def system_benchmark(iterations: int = Query(default=25, ge=5, le=100)):
+@app.get("/system/benchmark", tags=["monitoring"], dependencies=[Depends(require_role(Role.ADMIN))])
+def system_benchmark(iterations: int = Query(default=25, ge=5, le=50, description="Repetition count (bounded <=50 to prevent denial of service)")):
     """
     Measure empirical p50, p95, and p99 latencies across system components:
     - Model inference

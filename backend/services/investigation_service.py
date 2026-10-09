@@ -179,26 +179,7 @@ class InvestigationService:
                         "ring_id": str(row["ring_id"]),
                     }
 
-            # Valid generic buyer context
-            return {
-                "order_id": f"ORD_{entity_id}_1",
-                "buyer_id": entity_id,
-                "seller_id": "SELLER_STANDARD_01",
-                "amount": 120.0,
-                "base_price": 120.0,
-                "category_median_price": 110.0,
-                "buyer_orders_before": 5,
-                "buyer_returns_before": 0,
-                "buyer_return_rate_before": 0.0,
-                "buyer_age_days": 60.0,
-                "seller_age_days": 250.0,
-                "seller_total_listings_before": 30,
-                "device_shared_buyer_count": 1.0,
-                "share_degree": 0.0,
-                "share_component_size": 1.0,
-            }
-
-        # If entity is not found and no context provided:
+        # If entity is not found in Redis, presets, or rings, do not fabricate artificial transactions:
         raise HTTPException(
             status_code=404,
             detail=(

@@ -58,7 +58,12 @@ class Neo4jService:
     ):
         self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.user = user or os.getenv("NEO4J_USER", "neo4j")
-        self.password = password or os.getenv("NEO4J_PASSWORD", "trustshield_secret")
+
+        # Safe secret handling: prohibit hardcoded password fallbacks in production
+        env = os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower()
+        if env == "production" and not (password or os.getenv("NEO4J_PASSWORD")):
+            raise RuntimeError("CRITICAL SECURITY: NEO4J_PASSWORD must be explicitly set in production.")
+        self.password = password or os.getenv("NEO4J_PASSWORD", "trustshield_secret_dev_only")
         self.connection_timeout = connection_timeout
 
         env_enabled = os.getenv("NEO4J_ENABLED", "true").lower() in ("true", "1", "yes")

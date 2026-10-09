@@ -200,6 +200,7 @@ async def transaction_event_generator(
                 trust_score=score_res.trust_score,
                 reason_codes=score_res.reason_codes,
                 source="simulation_stream",
+                is_simulation=True,
             )
 
             if metrics_tracker and hasattr(metrics_tracker, "sse_events_counter"):

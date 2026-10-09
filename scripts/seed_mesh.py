@@ -249,7 +249,7 @@ def seed_neo4j(
         driver = GraphDatabase.driver(bolt_uri, auth=(user, password))
         with driver.session() as session:
             for stmt in clean_statements:
-                session.run(stmt)
+                session.run(stmt)  # type: ignore[arg-type]
         driver.close()
         print(f"Successfully seeded {len(clean_statements)} Cypher statements via Bolt driver.")
         return True
