@@ -1,0 +1,384 @@
+{
+  "schema_version": "1.0.0",
+  "audit_metadata": {
+    "stage": "TrustShield Phase 3 Stage 3.5",
+    "title": "Temporal Generalization & Blind-Holdout Readiness",
+    "audit_timestamp": "2026-10-09T20:25:00+05:30",
+    "auditor_roles": [
+      "Senior ML Research Engineer",
+      "ML Evaluation Auditor",
+      "Data-Leakage Specialist",
+      "MLOps Security Engineer"
+    ],
+    "git_branch": "phase-3-data-generalization",
+    "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "working_tree_status": "DIRTY_CONTROLLED_AUDIT (User changes preserved; audit tests and reports added; zero production code or models modified)",
+    "readiness_decision": "CONDITIONALLY READY",
+    "authorization_state": "HOLDOUT_V2_2_UNGENERATED_AND_LOCKED"
+  },
+  "verified_baseline_claims": [
+    {
+      "claim_id": "STAGE342_TEST_PASS_COUNT",
+      "description": "Stage 3.4.2 suite passed 13 tests",
+      "claimed_value": 13,
+      "verified_value": 13,
+      "status": "VERIFIED",
+      "evidence": "pytest trustshield_project/test_stage342_audit_reconciliation.py (13 passed in 0.42s)"
+    },
+    {
+      "claim_id": "PHASE3_CUMULATIVE_PASS_COUNT",
+      "description": "Cumulative Phase 3 test suite reached 74 passing tests prior to Stage 3.5",
+      "claimed_value": 74,
+      "verified_value": 74,
+      "status": "VERIFIED",
+      "evidence": "pytest across 7 Phase 3 test suites (74 passed in 3.59s)"
+    },
+    {
+      "claim_id": "STAGE35_CUMULATIVE_PASS_COUNT",
+      "description": "Cumulative Phase 3 test suite with new Stage 3.5 readiness suite reaches 92 passing tests",
+      "claimed_value": 92,
+      "verified_value": 92,
+      "status": "VERIFIED",
+      "evidence": "pytest across 8 Phase 3 test suites (92 passed, 2 warnings in 2.92s)"
+    },
+    {
+      "claim_id": "IN_SAMPLE_ECE_DISPROVAL",
+      "description": "Reported Validation ECE of 0.0000 was measured on the calibrator fitting cohort and does not demonstrate generalization",
+      "claimed_value": "ECE = 0.0000 on Val",
+      "verified_value": "In-sample fit artifact; diagnostic test ECE = 0.0289 for tabular XGBoost",
+      "status": "VERIFIED_DEFECT_ISOLATED",
+      "evidence": "trustshield_project/test_stage35_temporal_holdout_readiness.py::test_calibration_cohort_separation_enforcement"
+    }
+  ],
+  "threshold_cost_reconciliation": {
+    "status": "RESOLVED_MATHEMATICALLY",
+    "cost_formula": "Cost = FP * $10 + FN * $150 + TP * $10 == Flagged * $10 + Missed * $150",
+    "coarse_grid_findings": {
+      "grid_definition": "80 uniformly spaced points in [0.01, 0.80] with step 0.01",
+      "t_0_06": {
+        "threshold": 0.06,
+        "flagged_orders": 7022,
+        "tp": 644,
+        "fp": 6378,
+        "fn": 210,
+        "cost": 101720.0
+      },
+      "t_0_07": {
+        "threshold": 0.07,
+        "flagged_orders": 3709,
+        "tp": 424,
+        "fp": 3285,
+        "fn": 430,
+        "cost": 101590.0
+      },
+      "coarse_optimality": "Within the 80-point grid, t=0.07 is the unique minimum ($101,590 < $101,720)."
+    },
+    "discrete_isotonic_step_findings": {
+      "model_score_distribution": "Isotonic regression maps validation inputs to exactly 26 discrete output probability levels.",
+      "step_13_mislabeled_as_0_06": {
+        "score_value": 0.06907378335949764,
+        "flagged_orders": 4983,
+        "tp": 512,
+        "fp": 4471,
+        "fn": 342,
+        "cost": 101130.0,
+        "root_cause": "The $101,130 cost reported in Stage 3.4.2 text table corresponds to score step 13 (u = 0.069074), which was truncated/rounded to '0.06' in the table header, creating confusion against the coarse grid's t=0.06."
+      },
+      "true_unconstrained_minimum": {
+        "score_value": 0.06763285024154589,
+        "step_index": 11,
+        "flagged_orders": 5219,
+        "tp": 528,
+        "fp": 4691,
+        "fn": 326,
+        "cost": 101090.0,
+        "root_cause": "True minimum cost across all possible thresholds is $101,090 at u=0.067633, which is $500 lower than coarse grid minimum $101,590. Coarse grid of step 0.01 was insufficiently granular to discover this point."
+      }
+    }
+  },
+  "temporal_split_audit": {
+    "split_chronology": {
+      "train": {
+        "start": "2025-01-01T04:38:36.859251",
+        "end": "2025-08-31T23:44:25.807231",
+        "order_count": 16952,
+        "fraud_count": 813,
+        "prevalence": 0.0480
+      },
+      "validation": {
+        "start": "2025-09-01T00:00:00.000000",
+        "end": "2025-10-31T23:56:56.033275",
+        "order_count": 12129,
+        "fraud_count": 854,
+        "prevalence": 0.0704
+      },
+      "diagnostic_test": {
+        "start": "2025-11-01T00:00:00.000000",
+        "end": "2025-12-31T00:00:00.000000",
+        "order_count": 20919,
+        "fraud_count": 1835,
+        "prevalence": 0.0877
+      }
+    },
+    "split_integrity_status": "STRICTLY_CHRONOLOGICAL_NO_OVERLAP",
+    "order_id_cross_split_duplicates": 0,
+    "point_in_time_causality": "VERIFIED (merge_asof allow_exact_matches=False prevents same-timestamp event leakage)",
+    "return_label_maturity_21_day_rule": {
+      "historical_2025_safe_cutoff": "2025-12-10T23:59:59",
+      "historical_2025_censored_orders": 8618,
+      "future_2026_proposed_safe_cutoff": "2026-02-07T23:59:59 (for simulation end 2026-02-28T23:59:59)",
+      "rule_status": "VERIFIED_MATHEMATICALLY_AND_TESTED"
+    }
+  },
+  "distribution_shift_findings": {
+    "fraud_prevalence_drift": "Substantial upward drift from 4.80% in Train to 7.04% in Val to 8.77% in Test (+82.7% increase)",
+    "fraud_type_composition_drift": "Return abuse drops from 55.0% of fraud in Train to 25.4% in Test; Coordinated rings and collusion surge from 11.0% combined in Train to 48.8% in Test",
+    "entity_overlap": {
+      "buyer_overlap_train_val": 2471,
+      "buyer_overlap_val_test": 3059,
+      "seller_overlap_train_val": 467,
+      "seller_overlap_val_test": 486
+    },
+    "feature_missingness": "0.00% across all 10 tabular features in all three splits"
+  },
+  "evidence_inventory": [
+    {
+      "artifact_path": "scripts/generate_realistic_synthetic_data_v2_1.py",
+      "artifact_type": "Generator Source Code",
+      "sha256": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "git_status": "Tracked",
+      "role": "Frozen Benchmark Generator",
+      "provenance": "Stage 3.1.1 corrective generation script",
+      "integrity_status": "VERIFIED",
+      "notes": "Generates synthetic v2.1 benchmark data; locked"
+    },
+    {
+      "artifact_path": "data/synthetic_v2_1/dataset_manifest.json",
+      "artifact_type": "Data Manifest",
+      "sha256": "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b",
+      "git_status": "Tracked",
+      "role": "Dataset Provenance Specification",
+      "provenance": "Generated during Stage 3.1.1 data creation",
+      "integrity_status": "VERIFIED",
+      "notes": "Records hashes and counts for all 12 operational CSV tables"
+    },
+    {
+      "artifact_path": "data/synthetic_v2_1/orders.csv",
+      "artifact_type": "Dataset (Primary Transactions)",
+      "sha256": "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f",
+      "git_status": "Tracked",
+      "role": "Training / Validation / Diagnostic Test Data",
+      "provenance": "Synthetic v2.1 generation pipeline",
+      "integrity_status": "VERIFIED",
+      "notes": "50,000 orders spanning full year 2025"
+    },
+    {
+      "artifact_path": "data/synthetic_v2_1/listings.csv",
+      "artifact_type": "Dataset (Catalog Listings)",
+      "sha256": "0081b562dc900c14e1b90f2310261401ab2f8f40dda4805aa72bd17959d5e619",
+      "git_status": "Tracked",
+      "role": "Catalog Listings Data",
+      "provenance": "Synthetic v2.1 generation pipeline",
+      "integrity_status": "VERIFIED",
+      "notes": "20,000 listings"
+    },
+    {
+      "artifact_path": "data/synthetic_v2_1/returns.csv",
+      "artifact_type": "Dataset (Returns)",
+      "sha256": "34eb6514d2ebe4b90608f31fb09fd71c2aa1709424d3e00c22c6a38df119a14a",
+      "git_status": "Tracked",
+      "role": "Observed Return Events",
+      "provenance": "Synthetic v2.1 generation pipeline",
+      "integrity_status": "VERIFIED",
+      "notes": "5,537 organic and abusive returns"
+    },
+    {
+      "artifact_path": "models/stage34/stage34_tabular_model.joblib",
+      "artifact_type": "Model Weight Artifact",
+      "sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "git_status": "Tracked",
+      "role": "Candidate Production Model",
+      "provenance": "Trained in Stage 3.4 on Synthetic v2.1 Train cohort",
+      "integrity_status": "VERIFIED",
+      "notes": "XGBClassifier with 10 explicit tabular features; bit-for-bit reproducible"
+    },
+    {
+      "artifact_path": "models/stage34/stage34_tabular_calibrator.joblib",
+      "artifact_type": "Model Calibration Artifact",
+      "sha256": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "git_status": "Tracked",
+      "role": "Candidate Probability Calibrator",
+      "provenance": "Fitted in Stage 3.4 on Validation predictions",
+      "integrity_status": "VERIFIED",
+      "notes": "ProbabilityCalibrator (isotonic); bit-for-bit reproducible"
+    },
+    {
+      "artifact_path": "models/stage34/stage342_val_predictions.npy",
+      "artifact_type": "Prediction Array",
+      "sha256": "68977af8aeef1c148133c3823f251360e2feac8f29b178301a1698b4b985beb5",
+      "git_status": "Tracked",
+      "role": "Validation Reference Predictions",
+      "provenance": "Serialized in Stage 3.4.2 from Late Fusion champion",
+      "integrity_status": "VERIFIED",
+      "notes": "12,129 float64 predictions"
+    },
+    {
+      "artifact_path": "models/stage34/stage342_val_labels.npy",
+      "artifact_type": "Label Array",
+      "sha256": "43b6ed221aa6763770b26faa626e1d53cef27926c55b3c2d44a8c29e67e3d36c",
+      "git_status": "Tracked",
+      "role": "Validation Ground Truth Labels",
+      "provenance": "Serialized in Stage 3.4.2 from orders.csv validation split",
+      "integrity_status": "VERIFIED",
+      "notes": "12,129 int64 labels (854 positive)"
+    },
+    {
+      "artifact_path": "models/stage34/stage34_decision_policy.json",
+      "artifact_type": "Decision Policy Specification",
+      "sha256": "e42321deba759830f420f0c7165b1c01ff384cc00a6715276d98e509c4508d7b",
+      "git_status": "Tracked",
+      "role": "Operational Threshold Policy",
+      "provenance": "Stage 3.4 decision policy module",
+      "integrity_status": "VERIFIED",
+      "notes": "Documents cost-optimal threshold and 4-tier routing boundaries"
+    }
+  ],
+  "blind_holdout_threat_model": [
+    {
+      "threat_id": "THREAT-01",
+      "name": "Accidental Label Exposure",
+      "severity": "CRITICAL",
+      "mitigation": "Holdout labels encrypted with AES-256-GCM (labels_encrypted.bin). Keys held in custody by Independent Auditor.",
+      "implementation_status": "DESIGNED_AND_TESTED_IN_GATE_FIXTURE (v2.2 labels remain ungenerated and unblinded)"
+    },
+    {
+      "threat_id": "THREAT-02",
+      "name": "Developer Access to Decryption Keys",
+      "severity": "CRITICAL",
+      "mitigation": "Keys never stored in repository or CI environment accessible to development team. Automated fail-closed check enforces authorization token.",
+      "implementation_status": "IMPLEMENTED_IN_REGRESSION_TEST"
+    },
+    {
+      "threat_id": "THREAT-03",
+      "name": "Mutable Model or Pipeline After Prediction Generation",
+      "severity": "HIGH",
+      "mitigation": "Cryptographic commit-reveal: SHA-256 prediction array hash committed to audit ledger prior to label release.",
+      "implementation_status": "IMPLEMENTED_IN_STAGE342_AND_STAGE35_TESTS"
+    },
+    {
+      "threat_id": "THREAT-04",
+      "name": "Repeated Holdout Queries / Adaptive Overfitting",
+      "severity": "CRITICAL",
+      "mitigation": "Strict single-shot evaluation protocol: exactly one evaluation execution permitted; zero iterative query endpoints.",
+      "implementation_status": "PROPOSED_CONTRACTUAL_CONTROL"
+    },
+    {
+      "threat_id": "THREAT-05",
+      "name": "Incorrect Input-to-Prediction Joins",
+      "severity": "HIGH",
+      "mitigation": "Strict validation contract: 1-to-1 order_id matching, zero missing IDs, exact length assertion, no reordering.",
+      "implementation_status": "IMPLEMENTED_IN_TEST_STAGE35"
+    },
+    {
+      "threat_id": "THREAT-06",
+      "name": "Selective Removal of Difficult Examples",
+      "severity": "HIGH",
+      "mitigation": "Auditor asserts len(predictions) == len(holdout_orders). Dropped rows fail the evaluation run.",
+      "implementation_status": "IMPLEMENTED_IN_TEST_STAGE35"
+    },
+    {
+      "threat_id": "THREAT-07",
+      "name": "Modified Evaluation Code",
+      "severity": "HIGH",
+      "mitigation": "Evaluation runner code hash locked and executed in an immutable container image.",
+      "implementation_status": "PROPOSED_OCI_DIGEST_CONTROL"
+    },
+    {
+      "threat_id": "THREAT-08",
+      "name": "Logs Containing Sensitive Holdout Labels",
+      "severity": "MEDIUM",
+      "mitigation": "Sanitized runner output: logging restricted to aggregate confusion matrix and summary metrics.",
+      "implementation_status": "PROPOSED_RUNNER_DESIGN"
+    },
+    {
+      "threat_id": "THREAT-09",
+      "name": "Missing or Duplicate Predictions",
+      "severity": "HIGH",
+      "mitigation": "Assertion: len(set(order_ids)) == len(order_ids) == expected_holdout_count.",
+      "implementation_status": "IMPLEMENTED_IN_TEST_STAGE35"
+    },
+    {
+      "threat_id": "THREAT-10",
+      "name": "Unauthorized Holdout Regeneration",
+      "severity": "CRITICAL",
+      "mitigation": "Holdout seed escrowed with independent auditor; generator script barred from execution without authorized authorization signature.",
+      "implementation_status": "SAFEGUARD_ACTIVE (v2.2 not generated)"
+    },
+    {
+      "threat_id": "THREAT-11",
+      "name": "Compromised or Untrusted Evaluation Operator",
+      "severity": "HIGH",
+      "mitigation": "Immutable container execution pinning (OCI image digest) + cryptographic attestation of evaluation runner.",
+      "implementation_status": "CONDITION_PENDING_CONTAINER_FREEZE"
+    }
+  ],
+  "evaluation_contract_spec": {
+    "ranking_metrics": {
+      "primary": "PR-AUC (Average Precision) evaluated on continuous probability scores",
+      "secondary": "ROC-AUC",
+      "baseline_prevalence_reporting": "MANDATORY: Must report positive fraud prevalence alongside PR-AUC"
+    },
+    "calibration_metrics": {
+      "primary": "Brier Score",
+      "secondary": "Expected Calibration Error (ECE) with 10 uniform-width bins",
+      "rule": "Calibrator parameters must NOT be fitted on the evaluation cohort. In-sample ECE is forbidden as proof of generalization."
+    },
+    "decision_metrics": {
+      "confusion_matrix": ["TP", "FP", "FN", "TN"],
+      "cost_model": "FP * $10.00 + FN * $150.00 + TP * $10.00",
+      "boundary_operator": "score >= threshold"
+    },
+    "capacity_constraints": {
+      "formula": "C = floor(b * N) where b in {0.01, 0.02, 0.05, 0.10}",
+      "tie_breaking": "Conservative thresholding (volume <= C); if tied at boundary, order by (score DESC, order_date ASC, order_id ASC)"
+    }
+  ],
+  "unresolved_blockers_and_conditions": [
+    {
+      "condition_id": "COND-01",
+      "title": "OCI Container Image Digest Pinning",
+      "severity": "BLOCKING_FOR_UNBLINDING",
+      "status": "UNRESOLVED",
+      "owner": "MLOps Security Engineer",
+      "description": "Local virtualenv exhibits InconsistentVersionWarning for scikit-learn (1.9.0 vs 1.9.1). An immutable container image digest (e.g., trustshield-evaluator@sha256:...) must be built, verified, and frozen prior to holdout evaluation.",
+      "required_action": "Build Dockerfile pinning Python 3.14, scikit-learn 1.9.1, xgboost 3.2.0, pandas 3.0.1, numpy 2.3.2; extract immutable sha256 image digest."
+    },
+    {
+      "condition_id": "COND-02",
+      "title": "Tabular-Only Production Model Freezing",
+      "severity": "NON_BLOCKING",
+      "status": "RESOLVED_IN_STAGE35",
+      "owner": "ML Research Engineer",
+      "description": "Late Fusion champion in Stage 3.4 lacked serialized calibrator artifact. The Tabular-Only model (stage34_tabular_model.joblib + stage34_tabular_calibrator.joblib) is verified, fully serialized, and bit-for-bit reproducible.",
+      "required_action": "Formal research confirmation that Tabular-Only XGBoost is the candidate model for holdout evaluation."
+    },
+    {
+      "condition_id": "COND-03",
+      "title": "Holdout v2.2 Authorization & Key Escrow",
+      "severity": "BLOCKING_FOR_UNBLINDING",
+      "status": "UNRESOLVED",
+      "owner": "Independent Evaluation Auditor",
+      "description": "Holdout v2.2 data generation and label key escrow have not been authorized by project leadership.",
+      "required_action": "Formal sign-off by independent reviewer on Stage 3.5 protocol before generation and encryption of v2.2 holdout."
+    }
+  ],
+  "regression_test_summary": {
+    "command": ".venv/Scripts/pytest.exe trustshield_project/test_stage32_audit.py trustshield_project/test_stage32_final_gate.py trustshield_project/test_stage33_evaluation.py trustshield_project/test_stage331_audit.py trustshield_project/test_stage34_graph_ablation.py trustshield_project/test_stage341_policy_audit.py trustshield_project/test_stage342_audit_reconciliation.py trustshield_project/test_stage35_temporal_holdout_readiness.py",
+    "exit_code": 0,
+    "total_tests": 92,
+    "passed": 92,
+    "failed": 0,
+    "warnings": 2,
+    "duration_seconds": 2.92
+  }
+}

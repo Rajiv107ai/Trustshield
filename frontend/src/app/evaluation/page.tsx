@@ -15,12 +15,11 @@ export default function EvaluationStudioPage() {
   const [threshold, setThreshold] = useState<number>(0.45);
 
   const ablationData = [
-    { component: "1. Tabular Only (RF Baseline)", roc: "0.678", pr: "0.418", lift: "Baseline" },
-    { component: "2. Tabular + Graph Centrality", roc: "0.678", pr: "0.426", lift: "+0.008 PR" },
-    { component: "3. Hetero GNN (HeteroData 16D)", roc: "0.710", pr: "0.435", lift: "+0.032 ROC" },
-    { component: "4. Multimodal CLIP + FAISS", roc: "0.742", pr: "0.441", lift: "+0.064 ROC" },
-    { component: "5. Hybrid (Tabular + Graph + GNN)", roc: "0.775", pr: "0.448", lift: "+0.097 ROC" },
-    { component: "6. Canonical Trust Engine (Stacking)", roc: "0.792", pr: "0.465", lift: "+0.114 ROC" },
+    { component: "1. Tabular Only Baseline", roc: "0.651", pr: "0.265", lift: "Baseline" },
+    { component: "2. Graph-Degraded Fallback (Zero Graph Topology)", roc: "0.603", pr: "0.242", lift: "-0.048 (Cold-Start)" },
+    { component: "3. Tabular + NetworkX Graph Snapshots (Phase 3)", roc: "0.789", pr: "0.442", lift: "+0.138 ROC" },
+    { component: "4. Hybrid GNN Embeddings + XGBoost (Phase 5)", roc: "0.765", pr: "0.419", lift: "+0.114 ROC" },
+    { component: "5. Canonical Trust Engine (Stacking Ensemble)", roc: "0.792", pr: "0.465", lift: "+0.141 ROC" },
   ];
 
   const fraudTypeBreakdown = [

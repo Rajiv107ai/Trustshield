@@ -1,0 +1,222 @@
+{
+  "audit_metadata": {
+    "stage": "3.5.4",
+    "title": "Independent Evaluator Protocol Reconciliation & Execution-Boundary Audit",
+    "timestamp_utc": "2026-10-09T16:28:00Z",
+    "auditor": "Antigravity MLOps Security & ML Reproducibility Auditor",
+    "git_branch": "phase-3-data-generalization",
+    "baseline_head": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "readiness_decision": "CONDITIONALLY READY",
+    "reconciled_checklist_version": "1.1.0",
+    "reconciled_checklist_path": "docs/independent_evaluator_checklist_v1.1.0.md"
+  },
+  "protected_artifact_verification": {
+    "scripts/generate_realistic_synthetic_data_v2_1.py": {
+      "verified_sha256": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "status": "VERIFIED_UNCHANGED"
+    },
+    "data/synthetic_v2_1/dataset_manifest.json": {
+      "verified_sha256": "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b",
+      "status": "VERIFIED_UNCHANGED"
+    },
+    "data/synthetic_v2_1/orders.csv": {
+      "verified_sha256": "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f",
+      "status": "VERIFIED_UNCHANGED"
+    },
+    "models/stage34/stage34_tabular_model.joblib": {
+      "verified_sha256": "1310b43c3c8ddb664be8a8461f8a8489839462c82084df58d6aa92fa94cf8928",
+      "status": "VERIFIED_UNCHANGED"
+    },
+    "models/stage34/stage34_tabular_calibrator.joblib": {
+      "verified_sha256": "152f287e8f4da13854890c2a714ee6b647c28eb5837fc9081e60aa88383a1523",
+      "status": "VERIFIED_UNCHANGED"
+    },
+    "data/synthetic_v2_2": {
+      "exists": false,
+      "status": "STRICT_SAFEGUARD_ENFORCED_NOT_GENERATED"
+    }
+  },
+  "protocol_reconciliation_items": {
+    "1_ten_artifact_commitment": {
+      "status": "RECONCILED",
+      "artifacts": [
+        "prediction_sha256",
+        "bound_model_sha256",
+        "bound_calibrator_sha256",
+        "bound_source_commit",
+        "bound_evaluation_code_sha256",
+        "bound_feature_schema_hash",
+        "bound_input_manifest_sha256",
+        "bound_environment_digest",
+        "bound_evaluation_policy_sha256",
+        "bound_run_id"
+      ]
+    },
+    "2_developer_evaluator_custody_separation": {
+      "status": "RECONCILED",
+      "invariant": "Developer has zero access to labels or decryption keys; keys never injected in developer environment"
+    },
+    "3_future_input_manifest_approval": {
+      "status": "RECONCILED",
+      "invariant": "Evaluator approves exact future input manifest after generation and before commitment; v2.1 reuse prohibited"
+    },
+    "4_remote_vs_local_ledger": {
+      "status": "RECONCILED",
+      "invariant": "DurableFileLedger is local development only; RemoteLedgerAdapter with Bearer auth and CAS required for evaluation"
+    },
+    "5_crash_safety_and_no_retry_rule": {
+      "status": "RECONCILED",
+      "invariant": "Fail-closed on ambiguous outcomes; no automatic retry permitted once labels may have been accessed"
+    },
+    "6_prediction_serialization_spec": {
+      "status": "RECONCILED",
+      "spec": "1D numpy array, dtype='<f8' little-endian float64, contiguous bytes, bounded [0.0, 1.0], exact row ordering"
+    },
+    "7_aes_gcm_envelope_spec": {
+      "status": "RECONCILED",
+      "spec": "12-byte CSPRNG nonce + ciphertext + 16-byte tag (minimum 28 bytes); constant-time tag verification, fail-closed"
+    },
+    "8_capacity_metric_definition": {
+      "status": "RECONCILED",
+      "spec": "Recall within floor(b * N) predictions; deterministic tie-breaking by order_id ascending; strict hard cap"
+    },
+    "9_calibration_and_metric_definitions": {
+      "status": "RECONCILED",
+      "spec": "ECE with 10 uniform bins on independent cohort; Brier score; PR-AUC continuous integral; prevalence baseline; ROC-AUC"
+    },
+    "10_pre_registration_of_promotion_thresholds": {
+      "status": "RECONCILED",
+      "invariant": "Numerical promotion thresholds and acceptance criteria must be approved by Governance Board before holdout unblinding"
+    },
+    "11_synthetic_holdout_disclaimer": {
+      "status": "RECONCILED",
+      "invariant": "Synthetic holdout results do not establish real-market generalization; live shadow verification required"
+    },
+    "12_assurance_level_classification": {
+      "status": "RECONCILED",
+      "levels": ["IMPLEMENTED", "LOCALLY_TESTED", "INTEGRATION_TESTED", "INDEPENDENTLY_VERIFIED", "DEPLOYED", "FORMALLY_AUTHORIZED"]
+    }
+  },
+  "execution_boundary_audit": [
+    {
+      "requirement": "Authorization prior to label access",
+      "location": "trustshield_project/evaluation_gate.py:1025-1076",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestAuthorizationAndTokenExpiry",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Awaiting Governance Board token issuance"
+    },
+    {
+      "requirement": "Full 10-artifact cryptographic commitment",
+      "location": "trustshield_project/evaluation_gate.py:86-235",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestTenArtifactCommitmentVerification",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Awaiting container digest and future manifest hash"
+    },
+    {
+      "requirement": "Exact input manifest and dataset file integrity",
+      "location": "trustshield_project/evaluation_gate.py:238-410",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestManifestTamperingAndDataIntegrity",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Dataset v2.2 not yet created"
+    },
+    {
+      "requirement": "Evaluator-only decryption key custody",
+      "location": "trustshield_project/evaluation_gate.py:1262-1336",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestAES256GCMEnvelopeSecurity",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Escrow procedure pending external auditor designation"
+    },
+    {
+      "requirement": "Atomic remote run claiming (CAS)",
+      "location": "trustshield_project/evaluation_gate.py:726-840",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestSimultaneousRunClaimsAndCAS",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "External service not deployed (BLK-02)"
+    },
+    {
+      "requirement": "One-shot execution across hosts and restarts",
+      "location": "trustshield_project/evaluation_gate.py:910-1013",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestProcessRestartAndLedgerUnavailability",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Multi-host cloud deployment pending"
+    },
+    {
+      "requirement": "Fail-closed ambiguous outcomes and no-retry rule",
+      "location": "trustshield_project/evaluation_gate.py:1227-1239",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestScoringExceptionAndNoAutomaticRetry",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Fully verified in code gate"
+    },
+    {
+      "requirement": "Safe handling of logs and released metrics",
+      "location": "trustshield_project/evaluation_gate.py:1240-1253",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestSpyScoringFunctionIsolation",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Instance-level predictions strictly barred from release"
+    },
+    {
+      "requirement": "Frozen environment and image digest verification",
+      "location": "trustshield_project/evaluation_gate.py:1176-1182",
+      "test_evidence": "test_stage354_protocol_reconciliation.py::TestSpyScoringFunctionIsolation",
+      "assurance_level": "LOCALLY_TESTED",
+      "remaining_gap": "Docker engine inactive on host (BLK-01)"
+    }
+  ],
+  "adversarial_test_results": {
+    "new_test_suite": {
+      "path": "trustshield_project/test_stage354_protocol_reconciliation.py",
+      "total_tests": 70,
+      "passed": 70,
+      "failed": 0,
+      "duration_seconds": 0.24,
+      "exit_code": 0
+    },
+    "cumulative_phase3_regression": {
+      "suites_executed": 13,
+      "total_tests": 262,
+      "passed": 262,
+      "failed": 0,
+      "warnings": 2,
+      "duration_seconds": 5.07,
+      "exit_code": 0
+    }
+  },
+  "container_verification": {
+    "docker_client_version": "29.8.2",
+    "docker_api_version": "1.56",
+    "daemon_status": "INACTIVE",
+    "error_message": "failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine; open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.",
+    "digest_status": "OPEN_BLOCKER (BLK-01)",
+    "fabrication_safeguard": "ENFORCED (Digest not fabricated)"
+  },
+  "open_blockers": [
+    {
+      "id": "BLK-01",
+      "title": "Container Digest Verification Open",
+      "status": "OPEN",
+      "remediation": "Start Docker Desktop Linux daemon, build docker/Dockerfile.evaluator, pin immutable OCI digest"
+    },
+    {
+      "id": "BLK-02",
+      "title": "Remote Ledger External Service Deployment Open",
+      "status": "OPEN",
+      "remediation": "Deploy external HTTP service matching RemoteLedgerAdapter CAS protocol"
+    },
+    {
+      "id": "BLK-03",
+      "title": "Governance Board Formal Authorization & Promotion Threshold Pre-Registration Open",
+      "status": "OPEN",
+      "remediation": "Formally register numerical promotion thresholds, issue valid cryptographic token, sign off on future evaluation"
+    }
+  ],
+  "safeguards_attestation": {
+    "synthetic_dataset_v2_2_generated": false,
+    "holdout_labels_decrypted_or_inspected": false,
+    "evaluator_keys_accessed": false,
+    "candidate_models_modified": false,
+    "production_routing_modified": false,
+    "test_results_or_hashes_fabricated": false,
+    "uncommitted_changes_preserved": true,
+    "git_committed_or_pushed": false
+  }
+}

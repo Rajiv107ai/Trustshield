@@ -1,0 +1,193 @@
+{
+  "timestamp": "2026-10-09T18:07:00Z",
+  "audit_version": "Stage 3.2 Final Gate",
+  "branch": "phase-3-data-generalization",
+  "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+  "dataset_path": "data/synthetic_v2_1",
+  "overall_verdict": "PASS",
+  "tasks": {
+    "task_a_exact_censoring_boundary": {
+      "verdict": "PASS",
+      "simulation_window_end_code": "2025-12-31 00:00:00",
+      "reconciled_cutoffs": {
+        "strict_microsecond_cutoff": {
+          "timestamp": "2025-12-10 00:00:00",
+          "mature_orders_count": 41049,
+          "truncated_orders_count": 8951,
+          "notes": "Exact cutoff guaranteeing 21 full days (504 hours) before SIM_END = 2025-12-31 00:00:00."
+        },
+        "calendar_day_cutoff": {
+          "timestamp": "2025-12-10 23:59:59",
+          "mature_orders_count": 41382,
+          "truncated_orders_count": 8618,
+          "first_truncated_order_timestamp": "2025-12-11 00:00:00",
+          "notes": "End-of-day cutoff. Orders on or after Dec 11 00:00:00 have < 21 complete observation days."
+        }
+      },
+      "boundary_cohorts": {
+        "orders_dec10": {
+          "order_count": 343,
+          "observed_returns": 40,
+          "max_observed_delay_days": 19.0
+        },
+        "orders_dec11": {
+          "order_count": 374,
+          "observed_returns": 54,
+          "max_observed_delay_days": 19.0
+        },
+        "orders_dec31": {
+          "order_count": 1,
+          "observed_returns": 0,
+          "censored_rate": 1.0
+        }
+      },
+      "unobserved_returns_labeled_as_negatives": false,
+      "evidence": "Verified in test_stage32_final_gate.py::TestTaskAExactCensoringBoundary."
+    },
+    "task_b_prediction_time_and_splits": {
+      "verdict": "PASS",
+      "tasks": {
+        "fake_listing_detection": {
+          "prediction_timestamp": "T_listing (listing publication)",
+          "target_label": "listings.is_fraudulent (binary)",
+          "label_observability_event": "Buyer reports, fraud investigations, seller sanctions post-listing",
+          "split_assignment_column": "listings.listing_date",
+          "split_counts": {
+            "train": { "count": 13489, "fraud_count": 301, "fraud_rate": 0.0223 },
+            "val": { "count": 3825, "fraud_count": 143, "fraud_rate": 0.0374 },
+            "test": { "count": 2686, "fraud_count": 56, "fraud_rate": 0.0208 }
+          },
+          "label_join_key": "listing_id",
+          "prediction_features": [
+            "price_vs_base_price_ratio",
+            "price_vs_category_median_ratio",
+            "seller_age_days_at_listing",
+            "seller_listings_before",
+            "multimodal_similarity_score"
+          ],
+          "future_leakage_prevented": true
+        },
+        "transaction_fraud_detection": {
+          "prediction_timestamp": "T_order (order checkout)",
+          "target_label": "orders.is_fraudulent (binary)",
+          "label_observability_event": "Chargeback notification (30-90 days), fraud dispute confirmation",
+          "split_assignment_column": "orders.order_date",
+          "split_counts": {
+            "train": { "count": 16952, "fraud_count": 813, "fraud_rate": 0.048 },
+            "val": { "count": 12129, "fraud_count": 854, "fraud_rate": 0.0704 },
+            "test": { "count": 20919, "fraud_count": 1835, "fraud_rate": 0.0877 }
+          },
+          "label_join_key": "order_id",
+          "prediction_features": [
+            "amount",
+            "price_vs_base_price_ratio",
+            "price_vs_category_median_ratio",
+            "seller_age_days",
+            "seller_total_listings_before",
+            "buyer_age_days",
+            "buyer_orders_before",
+            "buyer_returns_before",
+            "buyer_return_rate_before",
+            "device_shared_buyer_count"
+          ],
+          "future_leakage_prevented": true
+        },
+        "return_abuse_detection": {
+          "prediction_timestamp": "T_return (return initiation)",
+          "target_label": "returns.is_fraudulent (binary)",
+          "label_observability_event": "Physical return inspection (empty box, wrong item, counterfeit)",
+          "split_assignment_column": "returns.return_date",
+          "split_counts": {
+            "train": { "count": 1758, "fraud_count": 416, "fraud_rate": 0.2366 },
+            "val": { "count": 1333, "fraud_count": 351, "fraud_rate": 0.2633 },
+            "test": { "count": 2446, "fraud_count": 785, "fraud_rate": 0.3209 }
+          },
+          "label_join_key": "return_id",
+          "prediction_features": [
+            "days_to_return",
+            "buyer_age_days_at_return",
+            "seller_age_days_at_return",
+            "order_amount",
+            "buyer_prior_returns",
+            "buyer_orders_before_return",
+            "buyer_return_rate_before",
+            "seller_prior_returns",
+            "seller_orders_before_return",
+            "seller_return_rate_before",
+            "reason_changed_mind",
+            "reason_defective",
+            "reason_size_issue",
+            "reason_wrong_item_received"
+          ],
+          "cross_split_causality": "Train returns belong 100% to Train orders. Val returns belong to Train (156) or Val (1177). 0 Train returns belong to Val/Test orders.",
+          "future_leakage_prevented": true
+        }
+      },
+      "evidence": "Verified in test_stage32_final_gate.py::TestTaskBPredictionTimeAndSplits."
+    },
+    "task_c_right_censoring_enforcement": {
+      "verdict": "PASS",
+      "three_way_label_counts": {
+        "total_orders_with_abuse_intent": 1233,
+        "observed_returns_with_abuse": 1167,
+        "censored_orders_with_abuse": 66,
+        "censored_orders_date_range": [
+          "2025-12-13 19:13:02.308211",
+          "2025-12-30 10:54:45.922454"
+        ]
+      },
+      "label_definitions": {
+        "has_return_event": "Observable behavioral outcome: customer initiated a return recorded in returns.csv",
+        "is_return_abuse": "Fraud ground truth: customer had intent to abuse return system",
+        "is_censored": "is_return_abuse == True and has_return_event == False"
+      },
+      "unobserved_returns_not_labeled_false_negative": true,
+      "downstream_pipeline_verification": "build_return_features operates strictly on observed returns (N=5537). Unobserved returns are not passed to return classifier.",
+      "evidence": "Verified in test_stage32_final_gate.py::TestTaskCRightCensoringEnforcement."
+    },
+    "task_d_multimodal_reproducibility": {
+      "verdict": "PASS",
+      "implementation": {
+        "primary_model": "CLIPMultimodalScorer (openai/clip-vit-base-patch32)",
+        "fallback_model": "MultimodalScorer (TF-IDF 64 components, visual noise N(0, 0.45))",
+        "cosine_calibration": "clip(0.55 + 0.90 * raw_sim, 0.05, 0.98).round(4)",
+        "label_join": "listings.csv on listing_id, products.csv on product_id vs displayed_product_id"
+      },
+      "reproduced_metrics": {
+        "all_listings_diagnostic_auc": 0.7599,
+        "train_split_diagnostic_auc": 0.7559,
+        "val_split_diagnostic_auc": 0.7788,
+        "test_split_diagnostic_auc": 0.7324,
+        "genuine_sim_mean": 0.7875,
+        "genuine_sim_std": 0.1000,
+        "fake_sim_mean": 0.6745,
+        "fake_sim_std": 0.1220
+      },
+      "asset_inventory": {
+        "catalog_products": 3000,
+        "real_abo_jpeg_images": 2616,
+        "synthetic_noise_fallbacks": 384,
+        "fallback_percentage": 12.8
+      },
+      "circularity_disclosure": "Perturbation design (category constraint + 35% subtype match) applied across entire benchmark. 0.7599 is a synthetic diagnostic verification of observable signal, not a production real-world accuracy estimate.",
+      "evidence": "Verified in test_stage32_final_gate.py::TestTaskDMultimodalReproducibility."
+    },
+    "task_e_test_set_protection": {
+      "verdict": "PASS",
+      "test_window": "2025-11-01 00:00:00 to 2025-12-31 23:59:59",
+      "test_set_status": "VIRGIN_AND_UNTOUCHED",
+      "manifest_hashes_verified": true,
+      "model_retraining_executed": false,
+      "threshold_tuning_executed": false,
+      "prior_test_set_reuse_limitation": "Historical models in models/ were trained/evaluated on v1/v2 datasets. synthetic_v2_1 Test set has had zero model exposure.",
+      "evidence": "Verified in test_stage32_final_gate.py::TestTaskETestSetProtection."
+    }
+  },
+  "test_execution_summary": {
+    "suite_1": "trustshield_project/test_stage32_audit.py (14 passed)",
+    "suite_2": "trustshield_project/test_stage32_final_gate.py (8 passed)",
+    "total_passed": 22,
+    "total_failed": 0,
+    "elapsed_seconds": 2.35
+  }
+}

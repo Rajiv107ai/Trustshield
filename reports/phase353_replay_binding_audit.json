@@ -1,0 +1,173 @@
+{
+  "schema_version": "1.3.0",
+  "audit_stage": "Stage 3.5.3 — Replay-Resistant Evaluation & Input-Binding Hardening",
+  "audit_timestamp_utc": "2026-10-09T15:58:30Z",
+  "local_timezone": "+05:30",
+  "repository": {
+    "url": "https://github.com/Rajiv107ai/Trustshield",
+    "active_branch": "phase-3-data-generalization",
+    "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "current_head": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "matches_baseline": true,
+    "working_tree_status": {
+      "uncommitted_user_modifications_preserved": true,
+      "untracked_evaluation_files_added": [
+        "trustshield_project/test_stage353_replay_binding.py",
+        "reports/phase353_replay_binding_audit.md",
+        "reports/phase353_replay_binding_audit.json"
+      ],
+      "files_modified_in_audit": [
+        "trustshield_project/evaluation_gate.py"
+      ],
+      "commits_or_pushes_executed": false
+    }
+  },
+  "protected_artifacts": {
+    "scripts/generate_realistic_synthetic_data_v2_1.py": {
+      "sha256": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_1/dataset_manifest.json": {
+      "sha256": "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_1/orders.csv": {
+      "sha256": "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f",
+      "status": "UNMUTATED"
+    },
+    "models/stage34/stage34_tabular_model.joblib": {
+      "sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "status": "UNMUTATED"
+    },
+    "models/stage34/stage34_tabular_calibrator.joblib": {
+      "sha256": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_2": {
+      "exists": false,
+      "status": "UNGENERATED_AND_LOCKED"
+    }
+  },
+  "container_verification": {
+    "docker_cli_version": "29.8.2, build 7fc2dff",
+    "docker_daemon_status": "INACTIVE",
+    "docker_info_exit_code": 1,
+    "error_message": "failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine; open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.",
+    "container_digest": null,
+    "digest_fabricated": false,
+    "status": "BLOCKED_DAEMON_INACTIVE_ON_HOST"
+  },
+  "manifest_binding_audit": {
+    "prior_defect": "Stage 3.5.2 bound_input_manifest_sha256 hardcoded the historical v2.1 dataset manifest hash",
+    "remediation": "Implemented verify_input_manifest and validate_dataset_files_against_manifest requiring approved manifest digest, schema validation, version checks, and explicit rejection of disallowed historical datasets",
+    "semantic_gap_closed": "Manifest digest proves metadata integrity; validate_dataset_files_against_manifest verifies on-disk CSV files match declared hashes and row counts",
+    "status": "VERIFIED_IN_CODE"
+  },
+  "commitment_verification_audit": {
+    "bound_artifacts_count": 10,
+    "bound_fields": [
+      "prediction_sha256",
+      "bound_model_sha256",
+      "bound_calibrator_sha256",
+      "bound_source_commit",
+      "bound_evaluation_code_sha256",
+      "bound_feature_schema_hash",
+      "bound_input_manifest_sha256",
+      "bound_environment_digest",
+      "bound_evaluation_policy_sha256",
+      "bound_run_id"
+    ],
+    "verification_mode": "require_all_fields=True fails closed if any field is missing or mismatches approved expected values",
+    "tampered_prediction_rejection": "VERIFIED (1e-12 alteration detected)",
+    "status": "VERIFIED_IN_CODE"
+  },
+  "single_shot_ledger_audit": {
+    "mechanism": "DurableFileLedger with 6-state lifecycle",
+    "lifecycle_states": [
+      "AUTHORIZED",
+      "CLAIMED",
+      "PREDICTIONS_COMMITTED",
+      "EVALUATING",
+      "COMPLETED",
+      "FAILED"
+    ],
+    "concurrency_protection": "Directory spinlock (.lock)",
+    "crash_safety": "Temporary file write and atomic os.replace rename",
+    "tamper_detection": "Corrupted or non-dict JSON fails closed immediately",
+    "assurance_classification": {
+      "duplicate_detection": "VERIFIED",
+      "crash_safe_transitions": "VERIFIED",
+      "concurrency_safety": "VERIFIED",
+      "tamper_evidence": "PARTIAL (Host-bound file permissions)",
+      "cross_machine_replay_resistance": "UNVERIFIED / SPECIFIED (Requires external evaluator service outside developer workspace)",
+      "independent_auditability": "PARTIAL (Local JSONL; requires signed timestamping service)"
+    },
+    "status": "VERIFIED_IN_CODE_LOCAL_HOST"
+  },
+  "authorization_and_gate_ordering_audit": {
+    "pipeline_function": "execute_holdout_evaluation_gate",
+    "execution_order": [
+      "1. verify_holdout_authorization (token hash & expiry)",
+      "2. verify environment digest & evaluation policy",
+      "3. verify_input_manifest (digest, schema, target version)",
+      "4. validate_prediction_contract (IDs, count, order, score range)",
+      "5. verify_prediction_commitment (10-artifact binding against expected)",
+      "6. ledger.claim_run (state -> CLAIMED)",
+      "7. ledger.commit_predictions (state -> PREDICTIONS_COMMITTED)",
+      "8. ledger.start_evaluation (state -> EVALUATING, labels_accessed = True)",
+      "9. label_scoring_fn (only called here)",
+      "10. ledger.complete_evaluation / fail_evaluation",
+      "11. _record_audit_event (sanitized JSONL log)"
+    ],
+    "pre_scoring_isolation": "VERIFIED (Spy scorer confirmed called=False on all precondition failures)",
+    "status": "VERIFIED_IN_CODE"
+  },
+  "test_execution_results": {
+    "stage_353_tests": {
+      "command": ".\\.venv\\Scripts\\pytest.exe trustshield_project/test_stage353_replay_binding.py",
+      "exit_code": 0,
+      "total": 46,
+      "passed": 46,
+      "failed": 0
+    },
+    "cumulative_phase_3_tests": {
+      "command": ".\\.venv\\Scripts\\pytest.exe trustshield_project/test_stage32_audit.py trustshield_project/test_stage32_final_gate.py trustshield_project/test_stage33_evaluation.py trustshield_project/test_stage331_audit.py trustshield_project/test_stage34_graph_ablation.py trustshield_project/test_stage341_policy_audit.py trustshield_project/test_stage342_audit_reconciliation.py trustshield_project/test_stage35_temporal_holdout_readiness.py trustshield_project/test_stage351_environment_sealing.py trustshield_project/test_stage352_gate_security.py trustshield_project/test_stage353_replay_binding.py",
+      "exit_code": 0,
+      "total": 172,
+      "passed": 172,
+      "failed": 0,
+      "warnings": 2
+    }
+  },
+  "blockers_and_open_conditions": [
+    {
+      "id": "BLK-01",
+      "severity": "BLOCKING_FOR_UNBLINDING",
+      "title": "Docker Daemon Inactive on Host",
+      "description": "Evaluator OCI container image cannot be built or digested on this Windows host due to inactive Docker Desktop engine",
+      "owner": "MLOps Security Engineer",
+      "remediation": "Start Docker daemon on authorized build host, compile docker/Dockerfile.evaluator, and record immutable OCI digest"
+    },
+    {
+      "id": "BLK-02",
+      "severity": "SECURITY_LIMITATION",
+      "title": "Remote Append-Only Ledger Deployment Required for Cross-Machine Replay Resistance",
+      "description": "Local file ledger does not prevent an adversary with machine administrator access or ephemeral containers from recreating empty ledgers",
+      "owner": "MLOps Security Engineer & Evaluator",
+      "remediation": "Deploy RemoteLedgerAdapter to an independent external append-only ledger service or mount an evaluator-controlled persistent volume"
+    },
+    {
+      "id": "BLK-03",
+      "severity": "BLOCKING_FOR_GENERATION",
+      "title": "Holdout v2.2 Generation Authorization",
+      "description": "Synthetic Dataset v2.2 generator does not exist and holdout labels remain ungenerated pending independent evaluator CSPRNG seed escrow",
+      "owner": "Governance Board & Evaluator",
+      "remediation": "Sign off on Independent Evaluator Checklist, escrow random seed and decryption keys, and authorize generation"
+    }
+  ],
+  "readiness_decision": {
+    "status": "CONDITIONALLY READY",
+    "rationale": "Evaluation gate, 10-artifact cryptographic commitment, holdout input-manifest verification, 6-state single-shot durable ledger, and pre-scoring fail-closed pipeline are fully implemented and verified with 172 passing regression tests. Status remains conditionally ready pending container build on an active Docker host and remote ledger escrow deployment.",
+    "holdout_data_status": "SYNTHETIC_DATASET_V2_2_UNGENERATED_AND_UNBLINDED"
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "schema_version": "1.0.0",
+  "audit_metadata": {
+    "stage": "TrustShield Phase 3 Stage 3.5.2",
+    "title": "Container Build Verification & Evaluation-Gate Security Audit",
+    "audit_timestamp": "2026-10-09T20:50:00+05:30",
+    "auditor_roles": [
+      "Senior MLOps Security Engineer",
+      "ML Reproducibility Auditor",
+      "Cryptographic Protocol Reviewer",
+      "Python Test Engineer"
+    ],
+    "git_branch": "phase-3-data-generalization",
+    "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "current_head": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "working_tree_status": "DIRTY_CONTROLLED_AUDIT (Audit tests, enhanced evaluation gate, and reports added; zero production code or models modified)",
+    "readiness_decision": "CONDITIONALLY READY",
+    "authorization_state": "HOLDOUT_V2_2_UNGENERATED_AND_LOCKED"
+  },
+  "workstream_a_container_verification": {
+    "docker_cli_version": "Docker version 29.8.2, build 7fc2dff",
+    "build_command": "docker build -f docker/Dockerfile.evaluator -t trustshield-evaluator:candidate .",
+    "build_exit_code": 1,
+    "build_error": "ERROR: failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine; check if the path is correct and if the daemon is running: open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.",
+    "container_image_digest": null,
+    "build_status": "BLOCKED_DAEMON_INACTIVE_ON_HOST",
+    "unperformed_checks": [
+      "In-container model loading smoke test inside sealed Linux image",
+      "Extraction and pinning of immutable OCI image digest (@sha256:...)",
+      "Linux-side bit-for-bit numerical reproducibility comparison"
+    ],
+    "local_deterministic_smoke_test": {
+      "execution_environment": "Local Python virtualenv (Windows-11, Python 3.14.7)",
+      "status": "PASSED_BITWISE_IDENTICAL",
+      "repeated_runs_count": 5,
+      "comparison_method": "np.array_equal(run_0, run_i)",
+      "max_absolute_difference": 0.0,
+      "sample_predictions": [0.06252812, 0.03658537, 0.03658537, 0.06252812, 0.125]
+    }
+  },
+  "workstream_b_prediction_commitment_audit": {
+    "status": "IMPLEMENTED_AND_VERIFIED",
+    "bound_artifacts_count": 9,
+    "bound_artifacts": [
+      "prediction_sha256",
+      "bound_model_sha256",
+      "bound_calibrator_sha256",
+      "bound_source_commit",
+      "bound_evaluation_code_sha256",
+      "bound_feature_schema_hash",
+      "bound_input_manifest_sha256",
+      "bound_environment_digest",
+      "bound_evaluation_policy_sha256"
+    ],
+    "verification_function": "trustshield_project/evaluation_gate.py::verify_prediction_commitment",
+    "adversarial_tests_passed": [
+      "Rejection of modified predictions array (even by 1e-12 float delta)",
+      "Rejection of modified model artifact hash",
+      "Rejection of modified source commit hash",
+      "Rejection of modified environment digest",
+      "Rejection of modified input manifest hash",
+      "Rejection of missing mandatory commitment fields",
+      "Rejection of malformed commitment payload",
+      "Rejection of non-matching prediction count"
+    ],
+    "security_limitation": "A SHA-256 prediction commitment proves binding to bytes at submission time; it does not prove the operator did not access unblinded labels earlier or that predictions were generated exclusively by approved code. Strong security requires independent key custody and single-shot execution."
+  },
+  "workstream_c_single_shot_enforcement_audit": {
+    "status": "ENHANCED_AND_VERIFIED",
+    "ledger_file_format": "JSON array of executed run IDs",
+    "crash_safety_mechanism": "Atomic write via temporary file (.ledger_tmp_{pid}_{time}.json) and os.replace()",
+    "concurrency_protection": "Directory spinlock (ledger.json.lock) with mutual exclusion",
+    "corrupted_ledger_behavior": "Fails closed with RuntimeError on non-list or invalid JSON",
+    "assurance_classifications": {
+      "duplicate_detection": "VERIFIED (Blocks duplicate run ID with RuntimeError)",
+      "crash_safe_state_transitions": "VERIFIED (Atomic file replacement prevents truncation)",
+      "concurrency_safety": "VERIFIED (Directory spinlock mutually excludes simultaneous runs)",
+      "tamper_evidence": "PARTIAL (Local file can be deleted or edited by machine admin without detection)",
+      "cross_machine_replay_resistance": "MISSING (Local file is host-bound; copying environment resets ledger)",
+      "independent_auditability": "PARTIAL (Readable locally, requires external ledger for tamper resistance)"
+    }
+  },
+  "workstream_d_authorization_enforcement_audit": {
+    "status": "VERIFIED_FAIL_CLOSED",
+    "token_hashing": "SHA-256 token digest comparison",
+    "token_expiration_support": "Implemented with ISO 8601 UTC timestamp comparison",
+    "assurance_levels": {
+      "unit_test_level": "VERIFIED (Helper rejects missing, invalid, and expired tokens with PermissionError)",
+      "integration_test_level": "PARTIALLY_VERIFIED (Evaluation gate module enforces authorization strictly before prediction verification)",
+      "operational_control_level": "SPECIFIED_IN_CHECKLIST (Evaluator keeps decryption key in physical/remote custody away from developers)",
+      "generation_entry_point_level": "PROTECTED_BY_ABSENCE (v2.2 generator does not exist in repository; generation path cannot be invoked accidentally)"
+    }
+  },
+  "workstream_e_log_confidentiality_audit": {
+    "status": "VERIFIED_SECRET_SAFE",
+    "log_format": "JSONL security audit events",
+    "logged_fields": ["timestamp", "event", "reason", "token_prefix"],
+    "suppressed_sensitive_data": [
+      "Raw authorization tokens (only 8-char SHA-256 prefix logged)",
+      "Ground-truth labels (zero label logging)",
+      "Row-level prediction errors or False Negative order IDs",
+      "Decryption keys or CSPRNG seeds"
+    ],
+    "storage_limitation": "Audit logs are local JSONL files; local administrator can modify or delete without cryptographic sealing."
+  },
+  "workstream_f_capacity_and_contract_consistency": {
+    "status": "VERIFIED_CONSISTENT",
+    "formula": "C = floor(b * N)",
+    "boundary_tests_passed": [
+      "Strict floor integer rounding across budgets (1%, 2%, 5%, 10%)",
+      "Small dataset edge cases (N=10, 5% budget -> C=0; N=19 -> C=0; N=20 -> C=1)",
+      "Zero capacity budget (b=0 -> C=0)",
+      "Tied score handling: deterministic sorting by (score DESC, order_date ASC, order_id ASC) strictly obeys budget C",
+      "Unconstrained minimum cost ($101,090 at u=0.067633, volume 43.03%) explicitly separated from capacity-constrained policy"
+    ]
+  },
+  "regression_tests": {
+    "command": ".venv/Scripts/pytest.exe trustshield_project/test_stage32_audit.py trustshield_project/test_stage32_final_gate.py trustshield_project/test_stage33_evaluation.py trustshield_project/test_stage331_audit.py trustshield_project/test_stage34_graph_ablation.py trustshield_project/test_stage341_policy_audit.py trustshield_project/test_stage342_audit_reconciliation.py trustshield_project/test_stage35_temporal_holdout_readiness.py trustshield_project/test_stage351_environment_sealing.py trustshield_project/test_stage352_gate_security.py",
+    "total_tests": 126,
+    "passed": 126,
+    "failed": 0,
+    "warnings": 2,
+    "duration_seconds": 3.88
+  },
+  "remaining_blockers": [
+    {
+      "id": "BLK-01",
+      "severity": "BLOCKING_FOR_UNBLINDING",
+      "title": "OCI Container Image Digest Build & Pinning",
+      "responsible_party": "MLOps Security Engineer",
+      "description": "Docker daemon inactive on local Windows host. Dockerfile.evaluator and requirements-evaluator.lock exist. Image must be compiled on a host with an active OCI daemon to extract the immutable @sha256:... digest."
+    },
+    {
+      "id": "BLK-02",
+      "severity": "BLOCKING_FOR_GENERATION",
+      "title": "Formal Holdout Authorization & Seed Escrow",
+      "responsible_party": "Governance Board & Independent Evaluator",
+      "description": "Independent Evaluator Checklist must be formally signed off by stakeholders before generating Synthetic Dataset v2.2 and encrypting labels."
+    }
+  ]
+}

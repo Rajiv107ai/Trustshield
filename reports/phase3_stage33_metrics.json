@@ -1,0 +1,892 @@
+{
+  "evaluation_timestamp": "2026-10-09T18:18:00Z",
+  "dataset": "data/synthetic_v2_1",
+  "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+  "models": {
+    "fake_listing_detector": {
+      "baseline_heuristic": {
+        "validation": {
+          "roc_auc": 0.7788,
+          "pr_auc": 0.2194,
+          "precision": 0.2662,
+          "recall": 0.2867,
+          "f1": 0.2761,
+          "brier_score": 0.0702,
+          "ece": 0.1811,
+          "threshold": 0.4,
+          "confusion_matrix": {
+            "tn": 3569,
+            "fp": 113,
+            "fn": 102,
+            "tp": 41
+          },
+          "support": {
+            "total": 3825,
+            "positives": 143,
+            "negatives": 3682
+          },
+          "positive_prevalence": 0.0374
+        },
+        "test": {
+          "roc_auc": 0.7324,
+          "pr_auc": 0.1179,
+          "precision": 0.1376,
+          "recall": 0.2679,
+          "f1": 0.1818,
+          "brier_score": 0.0636,
+          "ece": 0.1921,
+          "threshold": 0.4,
+          "confusion_matrix": {
+            "tn": 2536,
+            "fp": 94,
+            "fn": 41,
+            "tp": 15
+          },
+          "support": {
+            "total": 2686,
+            "positives": 56,
+            "negatives": 2630
+          },
+          "positive_prevalence": 0.0208
+        }
+      },
+      "logistic_regression": {
+        "validation": {
+          "roc_auc": 0.8064,
+          "pr_auc": 0.2822,
+          "precision": 0.3059,
+          "recall": 0.3636,
+          "f1": 0.3323,
+          "brier_score": 0.1007,
+          "ece": 0.1889,
+          "threshold": 0.77,
+          "confusion_matrix": {
+            "tn": 3564,
+            "fp": 118,
+            "fn": 91,
+            "tp": 52
+          },
+          "support": {
+            "total": 3825,
+            "positives": 143,
+            "negatives": 3682
+          },
+          "positive_prevalence": 0.0374
+        },
+        "test": {
+          "roc_auc": 0.9117,
+          "pr_auc": 0.3815,
+          "precision": 0.3387,
+          "recall": 0.375,
+          "f1": 0.3559,
+          "brier_score": 0.0522,
+          "ece": 0.1223,
+          "threshold": 0.77,
+          "confusion_matrix": {
+            "tn": 2589,
+            "fp": 41,
+            "fn": 35,
+            "tp": 21
+          },
+          "support": {
+            "total": 2686,
+            "positives": 56,
+            "negatives": 2630
+          },
+          "positive_prevalence": 0.0208
+        }
+      },
+      "random_forest": {
+        "validation": {
+          "roc_auc": 0.8116,
+          "pr_auc": 0.2826,
+          "precision": 0.3433,
+          "recall": 0.3217,
+          "f1": 0.3321,
+          "brier_score": 0.1272,
+          "ece": 0.2372,
+          "threshold": 0.8,
+          "confusion_matrix": {
+            "tn": 3594,
+            "fp": 88,
+            "fn": 97,
+            "tp": 46
+          },
+          "support": {
+            "total": 3825,
+            "positives": 143,
+            "negatives": 3682
+          },
+          "positive_prevalence": 0.0374
+        },
+        "test": {
+          "roc_auc": 0.8987,
+          "pr_auc": 0.3664,
+          "precision": 0.3143,
+          "recall": 0.3929,
+          "f1": 0.3492,
+          "brier_score": 0.0884,
+          "ece": 0.204,
+          "threshold": 0.8,
+          "confusion_matrix": {
+            "tn": 2582,
+            "fp": 48,
+            "fn": 34,
+            "tp": 22
+          },
+          "support": {
+            "total": 2686,
+            "positives": 56,
+            "negatives": 2630
+          },
+          "positive_prevalence": 0.0208
+        }
+      },
+      "xgboost_raw": {
+        "validation": {
+          "roc_auc": 0.802,
+          "pr_auc": 0.2762,
+          "precision": 0.3397,
+          "recall": 0.3706,
+          "f1": 0.3545,
+          "brier_score": 0.0627,
+          "ece": 0.0799,
+          "threshold": 0.72,
+          "confusion_matrix": {
+            "tn": 3579,
+            "fp": 103,
+            "fn": 90,
+            "tp": 53
+          },
+          "support": {
+            "total": 3825,
+            "positives": 143,
+            "negatives": 3682
+          },
+          "positive_prevalence": 0.0374
+        },
+        "test": {
+          "roc_auc": 0.9046,
+          "pr_auc": 0.4232,
+          "precision": 0.3662,
+          "recall": 0.4643,
+          "f1": 0.4094,
+          "brier_score": 0.0324,
+          "ece": 0.0421,
+          "threshold": 0.72,
+          "confusion_matrix": {
+            "tn": 2585,
+            "fp": 45,
+            "fn": 30,
+            "tp": 26
+          },
+          "support": {
+            "total": 2686,
+            "positives": 56,
+            "negatives": 2630
+          },
+          "positive_prevalence": 0.0208
+        }
+      },
+      "xgboost_calibrated": {
+        "validation": {
+          "roc_auc": 0.8153,
+          "pr_auc": 0.2646,
+          "precision": 0.3442,
+          "recall": 0.3706,
+          "f1": 0.3569,
+          "brier_score": 0.0304,
+          "ece": 0.0,
+          "threshold": 0.13,
+          "confusion_matrix": {
+            "tn": 3581,
+            "fp": 101,
+            "fn": 90,
+            "tp": 53
+          },
+          "support": {
+            "total": 3825,
+            "positives": 143,
+            "negatives": 3682
+          },
+          "positive_prevalence": 0.0374
+        },
+        "test": {
+          "roc_auc": 0.9028,
+          "pr_auc": 0.383,
+          "precision": 0.3662,
+          "recall": 0.4643,
+          "f1": 0.4094,
+          "brier_score": 0.0156,
+          "ece": 0.0079,
+          "threshold": 0.13,
+          "confusion_matrix": {
+            "tn": 2585,
+            "fp": 45,
+            "fn": 30,
+            "tp": 26
+          },
+          "support": {
+            "total": 2686,
+            "positives": 56,
+            "negatives": 2630
+          },
+          "positive_prevalence": 0.0208
+        }
+      }
+    },
+    "transaction_fraud_detector": {
+      "tabular_logistic_regression": {
+        "validation": {
+          "roc_auc": 0.678,
+          "pr_auc": 0.1389,
+          "precision": 0.1506,
+          "recall": 0.4321,
+          "f1": 0.2233,
+          "brier_score": 0.1763,
+          "ece": 0.3208,
+          "threshold": 0.49,
+          "confusion_matrix": {
+            "tn": 9193,
+            "fp": 2082,
+            "fn": 485,
+            "tp": 369
+          },
+          "support": {
+            "total": 12129,
+            "positives": 854,
+            "negatives": 11275
+          },
+          "positive_prevalence": 0.0704
+        },
+        "test": {
+          "roc_auc": 0.6482,
+          "pr_auc": 0.155,
+          "precision": 0.1824,
+          "recall": 0.3074,
+          "f1": 0.2289,
+          "brier_score": 0.1524,
+          "ece": 0.2501,
+          "threshold": 0.49,
+          "confusion_matrix": {
+            "tn": 16556,
+            "fp": 2528,
+            "fn": 1271,
+            "tp": 564
+          },
+          "support": {
+            "total": 20919,
+            "positives": 1835,
+            "negatives": 19084
+          },
+          "positive_prevalence": 0.0877
+        }
+      },
+      "tabular_xgboost_no_graph": {
+        "validation": {
+          "roc_auc": 0.6395,
+          "pr_auc": 0.1273,
+          "precision": 0.1321,
+          "recall": 0.3443,
+          "f1": 0.1909,
+          "brier_score": 0.0809,
+          "ece": 0.0751,
+          "threshold": 0.25,
+          "confusion_matrix": {
+            "tn": 9343,
+            "fp": 1932,
+            "fn": 560,
+            "tp": 294
+          },
+          "support": {
+            "total": 12129,
+            "positives": 854,
+            "negatives": 11275
+          },
+          "positive_prevalence": 0.0704
+        },
+        "test": {
+          "roc_auc": 0.6246,
+          "pr_auc": 0.147,
+          "precision": 0.1718,
+          "recall": 0.2158,
+          "f1": 0.1913,
+          "brier_score": 0.0855,
+          "ece": 0.0533,
+          "threshold": 0.25,
+          "confusion_matrix": {
+            "tn": 17175,
+            "fp": 1909,
+            "fn": 1439,
+            "tp": 396
+          },
+          "support": {
+            "total": 20919,
+            "positives": 1835,
+            "negatives": 19084
+          },
+          "positive_prevalence": 0.0877
+        }
+      },
+      "full_graph_xgboost_raw": {
+        "validation": {
+          "roc_auc": 0.6241,
+          "pr_auc": 0.1216,
+          "precision": 0.118,
+          "recall": 0.3583,
+          "f1": 0.1775,
+          "brier_score": 0.077,
+          "ece": 0.0641,
+          "threshold": 0.18,
+          "confusion_matrix": {
+            "tn": 8988,
+            "fp": 2287,
+            "fn": 548,
+            "tp": 306
+          },
+          "support": {
+            "total": 12129,
+            "positives": 854,
+            "negatives": 11275
+          },
+          "positive_prevalence": 0.0704
+        },
+        "test": {
+          "roc_auc": 0.6066,
+          "pr_auc": 0.1288,
+          "precision": 0.1449,
+          "recall": 0.1793,
+          "f1": 0.1603,
+          "brier_score": 0.0846,
+          "ece": 0.051,
+          "threshold": 0.18,
+          "confusion_matrix": {
+            "tn": 17142,
+            "fp": 1942,
+            "fn": 1506,
+            "tp": 329
+          },
+          "support": {
+            "total": 20919,
+            "positives": 1835,
+            "negatives": 19084
+          },
+          "positive_prevalence": 0.0877
+        }
+      },
+      "full_graph_xgboost_calibrated": {
+        "validation": {
+          "roc_auc": 0.6301,
+          "pr_auc": 0.1198,
+          "precision": 0.1191,
+          "recall": 0.3583,
+          "f1": 0.1788,
+          "brier_score": 0.0641,
+          "ece": 0.0,
+          "threshold": 0.08,
+          "confusion_matrix": {
+            "tn": 9012,
+            "fp": 2263,
+            "fn": 548,
+            "tp": 306
+          },
+          "support": {
+            "total": 12129,
+            "positives": 854,
+            "negatives": 11275
+          },
+          "positive_prevalence": 0.0704
+        },
+        "test": {
+          "roc_auc": 0.6043,
+          "pr_auc": 0.1234,
+          "precision": 0.1453,
+          "recall": 0.1782,
+          "f1": 0.1601,
+          "brier_score": 0.08,
+          "ece": 0.0287,
+          "threshold": 0.08,
+          "confusion_matrix": {
+            "tn": 17160,
+            "fp": 1924,
+            "fn": 1508,
+            "tp": 327
+          },
+          "support": {
+            "total": 20919,
+            "positives": 1835,
+            "negatives": 19084
+          },
+          "positive_prevalence": 0.0877
+        }
+      },
+      "degraded_zero_graph": {
+        "validation": {
+          "roc_auc": 0.5737,
+          "pr_auc": 0.1008,
+          "precision": 0.0842,
+          "recall": 0.5059,
+          "f1": 0.1443,
+          "brier_score": 0.0752,
+          "ece": 0.0636,
+          "threshold": 0.08,
+          "confusion_matrix": {
+            "tn": 6575,
+            "fp": 4700,
+            "fn": 422,
+            "tp": 432
+          },
+          "support": {
+            "total": 12129,
+            "positives": 854,
+            "negatives": 11275
+          },
+          "positive_prevalence": 0.0704
+        },
+        "test": {
+          "roc_auc": 0.5603,
+          "pr_auc": 0.1086,
+          "precision": 0.1213,
+          "recall": 0.1346,
+          "f1": 0.1276,
+          "brier_score": 0.0805,
+          "ece": 0.0287,
+          "threshold": 0.08,
+          "confusion_matrix": {
+            "tn": 17295,
+            "fp": 1789,
+            "fn": 1588,
+            "tp": 247
+          },
+          "support": {
+            "total": 20919,
+            "positives": 1835,
+            "negatives": 19084
+          },
+          "positive_prevalence": 0.0877
+        }
+      },
+      "subtype_analysis": {
+        "fake_listing": {
+          "support": 473,
+          "detected": 174,
+          "recall": 0.3679,
+          "mean_risk_score": 0.0891
+        },
+        "return_abuse": {
+          "support": 467,
+          "detected": 64,
+          "recall": 0.137,
+          "mean_risk_score": 0.067
+        },
+        "coordinated_fraud": {
+          "support": 445,
+          "detected": 46,
+          "recall": 0.1034,
+          "mean_risk_score": 0.063
+        },
+        "seller_buyer_collusion": {
+          "support": 450,
+          "detected": 43,
+          "recall": 0.0956,
+          "mean_risk_score": 0.058
+        }
+      },
+      "cold_start_analysis": {
+        "cold_start_buyers": {
+          "n_orders": 13597,
+          "fraud_orders": 1006,
+          "eval": {
+            "roc_auc": 0.6174,
+            "pr_auc": 0.1101,
+            "precision": 0.1301,
+            "recall": 0.2227,
+            "f1": 0.1642,
+            "brier_score": 0.0679,
+            "ece": 0.0124,
+            "threshold": 0.08,
+            "confusion_matrix": {
+              "tn": 11093,
+              "fp": 1498,
+              "fn": 782,
+              "tp": 224
+            },
+            "support": {
+              "total": 13597,
+              "positives": 1006,
+              "negatives": 12591
+            },
+            "positive_prevalence": 0.074
+          }
+        },
+        "returning_buyers": {
+          "n_orders": 7322,
+          "fraud_orders": 829,
+          "eval": {
+            "roc_auc": 0.6176,
+            "pr_auc": 0.1641,
+            "precision": 0.1947,
+            "recall": 0.1242,
+            "f1": 0.1517,
+            "brier_score": 0.1025,
+            "ece": 0.0596,
+            "threshold": 0.08,
+            "confusion_matrix": {
+              "tn": 6067,
+              "fp": 426,
+              "fn": 726,
+              "tp": 103
+            },
+            "support": {
+              "total": 7322,
+              "positives": 829,
+              "negatives": 6493
+            },
+            "positive_prevalence": 0.1132
+          }
+        },
+        "cold_start_sellers": {
+          "n_orders": 1256,
+          "fraud_orders": 208,
+          "eval": {
+            "roc_auc": 0.5458,
+            "pr_auc": 0.1898,
+            "precision": 0.186,
+            "recall": 0.5096,
+            "f1": 0.2725,
+            "brier_score": 0.1449,
+            "ece": 0.0779,
+            "threshold": 0.08,
+            "confusion_matrix": {
+              "tn": 584,
+              "fp": 464,
+              "fn": 102,
+              "tp": 106
+            },
+            "support": {
+              "total": 1256,
+              "positives": 208,
+              "negatives": 1048
+            },
+            "positive_prevalence": 0.1656
+          }
+        },
+        "returning_sellers": {
+          "n_orders": 19663,
+          "fraud_orders": 1627,
+          "eval": {
+            "roc_auc": 0.5951,
+            "pr_auc": 0.1127,
+            "precision": 0.1315,
+            "recall": 0.1358,
+            "f1": 0.1336,
+            "brier_score": 0.0758,
+            "ece": 0.0257,
+            "threshold": 0.08,
+            "confusion_matrix": {
+              "tn": 16576,
+              "fp": 1460,
+              "fn": 1406,
+              "tp": 221
+            },
+            "support": {
+              "total": 19663,
+              "positives": 1627,
+              "negatives": 18036
+            },
+            "positive_prevalence": 0.0827
+          }
+        }
+      }
+    },
+    "return_fraud_detector": {
+      "logistic_regression": {
+        "validation": {
+          "roc_auc": 0.6617,
+          "pr_auc": 0.4131,
+          "precision": 0.3585,
+          "recall": 0.6638,
+          "f1": 0.4655,
+          "brier_score": 0.212,
+          "ece": 0.1357,
+          "threshold": 0.38,
+          "confusion_matrix": {
+            "tn": 565,
+            "fp": 417,
+            "fn": 118,
+            "tp": 233
+          },
+          "support": {
+            "total": 1333,
+            "positives": 351,
+            "negatives": 982
+          },
+          "positive_prevalence": 0.2633
+        },
+        "test": {
+          "roc_auc": 0.5927,
+          "pr_auc": 0.4203,
+          "precision": 0.4152,
+          "recall": 0.3898,
+          "f1": 0.4021,
+          "brier_score": 0.2389,
+          "ece": 0.1337,
+          "threshold": 0.38,
+          "confusion_matrix": {
+            "tn": 1230,
+            "fp": 431,
+            "fn": 479,
+            "tp": 306
+          },
+          "support": {
+            "total": 2446,
+            "positives": 785,
+            "negatives": 1661
+          },
+          "positive_prevalence": 0.3209
+        }
+      },
+      "random_forest": {
+        "validation": {
+          "roc_auc": 0.6784,
+          "pr_auc": 0.4084,
+          "precision": 0.3636,
+          "recall": 0.7179,
+          "f1": 0.4828,
+          "brier_score": 0.1971,
+          "ece": 0.131,
+          "threshold": 0.37,
+          "confusion_matrix": {
+            "tn": 541,
+            "fp": 441,
+            "fn": 99,
+            "tp": 252
+          },
+          "support": {
+            "total": 1333,
+            "positives": 351,
+            "negatives": 982
+          },
+          "positive_prevalence": 0.2633
+        },
+        "test": {
+          "roc_auc": 0.6115,
+          "pr_auc": 0.4234,
+          "precision": 0.4248,
+          "recall": 0.4675,
+          "f1": 0.4451,
+          "brier_score": 0.2127,
+          "ece": 0.0477,
+          "threshold": 0.37,
+          "confusion_matrix": {
+            "tn": 1164,
+            "fp": 497,
+            "fn": 418,
+            "tp": 367
+          },
+          "support": {
+            "total": 2446,
+            "positives": 785,
+            "negatives": 1661
+          },
+          "positive_prevalence": 0.3209
+        }
+      },
+      "xgboost_raw": {
+        "validation": {
+          "roc_auc": 0.6747,
+          "pr_auc": 0.4105,
+          "precision": 0.3588,
+          "recall": 0.7493,
+          "f1": 0.4852,
+          "brier_score": 0.1967,
+          "ece": 0.1177,
+          "threshold": 0.14,
+          "confusion_matrix": {
+            "tn": 512,
+            "fp": 470,
+            "fn": 88,
+            "tp": 263
+          },
+          "support": {
+            "total": 1333,
+            "positives": 351,
+            "negatives": 982
+          },
+          "positive_prevalence": 0.2633
+        },
+        "test": {
+          "roc_auc": 0.5997,
+          "pr_auc": 0.4121,
+          "precision": 0.4075,
+          "recall": 0.5248,
+          "f1": 0.4588,
+          "brier_score": 0.2465,
+          "ece": 0.1786,
+          "threshold": 0.14,
+          "confusion_matrix": {
+            "tn": 1062,
+            "fp": 599,
+            "fn": 373,
+            "tp": 412
+          },
+          "support": {
+            "total": 2446,
+            "positives": 785,
+            "negatives": 1661
+          },
+          "positive_prevalence": 0.3209
+        }
+      },
+      "xgboost_calibrated": {
+        "validation": {
+          "roc_auc": 0.688,
+          "pr_auc": 0.3991,
+          "precision": 0.3629,
+          "recall": 0.7464,
+          "f1": 0.4884,
+          "brier_score": 0.1754,
+          "ece": 0.0,
+          "threshold": 0.24,
+          "confusion_matrix": {
+            "tn": 522,
+            "fp": 460,
+            "fn": 89,
+            "tp": 262
+          },
+          "support": {
+            "total": 1333,
+            "positives": 351,
+            "negatives": 982
+          },
+          "positive_prevalence": 0.2633
+        },
+        "test": {
+          "roc_auc": 0.5923,
+          "pr_auc": 0.3905,
+          "precision": 0.4096,
+          "recall": 0.5223,
+          "f1": 0.4591,
+          "brier_score": 0.225,
+          "ece": 0.0991,
+          "threshold": 0.24,
+          "confusion_matrix": {
+            "tn": 1070,
+            "fp": 591,
+            "fn": 375,
+            "tp": 410
+          },
+          "support": {
+            "total": 2446,
+            "positives": 785,
+            "negatives": 1661
+          },
+          "positive_prevalence": 0.3209
+        }
+      }
+    }
+  },
+  "combined_trust_engine": {
+    "tabular_only_baseline": {
+      "roc_auc": 0.6246,
+      "pr_auc": 0.147,
+      "precision": 0.1718,
+      "recall": 0.2158,
+      "f1": 0.1913,
+      "brier_score": 0.0855,
+      "ece": 0.0533,
+      "threshold": 0.25,
+      "confusion_matrix": {
+        "tn": 17175,
+        "fp": 1909,
+        "fn": 1439,
+        "tp": 396
+      },
+      "support": {
+        "total": 20919,
+        "positives": 1835,
+        "negatives": 19084
+      },
+      "positive_prevalence": 0.0877
+    },
+    "full_graph_model": {
+      "roc_auc": 0.6043,
+      "pr_auc": 0.1234,
+      "precision": 0.1453,
+      "recall": 0.1782,
+      "f1": 0.1601,
+      "brier_score": 0.08,
+      "ece": 0.0287,
+      "threshold": 0.08,
+      "confusion_matrix": {
+        "tn": 17160,
+        "fp": 1924,
+        "fn": 1508,
+        "tp": 327
+      },
+      "support": {
+        "total": 20919,
+        "positives": 1835,
+        "negatives": 19084
+      },
+      "positive_prevalence": 0.0877
+    },
+    "max_risk_ensemble": {
+      "roc_auc": 0.651,
+      "pr_auc": 0.2556,
+      "precision": 0.4968,
+      "recall": 0.2109,
+      "f1": 0.2961,
+      "brier_score": 0.0728,
+      "ece": 0.0196,
+      "threshold": 0.19,
+      "confusion_matrix": {
+        "tn": 18692,
+        "fp": 392,
+        "fn": 1448,
+        "tp": 387
+      },
+      "support": {
+        "total": 20919,
+        "positives": 1835,
+        "negatives": 19084
+      },
+      "positive_prevalence": 0.0877
+    },
+    "trust_engine_weighted": {
+      "roc_auc": 0.6507,
+      "pr_auc": 0.2349,
+      "precision": 0.5,
+      "recall": 0.0016,
+      "f1": 0.0033,
+      "brier_score": 0.0775,
+      "ece": 0.033,
+      "threshold": 0.5,
+      "confusion_matrix": {
+        "tn": 19081,
+        "fp": 3,
+        "fn": 1832,
+        "tp": 3
+      },
+      "support": {
+        "total": 20919,
+        "positives": 1835,
+        "negatives": 19084
+      },
+      "positive_prevalence": 0.0877
+    },
+    "trust_engine_decisions": {
+      "ALLOW": 20762,
+      "REVIEW": 151,
+      "HOLD": 5,
+      "BLOCK": 1
+    }
+  },
+  "ablations": {
+    "graph_incremental_roc_auc": -0.0203,
+    "graph_incremental_pr_auc": -0.0236,
+    "multimodal_incremental_pr_auc": 0.1322,
+    "zero_graph_degradation_roc_auc_drop": 0.044,
+    "zero_graph_degradation_pr_auc_drop": 0.0148
+  }
+}

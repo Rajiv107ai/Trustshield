@@ -417,3 +417,141 @@ class TestFeedbackLoopGuard:
         # Should not raise
         leakage_audit(df, ["amount", "buyer_returns_before", "buyer_orders_before"])
 
+
+# ---------------------------------------------------------------------------
+# Check 2 — Point-In-Time Graph & Event Leakage Prevention Tests
+# ---------------------------------------------------------------------------
+
+class TestPointInTimeGraphAndReturnLeakagePrevention:
+    """Verifies that future events (future orders, future returns, future graph edges)
+    strictly cannot alter feature representations of earlier transactions.
+    """
+
+    def test_future_orders_do_not_affect_earlier_snapshot_features(self):
+        """Adding Month M+1 orders to the history must not change graph features for Month M orders."""
+        import numpy as np
+        import pandas as pd
+        from graph_features import build_monthly_snapshots, attach_snapshot_features
+
+        # Base orders across Month 1 and Month 2
+        m1_dates = pd.date_range("2025-01-05", periods=5, freq="D")
+        m2_dates = pd.date_range("2025-02-05", periods=5, freq="D")
+
+        base_orders = pd.DataFrame({
+            "order_id": [f"ORD_M1_{i}" for i in range(5)] + [f"ORD_M2_{i}" for i in range(5)],
+            "buyer_id": ["B1", "B2", "B1", "B3", "B2", "B1", "B2", "B3", "B1", "B2"],
+            "seller_id": ["S1", "S1", "S2", "S2", "S1", "S1", "S2", "S1", "S2", "S1"],
+            "order_date": list(m1_dates) + list(m2_dates),
+            "amount": [100.0] * 10,
+        })
+
+        sim_start = pd.Timestamp("2025-01-01")
+
+        # Compute snapshots without Month 3
+        snapshots_v1, months_v1 = build_monthly_snapshots(base_orders, sim_start)
+        df_v1 = attach_snapshot_features(base_orders, snapshots_v1, months_v1)
+
+        # Now simulate adding 10 orders in Month 3 with a new dense collusion ring
+        m3_dates = pd.date_range("2025-03-05", periods=10, freq="D")
+        m3_orders = pd.DataFrame({
+            "order_id": [f"ORD_M3_{i}" for i in range(10)],
+            "buyer_id": ["B1", "B2", "B1", "B2", "B1", "B2", "B1", "B2", "B1", "B2"],
+            "seller_id": ["S1", "S1", "S1", "S1", "S1", "S1", "S1", "S1", "S1", "S1"],
+            "order_date": list(m3_dates),
+            "amount": [500.0] * 10,
+        })
+        all_orders = pd.concat([base_orders, m3_orders], ignore_index=True)
+
+        snapshots_v2, months_v2 = build_monthly_snapshots(all_orders, sim_start)
+        df_v2 = attach_snapshot_features(all_orders, snapshots_v2, months_v2)
+
+        # Check features for base orders (Month 1 & 2) in df_v1 vs df_v2
+        check_cols = [
+            "buyer_seller_degree", "buyer_pagerank",
+            "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi"
+        ]
+        for col in check_cols:
+            v1_vals = df_v1.loc[:9, col].to_numpy()
+            v2_vals = df_v2.loc[:9, col].to_numpy()
+            np.testing.assert_allclose(
+                v1_vals, v2_vals, rtol=1e-5, atol=1e-5,
+                err_msg=f"Temporal leakage detected: Month 3 future orders changed '{col}' for earlier orders!"
+            )
+
+    def test_future_returns_do_not_leak_into_earlier_order_features(self):
+        """A return occurring after an order date must not increment buyer_returns_before."""
+        import pandas as pd
+        from baseline_model import build_features
+
+        buyers_df = pd.DataFrame({
+            "buyer_id": ["B_TEST"],
+            "signup_date": [pd.Timestamp("2025-01-01")],
+        })
+        sellers_df = pd.DataFrame({
+            "seller_id": ["S_TEST"],
+            "signup_date": [pd.Timestamp("2025-01-01")],
+        })
+        products_df = pd.DataFrame({
+            "product_id": ["P_TEST"],
+            "base_price": [50.0],
+        })
+        listings_df = pd.DataFrame({
+            "listing_id": ["L_TEST"],
+            "seller_id": ["S_TEST"],
+            "product_id": ["P_TEST"],
+            "category": ["electronics"],
+            "listing_date": [pd.Timestamp("2025-01-02")],
+            "price": [50.0],
+        })
+        orders_df = pd.DataFrame({
+            "order_id": ["ORD_1", "ORD_2"],
+            "buyer_id": ["B_TEST", "B_TEST"],
+            "seller_id": ["S_TEST", "S_TEST"],
+            "listing_id": ["L_TEST", "L_TEST"],
+            "order_date": [pd.Timestamp("2025-01-10"), pd.Timestamp("2025-01-20")],
+            "amount": [50.0, 50.0],
+            "device_id": ["DEV_TEST", "DEV_TEST"],
+        })
+        # Return for ORD_1 occurs on 2025-01-15 (after ORD_1, but before ORD_2)
+        returns_df = pd.DataFrame({
+            "return_id": ["RET_1"],
+            "order_id": ["ORD_1"],
+            "buyer_id": ["B_TEST"],
+            "return_date": [pd.Timestamp("2025-01-15")],
+        })
+
+        feat_df, _ = build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, products_df)
+
+        ord1_feat = feat_df[feat_df["order_id"] == "ORD_1"].iloc[0]
+        ord2_feat = feat_df[feat_df["order_id"] == "ORD_2"].iloc[0]
+
+        # At ORD_1 time (Jan 10), return RET_1 (Jan 15) has not happened yet -> must be 0
+        assert ord1_feat["buyer_returns_before"] == 0, (
+            "Temporal leakage: Future return on Jan 15 was counted before Jan 10 order!"
+        )
+        # At ORD_2 time (Jan 20), return RET_1 has happened -> must be 1
+        assert ord2_feat["buyer_returns_before"] == 1, (
+            "Historical return on Jan 15 must be counted for Jan 20 order."
+        )
+
+    def test_future_pair_orders_do_not_leak_into_earlier_edge_weight(self):
+        """Future buyer-seller orders must not increment buyer_seller_edge_weight_before."""
+        import pandas as pd
+        from graph_features import add_edge_weight_before
+
+        df = pd.DataFrame({
+            "order_id": ["ORD_1", "ORD_2", "ORD_3"],
+            "buyer_id": ["B1", "B1", "B1"],
+            "seller_id": ["S1", "S1", "S1"],
+            "order_date": [pd.Timestamp("2025-02-01"), pd.Timestamp("2025-02-15"), pd.Timestamp("2025-03-01")],
+            "amount": [10.0, 10.0, 10.0],
+        })
+
+        res = add_edge_weight_before(df)
+        weights = res.sort_values("order_date")["buyer_seller_edge_weight_before"].tolist()
+        # ORD_1: 0 prior orders
+        # ORD_2: 1 prior order
+        # ORD_3: 2 prior orders
+        assert weights == [0, 1, 2], f"Expected strictly prior counts [0, 1, 2], got {weights}"
+
+

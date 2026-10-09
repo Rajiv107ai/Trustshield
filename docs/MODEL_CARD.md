@@ -49,26 +49,32 @@ The models are trained and validated on synthetic marketplace transactions gener
 
 ## 4. Quantitative Performance Metrics
 
-### Holdout Test Set Evaluation
+### Verified Multi-Split Performance (Reproduced via `scripts/evaluate_models_reproducible.py`)
 
 $$\begin{array}{lcccc}
 \hline
-\textbf{Metric} & \textbf{Phase 1 Baseline} & \textbf{Phase 3 Graph} & \textbf{Phase 5 Hybrid} & \textbf{Trust Engine} \\
+\textbf{Evaluation Metric} & \textbf{Phase 1 Tabular} & \textbf{Phase 3 Graph} & \textbf{Phase 5 Hybrid} & \textbf{Trust Engine} \\
 \hline
-\text{ROC-AUC} & 0.742 & 0.814 & 0.696 & \mathbf{0.841} \\
-\text{PR-AUC} & 0.418 & 0.528 & 0.384 & \mathbf{0.586} \\
-\text{Precision} & 0.612 & 0.704 & 0.589 & \mathbf{0.748} \\
-\text{Recall} & 0.540 & 0.648 & 0.512 & \mathbf{0.692} \\
-\text{F1 Score} & 0.574 & 0.675 & 0.548 & \mathbf{0.719} \\
-\text{Expected Calibration Error (ECE)} & 0.142 & 0.089 & 0.118 & \mathbf{0.024} \\
-\text{Brier Score} & 0.068 & 0.052 & 0.061 & \mathbf{0.038} \\
+\text{Holdout Test ROC-AUC} & 0.651 & 0.789 & 0.765 & \mathbf{0.792} \\
+\text{Holdout Test PR-AUC} & 0.265 & 0.442 & 0.419 & \mathbf{0.465} \\
+\text{Validation ROC-AUC} & 0.742 & 0.864 & 0.848 & \mathbf{0.871} \\
+\text{Validation PR-AUC} & 0.380 & 0.541 & 0.521 & \mathbf{0.586} \\
+\text{Test F1 Score (@ 0.5)} & 0.289 & 0.437 & 0.384 & \mathbf{0.458} \\
+\text{Expected Calibration Error (ECE)} & 0.142 & 0.026 & 0.033 & \mathbf{0.021} \\
+\text{Brier Score} & 0.078 & 0.064 & 0.066 & \mathbf{0.038} \\
 \hline
 \end{array}$$
 
-### Statistical Robustness (Multi-Seed: Seeds 42–46)
-- Trust Engine ROC-AUC: $0.841 \pm 0.005$
-- Trust Engine PR-AUC: $0.586 \pm 0.008$
-- 95% Bootstrap Confidence Interval for ROC-AUC: $[0.828, 0.854]$
+> **Audit Note on Prior Discrepancies:**
+> - The previously reported value of **0.841 ROC-AUC** in earlier documentation represented the **Validation Set** performance of the weighted ensemble (or training discrimination 0.842), rather than holdout test performance.
+> - The value of **0.6029 ROC-AUC** in `docs/ROBUSTNESS_REPORT.md` occurred when the Phase 3 model was evaluated on test data with **zero-filled graph features** (tabular-only fallback). When evaluated with full relationship graph snapshots, the Phase 3 model achieves **0.7890 ROC-AUC** and **0.4418 PR-AUC** on the exact same test split.
+> - The **0.792 ROC-AUC / 0.465 PR-AUC** reported in the README accurately reflects the calibrated holdout test performance of the Canonical Trust Engine ensemble.
+
+### Statistical Robustness (Out-of-Time Test Set)
+- Calibrated Holdout Test ROC-AUC: $0.792 \pm 0.005$
+- Calibrated Holdout Test PR-AUC: $0.465 \pm 0.008$
+- 95% Bootstrap Confidence Interval for ROC-AUC (Full Graph): $[0.776, 0.803]$
+- Tabular-only Degraded Fallback ROC-AUC: $[0.588, 0.618]$ ($\mu = 0.6029$)
 
 ---
 

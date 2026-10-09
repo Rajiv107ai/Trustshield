@@ -1,0 +1,283 @@
+{
+  "audit_metadata": {
+    "audit_stage": "Phase 3 Stage 3.3.1",
+    "objective": "Independent Metrics and Decision-Policy Audit",
+    "timestamp": "2026-10-09T19:07:00Z",
+    "git_branch": "phase-3-data-generalization",
+    "git_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "dataset_version": "v2.1",
+    "dataset_directory": "data/synthetic_v2_1",
+    "audit_status": "COMPLETED",
+    "models_retrained": false,
+    "production_code_modified": false,
+    "test_set_threshold_tuning": false
+  },
+  "task_a_metrics_reconciliation": {
+    "status": "VERIFIED_MATHEMATICALLY_CONSISTENT",
+    "mathematical_identities_checked": [
+      "precision == tp / (tp + fp)",
+      "recall == tp / (tp + fn)",
+      "f1 == 2 * precision * recall / (precision + recall)",
+      "total_predictions == tp + fp + tn + fn"
+    ],
+    "models_checked_count": 13,
+    "mathematical_discrepancies_found": 0,
+    "continuous_auc_verified": true,
+    "continuous_auc_details": "Confirmed that evaluate_binary() uses raw continuous probabilities (scores) for roc_auc_score and average_precision_score, not thresholded binary predictions.",
+    "dataset_cohort_counts": {
+      "listings": {
+        "train": {"total": 10582, "positives": 240, "prevalence": 0.02268},
+        "val": {"total": 2728, "positives": 58, "prevalence": 0.02126},
+        "test": {"total": 2686, "positives": 56, "prevalence": 0.02085}
+      },
+      "orders": {
+        "train": {"total": 84149, "positives": 7329, "prevalence": 0.08710},
+        "val": {"total": 21323, "positives": 1845, "prevalence": 0.08653},
+        "test": {"total": 20919, "positives": 1835, "prevalence": 0.08772}
+      },
+      "returns": {
+        "train": {"total": 9789, "positives": 3133, "prevalence": 0.32005},
+        "val": {"total": 2496, "positives": 794, "prevalence": 0.31811},
+        "test": {"total": 2446, "positives": 785, "prevalence": 0.32093}
+      }
+    },
+    "calibration_separation": {
+      "verified": true,
+      "details": "All models distinguish between raw discrimination metrics (ROC-AUC, PR-AUC) and post-calibration metrics (Brier score, Expected Calibration Error). Calibrated and uncalibrated models are serialized separately in models/v2_1/."
+    }
+  },
+  "task_b_combined_engine_audit": {
+    "status": "RECONCILED",
+    "evaluation_cohort": "Test Orders (N = 20,919, Positives = 1,835, Prevalence = 8.77%)",
+    "comparative_metrics": {
+      "tabular_logistic_regression": {
+        "roc_auc": 0.6559,
+        "pr_auc": 0.1550,
+        "precision": 0.1873,
+        "recall": 0.0801,
+        "f1": 0.1122,
+        "brier_score": 0.0768,
+        "ece": 0.0232
+      },
+      "tabular_xgboost": {
+        "roc_auc": 0.6246,
+        "pr_auc": 0.1470,
+        "precision": 0.2222,
+        "recall": 0.0076,
+        "f1": 0.0147,
+        "brier_score": 0.0784,
+        "ece": 0.0189
+      },
+      "full_graph_xgboost": {
+        "roc_auc": 0.6043,
+        "pr_auc": 0.1234,
+        "precision": 0.1875,
+        "recall": 0.0049,
+        "f1": 0.0096,
+        "brier_score": 0.0792,
+        "ece": 0.0191
+      },
+      "max_risk_ensemble": {
+        "roc_auc": 0.6722,
+        "pr_auc": 0.2556,
+        "precision": 0.1873,
+        "recall": 0.0801,
+        "f1": 0.1122,
+        "brier_score": null,
+        "ece": null
+      }
+    },
+    "relative_pr_auc_lifts": {
+      "vs_full_graph_xgboost": {
+        "baseline_pr_auc": 0.1234,
+        "ensemble_pr_auc": 0.2556,
+        "absolute_improvement": 0.1322,
+        "relative_improvement_pct": 107.13
+      },
+      "vs_tabular_xgboost": {
+        "baseline_pr_auc": 0.1470,
+        "ensemble_pr_auc": 0.2556,
+        "absolute_improvement": 0.1086,
+        "relative_improvement_pct": 73.88
+      },
+      "vs_tabular_logistic_regression": {
+        "baseline_pr_auc": 0.1550,
+        "ensemble_pr_auc": 0.2556,
+        "absolute_improvement": 0.1006,
+        "relative_improvement_pct": 64.90
+      }
+    },
+    "wording_discrepancy": {
+      "reported_claim": "PR-AUC improves from 0.1234 to 0.2556 (+107.1% relative improvement) over transaction-only model",
+      "audit_finding": "The +107.1% figure is strictly relative to Full-Graph XGBoost (0.1234), which was the worst performing transaction baseline. Relative to the strongest standalone baseline (Tabular LR at 0.1550), the true PR-AUC lift is +64.9%. Relative to Tabular XGBoost (0.1470), the lift is +73.9%.",
+      "severity": "MODERATE_CLARIFICATION"
+    },
+    "listing_risk_join_analysis": {
+      "join_key": "listing_id",
+      "join_implementation": "all_l_score_map.get(order['listing_id'], 0.05)",
+      "missing_listing_ids_in_test": 0,
+      "default_fallback_score": 0.05,
+      "fallback_invocation_count": 0
+    },
+    "max_risk_pooling_limitations": [
+      "Task prior divergence: Fake-listing model base rate is 2.08%, while order fraud base rate is 8.77%. Taking max(p_order, p_listing) assumes commensurate calibration curves.",
+      "Loss of probabilistic interpretation: The maximum of two marginal probabilities is not the joint or union posterior probability without copula modeling or independent assumption adjustment: P(A or B) = P(A) + P(B) - P(A and B).",
+      "Score distortion at decision thresholds: High fake-listing confidence (e.g. 0.85) drives order risk to 0.85 even if order payment and buyer behavior are entirely legitimate. While operationally sound for blocking orders of fraudulent merchandise, it conflates listing fraud with buyer fraud."
+    ]
+  },
+  "task_c_graph_contribution_audit": {
+    "status": "COMPLETED",
+    "intra_model_ablation": {
+      "model": "Full-Graph XGBoost",
+      "full_graph_test_roc_auc": 0.6043,
+      "full_graph_test_pr_auc": 0.1234,
+      "zeroed_graph_test_roc_auc": 0.5603,
+      "zeroed_graph_test_pr_auc": 0.1031,
+      "delta_roc_auc": -0.0440,
+      "delta_pr_auc": -0.0203,
+      "interpretation": "Features are used by the tree splits; zeroing them at test time causes significant performance collapse."
+    },
+    "cross_model_comparison": {
+      "tabular_xgboost_test_roc_auc": 0.6246,
+      "tabular_xgboost_test_pr_auc": 0.1470,
+      "full_graph_xgboost_test_roc_auc": 0.6043,
+      "full_graph_xgboost_test_pr_auc": 0.1234,
+      "delta_roc_auc": -0.0203,
+      "delta_pr_auc": -0.0236,
+      "interpretation": "Full-Graph XGBoost underperforms standalone Tabular XGBoost trained without graph features by -0.0203 ROC-AUC and -0.0236 PR-AUC on the out-of-time test set."
+    },
+    "architectural_root_causes": [
+      "Feature dilution: Adding 8 sparse graph centrality and community features increased the feature space without providing sufficient signal, causing suboptimal tree partition choices.",
+      "Graph turnover and out-of-time cold start: Buyer-merchant and buyer-device bipartite graph edges undergo rapid turnover over temporal splits. Graph features computed on train graphs decay when applied out-of-time.",
+      "Absence of dynamic snapshot updating: Graph embeddings were not refreshed dynamically at each order timestamp."
+    ],
+    "proposed_stage_3_4_experiment": {
+      "protocol": "Controlled Feature Selection and Temporal Graph Snapshot Evaluation",
+      "steps": [
+        "Train Tabular XGBoost, Graph-Only XGBoost, and Hybrid XGBoost using identical hyperparameter grids and validation early-stopping protocols.",
+        "Implement rolling temporal bipartite graph projection with snapshot window decay (e.g., 7-day and 30-day lookbacks).",
+        "Perform forward feature selection to verify whether any specific graph metric (e.g., entity degree vs PageRank) provides positive incremental lift over tabular baseline on validation data.",
+        "Do not train or tune until Stage 3.4 is approved."
+      ]
+    }
+  },
+  "task_d_decision_routing_policy_audit": {
+    "status": "DEFECT_ISOLATED",
+    "reported_behavior": "99.25% ALLOW, 0.72% REVIEW, 0.03% HOLD, 0.00% BLOCK; Recall 0.16%",
+    "root_cause_analysis": {
+      "defect": "Arbitrary 0.50 threshold applied to calibrated posterior probabilities on low-prevalence dataset (8.77%)",
+      "code_location": "scripts/evaluate_stage33_controlled.py:410-415",
+      "explanation": "Isotonic calibration aligns predicted scores with true empirical frequencies. Because positive prevalence is 8.77%, only 6 out of 20,919 orders achieved a calibrated probability >= 0.50. At threshold 0.50, the model produced TP=3, FP=3, TN=19,081, FN=1,832, resulting in Recall = 3 / 1,835 = 0.00163 (0.16%).",
+      "policy_routing_thresholds": {
+        "ALLOW_range": "[0.00, 0.20)",
+        "REVIEW_range": "[0.20, 0.50)",
+        "HOLD_range": "[0.50, 0.80)",
+        "BLOCK_range": "[0.80, 1.00]"
+      },
+      "routing_counts": {
+        "ALLOW": 20762,
+        "REVIEW": 151,
+        "HOLD": 6,
+        "BLOCK": 0
+      },
+      "routing_percentages": {
+        "ALLOW": 99.249,
+        "REVIEW": 0.722,
+        "HOLD": 0.029,
+        "BLOCK": 0.000
+      }
+    },
+    "workload_simulation_at_validation_tuned_thresholds": {
+      "optimal_validation_f1_threshold": 0.1340,
+      "validation_tuned_action_simulation": {
+        "flagged_orders_threshold_0_134": 3280,
+        "flagged_rate_pct": 15.68,
+        "estimated_fraud_capture_pct": 42.1
+      }
+    },
+    "recommendation": "Decision-routing policy must never apply default 0.50/0.80 thresholds to calibrated probabilities without setting operational cutoffs derived from validation ROC/PR curves and business capacity constraints."
+  },
+  "task_e_model_selection_and_calibration_audit": {
+    "status": "VALIDATION_DECISION_CONFIRMED",
+    "task": "Return Abuse Detection",
+    "validation_metrics": {
+      "random_forest": {
+        "roc_auc": 0.6481,
+        "pr_auc": 0.4497,
+        "f1": 0.4430,
+        "precision": 0.4449,
+        "recall": 0.4411
+      },
+      "xgboost_uncalibrated": {
+        "roc_auc": 0.6865,
+        "pr_auc": 0.4952,
+        "f1": 0.4851,
+        "precision": 0.4688,
+        "recall": 0.5028
+      },
+      "xgboost_calibrated": {
+        "roc_auc": 0.6880,
+        "pr_auc": 0.4939,
+        "f1": 0.4884,
+        "precision": 0.4578,
+        "recall": 0.5230,
+        "brier_score": 0.1887,
+        "ece": 0.0210
+      }
+    },
+    "selection_rule_verification": {
+      "decision": "XGBoost Calibrated was selected over Random Forest based strictly on validation metrics.",
+      "validation_comparison": "XGBoost Calibrated achieved F1 = 0.4884 vs RF F1 = 0.4430 (+0.0454 F1 advantage) and Validation ROC-AUC = 0.6880 vs RF ROC-AUC = 0.6481 (+0.0399 ROC-AUC advantage).",
+      "verdict": "VALID: Model selection strictly adhered to the validation-only protocol and did not use test metrics."
+    },
+    "out_of_time_test_divergence": {
+      "test_random_forest": {"roc_auc": 0.6115, "pr_auc": 0.4234, "f1": 0.3842},
+      "test_xgboost_calibrated": {"roc_auc": 0.5923, "pr_auc": 0.3905, "f1": 0.4072},
+      "explanation": "Random Forest showed superior generalization retention on test (+0.0192 ROC-AUC and +0.0329 PR-AUC over XGBoost Calibrated), likely due to bagging resilience against temporal feature shifts in return abuse behavior."
+    },
+    "calibration_audit": {
+      "method": "IsotonicRegression(out_of_bounds='clip')",
+      "fit_dataset": "Held-out validation set only (N = 2,496)",
+      "test_set_isolation": "Strictly maintained; calibrator was evaluated on test set without updating parameters.",
+      "calibration_quality": "Test Brier score 0.2079, Test ECE 0.0223 (well calibrated)."
+    }
+  },
+  "inconsistencies_catalog": [
+    {
+      "id": "INC-01",
+      "file": "reports/phase3_stage33_evaluation_report.md",
+      "line": 182,
+      "severity": "MEDIUM",
+      "summary": "Imprecise PR-AUC lift attribution in Stage 3.3 narrative",
+      "description": "Report claims '+107.1% relative improvement over transaction-only model', referencing Full-Graph XGBoost (0.1234). However, against the strongest transaction baseline (Tabular LR, PR-AUC 0.1550), the true lift is +64.9%; against Tabular XGBoost (0.1470), it is +73.9%.",
+      "recommendation": "State the comparison baseline explicitly in all executive summaries."
+    },
+    {
+      "id": "INC-02",
+      "file": "scripts/evaluate_stage33_controlled.py",
+      "line": 410,
+      "severity": "HIGH",
+      "summary": "Mismatched 0.50 threshold on calibrated low-prevalence probability outputs",
+      "description": "The decision-routing evaluation applied a fixed threshold of 0.50 to TrustEngine scores calibrated to an 8.77% base rate. This resulted in an anomalous 0.16% recall (3 out of 1,835 test frauds detected) and a 99.25% ALLOW rate.",
+      "recommendation": "Tune operational decision thresholds on the validation set using precision-recall trade-offs or business loss functions, rather than relying on unadjusted 0.50 defaults."
+    },
+    {
+      "id": "INC-03",
+      "file": "scripts/evaluate_stage33_controlled.py",
+      "line": 430,
+      "severity": "LOW",
+      "summary": "Formatted sign typo in console print statement for graph ablation delta",
+      "description": "Output string formatted '+-0.0203' when delta was negative.",
+      "recommendation": "Use sign-aware format specifiers in logging statements."
+    },
+    {
+      "id": "INC-04",
+      "file": "scripts/evaluate_stage33_controlled.py",
+      "line": 390,
+      "severity": "MEDIUM",
+      "summary": "Max-Risk ensemble assumes interchangeable risk scales across heterogeneous tasks",
+      "description": "Max-risk pooling combines order fraud probability (prior 8.77%) and fake listing probability (prior 2.08%) using max(). The resulting score is effective for ranking but uncalibrated as an overall joint posterior.",
+      "recommendation": "Document max-risk pooling as an uncalibrated ranking heuristic or apply Bayesian noisy-OR combination: P_joint = 1 - (1 - P_order) * (1 - P_listing)."
+    }
+  ]
+}

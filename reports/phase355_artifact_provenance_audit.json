@@ -1,0 +1,258 @@
+{
+  "schema_version": "1.5.0",
+  "audit_stage": "Stage 3.5.5 — Artifact Provenance Reconciliation & Independent Evidence Audit",
+  "audit_timestamp_utc": "2026-10-09T16:50:00Z",
+  "auditor": "Antigravity MLOps Security & ML Reproducibility Auditor",
+  "repository": {
+    "url": "https://github.com/Rajiv107ai/Trustshield",
+    "active_branch": "phase-3-data-generalization",
+    "baseline_head": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "working_tree_status": {
+      "uncommitted_user_modifications_preserved": true,
+      "commits_or_pushes_executed": false
+    }
+  },
+  "readiness_decision": "CONDITIONALLY READY",
+  "candidate_artifacts_provenance_reconciliation": {
+    "candidate_model": {
+      "canonical_path": "models/stage34/stage34_tabular_model.joblib",
+      "size_bytes": 1025950,
+      "actual_sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "reported_stage353_hash": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "reported_checklist_v110_hash": "1310b43c3c8ddb664be8a8461f8a8489839462c82084df58d6aa92fa94cf8928",
+      "matches_stage353": true,
+      "matches_checklist_v110": false,
+      "provenance_resolution": "The Checklist v1.1.0 hash originated from a mock string constant in unit test fixture 'ten_artifact_fixtures' in test_stage354_protocol_reconciliation.py:76. It was erroneously transcribed into Checklist v1.1.0 and Report 3.5.4 without recalculating actual file bytes. Physical disk bytes never changed; actual SHA-256 matches Stage 3.5.3 baseline exactly.",
+      "baseline_confidently_established": true,
+      "feature_count": 10,
+      "model_type": "XGBClassifier (10 Tabular Features)"
+    },
+    "candidate_calibrator": {
+      "canonical_path": "models/stage34/stage34_tabular_calibrator.joblib",
+      "size_bytes": 1468,
+      "actual_sha256": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "reported_stage353_hash": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "reported_checklist_v110_hash": "152f287e8f4da13854890c2a714ee6b647c28eb5837fc9081e60aa88383a1523",
+      "matches_stage353": true,
+      "matches_checklist_v110": false,
+      "provenance_resolution": "The Checklist v1.1.0 hash originated from a mock string constant in unit test fixture 'ten_artifact_fixtures' in test_stage354_protocol_reconciliation.py:77. It was erroneously transcribed into Checklist v1.1.0 and Report 3.5.4 without recalculating actual file bytes. Physical disk bytes never changed; actual SHA-256 matches Stage 3.5.3 baseline exactly.",
+      "baseline_confidently_established": true,
+      "calibrator_type": "ProbabilityCalibrator(method='isotonic')"
+    },
+    "pairing_and_feature_schema": {
+      "pairing_verified": true,
+      "pairing_source": "scripts/run_stage34_experiments.py:676,680 (trained jointly on validation predictions)",
+      "intended_10_features_ordered": [
+        "price_vs_base_price_ratio",
+        "price_vs_category_median_ratio",
+        "seller_age_days",
+        "seller_total_listings_before",
+        "buyer_age_days",
+        "buyer_orders_before",
+        "buyer_returns_before",
+        "buyer_return_rate_before",
+        "device_shared_buyer_count",
+        "amount"
+      ],
+      "graph_features_admitted": 0,
+      "other_artifact_copies_found": [
+        {
+          "path": "models/v2_1/tabular_baseline_model.joblib",
+          "size_bytes": 1025950,
+          "sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+          "relationship": "Bitwise identical copy of stage34_tabular_model.joblib; lacks matching calibrator in v2_1 directory"
+        }
+      ]
+    }
+  },
+  "cryptographic_commitment_audit": {
+    "commitment_type": "Hash-Based Commitment Scheme",
+    "digital_signature_implemented": false,
+    "digital_signature_gap_documented": true,
+    "missing_signature_mechanism": "No asymmetric public-key signature (e.g. Ed25519, ECDSA, RSA-PSS) exists in the repository. The commitment is verified by bitwise equality against the approved manifest dictionary. Signer authentication currently relies on external ledger transport authentication (Bearer token).",
+    "mandatory_execution_identity_fields": {
+      "1_prediction_sha256": {
+        "status": "VERIFIED_IN_CODE",
+        "spec": "Contiguous IEEE 754 64-bit float, little-endian (<f8) byte hash"
+      },
+      "2_bound_model_sha256": {
+        "status": "VERIFIED_IN_CODE",
+        "actual_value": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a"
+      },
+      "3_bound_calibrator_sha256": {
+        "status": "VERIFIED_IN_CODE",
+        "actual_value": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8"
+      },
+      "4_bound_source_commit": {
+        "status": "VERIFIED_IN_CODE",
+        "actual_value": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740"
+      },
+      "5_bound_evaluation_code_sha256": {
+        "status": "VERIFIED_IN_CODE",
+        "actual_value": "376e3a936b85453013cccb8b4bb11a78ed04ee0b1303831aa5876fd23890f620"
+      },
+      "6_bound_feature_schema_hash": {
+        "status": "VERIFIED_IN_CODE",
+        "description": "SHA-256 digest of canonical 10-feature schema definition"
+      },
+      "7_bound_input_manifest_sha256": {
+        "status": "CODE_READY_MANIFEST_PENDING",
+        "description": "Awaits evaluator approval of future v2.2 holdout manifest"
+      },
+      "8_bound_environment_digest": {
+        "status": "CODE_READY_BUILD_BLOCKED",
+        "description": "Awaits Docker daemon startup and container compilation (BLK-01)"
+      },
+      "9_bound_evaluation_policy_sha256": {
+        "status": "VERIFIED_IN_CODE",
+        "description": "SHA-256 digest of pre-registered evaluation policy"
+      },
+      "10_bound_run_id": {
+        "status": "VERIFIED_IN_CODE",
+        "description": "Unique evaluator-issued execution run identifier"
+      }
+    }
+  },
+  "scientific_and_operational_claims_audit": {
+    "developer_evaluator_separation": "Accurately reflects boundary invariant: developer generates predictions on unblinded features without label or key access.",
+    "remote_ledger_deployment": "Checklist updated to clearly state client adapter is tested against mock, but production service is not yet deployed.",
+    "label_access_and_no_retry": "Verified fail-closed gate semantics: any crash or timeout after labels_accessed=True results in terminal FAILED; retry blocked.",
+    "python_memory_cleanup_limits": "Corrected overstated memory zeroization claim. Acknowledged Python runtime (pymalloc/GC) limits; container and process teardown enforced as true security boundary.",
+    "random_ranking_ap_baseline": "Clarified Average Precision under random ranking equals natural positive prevalence pi (~0.05), not 0.50.",
+    "capacity_constrained_recall": "Verified floor integer truncation K = floor(b * N) and deterministic secondary tie-breaking by order_id ascending.",
+    "synthetic_vs_real_market": "Verified explicit disclaimer that synthetic holdout validates algorithmic soundness but does not replace live market shadow testing."
+  },
+  "assurance_level_corrections_summary": {
+    "independently_verified_corrected_to_locally_tested": [
+      "1.1 Candidate Model & Calibrator Verification",
+      "1.2 Source Code & Evaluation Gate Lock"
+    ],
+    "independently_verified_corrected_to_implemented": [
+      "5.3 Synthetic Holdout Limitation Disclaimer"
+    ],
+    "formally_authorized_corrected_to_implemented": [
+      "5.4 Final Promotion Decision"
+    ],
+    "total_independently_verified_remaining": 0,
+    "total_formally_authorized_remaining": 0
+  },
+  "regression_tests_executed": {
+    "environment": {
+      "os": "Windows (win32)",
+      "python_version": "3.14.7",
+      "pytest_version": "9.1.1"
+    },
+    "suites": [
+      {
+        "path": "trustshield_project/test_stage351_environment_sealing.py",
+        "tests_passed": 14,
+        "tests_failed": 0,
+        "exit_code": 0,
+        "duration_seconds": 0.21
+      },
+      {
+        "path": "trustshield_project/test_stage352_gate_security.py",
+        "tests_passed": 20,
+        "tests_failed": 0,
+        "exit_code": 0,
+        "duration_seconds": 0.22
+      },
+      {
+        "path": "trustshield_project/test_stage353_replay_binding.py",
+        "tests_passed": 46,
+        "tests_failed": 0,
+        "exit_code": 0,
+        "duration_seconds": 0.72
+      },
+      {
+        "path": "trustshield_project/test_stage354_independent_ledger.py",
+        "tests_passed": 20,
+        "tests_failed": 0,
+        "exit_code": 0,
+        "duration_seconds": 0.18
+      },
+      {
+        "path": "trustshield_project/test_stage354_protocol_reconciliation.py",
+        "tests_passed": 70,
+        "tests_failed": 0,
+        "exit_code": 0,
+        "duration_seconds": 0.23
+      },
+      {
+        "path": "trustshield_project/test_stage35_temporal_holdout_readiness.py",
+        "tests_passed": 18,
+        "tests_failed": 0,
+        "exit_code": 0,
+        "duration_seconds": 0.77
+      }
+    ],
+    "total_tests_executed": 188,
+    "total_tests_passed": 188,
+    "total_tests_failed": 0,
+    "warnings": 0
+  },
+  "protected_artifact_integrity_verification": {
+    "scripts/generate_realistic_synthetic_data_v2_1.py": {
+      "pre_audit_sha256": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "post_audit_sha256": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_1/dataset_manifest.json": {
+      "pre_audit_sha256": "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b",
+      "post_audit_sha256": "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_1/orders.csv": {
+      "pre_audit_sha256": "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f",
+      "post_audit_sha256": "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f",
+      "status": "UNMUTATED"
+    },
+    "models/stage34/stage34_tabular_model.joblib": {
+      "pre_audit_sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "post_audit_sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "status": "UNMUTATED"
+    },
+    "models/stage34/stage34_tabular_calibrator.joblib": {
+      "pre_audit_sha256": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "post_audit_sha256": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_2": {
+      "exists": false,
+      "status": "UNGENERATED_AND_LOCKED"
+    }
+  },
+  "open_operational_blockers": [
+    {
+      "id": "BLK-01",
+      "title": "OCI Container Build and Digest Pinning",
+      "status": "OPEN",
+      "owner": "MLOps Engineer",
+      "action_required": "Start Docker Desktop engine, compile docker/Dockerfile.evaluator, pin immutable image digest."
+    },
+    {
+      "id": "BLK-02",
+      "title": "Authoritative Remote Ledger Deployment",
+      "status": "OPEN",
+      "owner": "Independent Evaluator & MLOps Engineer",
+      "action_required": "Deploy authenticated external ledger service; configure RemoteLedgerAdapter endpoint."
+    },
+    {
+      "id": "BLK-03",
+      "title": "Governance Board Promotion Pre-Registration & Token Issuance",
+      "status": "OPEN",
+      "owner": "Governance Board",
+      "action_required": "Pre-register numerical promotion thresholds, sign cryptographic token, approve future holdout evaluation."
+    }
+  ],
+  "safeguards_attestation": {
+    "synthetic_dataset_v2_2_generated": false,
+    "holdout_labels_decrypted_or_inspected": false,
+    "evaluator_keys_accessed": false,
+    "candidate_models_refitted_or_modified": false,
+    "production_routing_modified": false,
+    "hashes_or_test_results_fabricated": false,
+    "uncommitted_user_work_preserved": true,
+    "git_committed_or_pushed": false
+  }
+}

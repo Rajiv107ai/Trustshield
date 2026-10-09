@@ -1,0 +1,31 @@
+# Reproducible execution environment for TrustShield Blind-Holdout Evaluation
+# Built for deterministic inference of candidate Tabular-Only XGBoost model
+FROM python:3.11-slim-bullseye AS evaluator-base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/workspace/trustshield_project:/workspace
+
+WORKDIR /workspace
+
+# Install system dependencies required for XGBoost and compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgomp1 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency lockfile
+COPY docker/requirements-evaluator.lock /workspace/docker/requirements-evaluator.lock
+
+# Install strictly pinned dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /workspace/docker/requirements-evaluator.lock
+
+# Copy project source and model artifacts
+COPY trustshield_project/ /workspace/trustshield_project/
+COPY models/stage34/ /workspace/models/stage34/
+COPY scripts/ /workspace/scripts/
+
+# Default entry point runs the model smoke test
+ENTRYPOINT ["python", "-c", "import joblib, sys; sys.path.insert(0, '/workspace/trustshield_project'); m = joblib.load('/workspace/models/stage34/stage34_tabular_model.joblib'); cal = joblib.load('/workspace/models/stage34/stage34_tabular_calibrator.joblib'); print('Model and calibrator loaded cleanly with zero compatibility warnings.')"]

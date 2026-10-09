@@ -67,7 +67,7 @@ def analyze_candidate_community(
 
     # 1. Temporal Burstiness
     if n_orders >= 3 and "order_date" in c_orders.columns:
-        dates = pd.to_datetime(c_orders["order_date"]).sort_values()
+        dates = pd.Series(pd.to_datetime(c_orders["order_date"])).sort_values()
         diffs = (dates.diff().dt.total_seconds() / 3600.0).dropna()
         if len(diffs) > 1 and diffs.mean() > 0:
             # Coefficient of variation of inter-arrival time
@@ -89,7 +89,8 @@ def analyze_candidate_community(
 
     # 3. Merchant Concentration HHI
     if n_orders > 0 and "seller_id" in c_orders.columns:
-        seller_shares = np.asarray(c_orders["seller_id"].value_counts(normalize=True))
+        seller_col = pd.Series(c_orders["seller_id"])
+        seller_shares = np.asarray(seller_col.value_counts(normalize=True))
         hhi = float(np.sum(seller_shares ** 2))
     else:
         hhi = 0.0

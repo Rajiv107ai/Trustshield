@@ -1,0 +1,12 @@
+# Pinned dependency lockfile for TrustShield Blind-Holdout Evaluator
+# Pinned to scikit-learn 1.9.0 to match the exact serialization version of stage34_tabular_model.joblib
+# and eliminate all InconsistentVersionWarning unpickling defects.
+
+numpy==2.5.3
+pandas==3.0.5
+scikit-learn==1.9.0
+xgboost==3.4.1
+joblib==1.6.0
+scipy==1.15.2
+pytest==9.1.1
+networkx==3.6.1
