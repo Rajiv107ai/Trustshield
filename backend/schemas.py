@@ -195,6 +195,14 @@ class TransactionScoreResponse(BaseModel):
         default=None,
         description="Top positive risk driving features sorted by SHAP magnitude.",
     )
+    scoring_mode: str = Field(
+        default="production_model",
+        description="Explicit provenance of scoring engine: 'production_model' | 'offline_fallback' | 'simulated'.",
+    )
+    is_simulation: bool = Field(
+        default=False,
+        description="Flag indicating whether this transaction scoring was artificially simulated.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -538,4 +546,5 @@ class StreamTransactionEvent(BaseModel):
     trust_score: float
     reason_codes: List[str] = Field(default_factory=list)
     source: str = "simulation_stream"  # "simulation_stream" | "live_stream"
+    is_simulation: bool = True
 

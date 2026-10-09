@@ -1,0 +1,27 @@
+{
+  "experiment_id": "STAGE34_CONTROLLED_GRAPH_ABLATION",
+  "git_branch": "phase-3-data-generalization",
+  "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+  "dataset_hash": "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b",
+  "execution_duration_seconds": 18.06,
+  "hardware_environment": {
+    "os": "win32",
+    "python_version": "3.14.7"
+  },
+  "saved_artifacts": [
+    "models/stage34/stage34_tabular_model.joblib",
+    "models/stage34/stage34_graph_model.joblib",
+    "models/stage34/stage34_early_fusion_model.joblib",
+    "models/stage34/stage34_late_fusion_stacker.joblib",
+    "models/stage34/stage34_tabular_calibrator.joblib",
+    "models/stage34/stage34_early_fusion_calibrator.joblib",
+    "models/stage34/stage34_noisyor_calibrator.joblib",
+    "models/stage34/stage34_decision_policy.json",
+    "reports/phase34_metrics.json"
+  ],
+  "untouched_future_holdout_proposal": {
+    "proposed_version": "synthetic_v2_2",
+    "time_window": "2026-01-01T00:00:00Z to 2026-02-28T23:59:59Z",
+    "access_control": "Encrypted ground-truth labels with SHA-256 sealed manifest. Test set scored strictly once via unblinded audit gate."
+  }
+}

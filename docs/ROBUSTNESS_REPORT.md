@@ -16,9 +16,12 @@ Evaluation in fraud detection often suffers from single-point metric reporting a
 
 This report presents **non-parametric bootstrap confidence intervals (1,000 resamples)**, empirical sensitivity across prevalence regimes, and multi-seed subsampling variance.
 
+> **Evaluation Context Note (Phase 2 Audit Finding):**  
+> The metrics in this report evaluate the production model in a **graph-degraded / cold-start fallback mode** where relationship graph snapshot features are unpopulated / zero-filled (`build_features` tabular baseline). Under full graph snapshot construction (`build_relationship_graph` + `attach_snapshot_features`), the model achieves **0.7890 ROC-AUC** and **0.4418 PR-AUC** on this identical test split. The numbers below reflect the baseline stability when graph topology is completely absent.
+
 ---
 
-## 2. 95% Bootstrap Confidence Intervals
+## 2. 95% Bootstrap Confidence Intervals (Graph-Degraded Fallback)
 
 | Evaluation Metric | Point Estimate | 95% Confidence Interval | Standard Error | Interpretation |
 | :--- | :--- | :--- | :--- | :--- |

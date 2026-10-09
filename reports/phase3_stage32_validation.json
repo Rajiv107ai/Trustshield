@@ -1,0 +1,320 @@
+{
+  "timestamp": "2026-10-09T12:16:19Z",
+  "audit_version": "Stage 3.2",
+  "dataset_directory": "data/synthetic_v2_1",
+  "dataset_contract": {
+    "manifest_hashes_verified": true,
+    "files_checked": 14,
+    "primary_key_uniqueness": {
+      "orders": 0,
+      "listings": 0,
+      "returns": 0,
+      "buyers": 0,
+      "sellers": 0,
+      "products": 0
+    },
+    "null_counts": {
+      "orders": 0,
+      "listings": 0,
+      "returns": 0,
+      "buyers": 0,
+      "sellers": 0
+    },
+    "foreign_key_errors": {
+      "orders_buyer_id_missing": 0,
+      "orders_seller_id_missing": 0,
+      "orders_listing_id_missing": 0,
+      "orders_product_id_missing": 0,
+      "returns_order_id_missing": 0,
+      "returns_buyer_id_missing": 0,
+      "returns_seller_id_missing": 0,
+      "listings_seller_id_missing": 0,
+      "listings_product_id_missing": 0,
+      "listings_displayed_product_id_missing": 0
+    },
+    "cross_table_invariants": {
+      "return_to_order_1_to_1": true,
+      "return_buyer_mismatches": 0,
+      "return_seller_mismatches": 0,
+      "order_seller_mismatches": 0,
+      "order_product_mismatches": 0,
+      "listing_category_violations": 0
+    },
+    "passed": true
+  },
+  "point_in_time_features": {
+    "candidate_features_lineage": {
+      "price_vs_base_price_ratio": {
+        "source_tables": [
+          "orders.amount",
+          "products.base_price"
+        ],
+        "computation": "amount / base_price",
+        "point_in_time_safe": true,
+        "notes": "Transaction-time pricing ratio."
+      },
+      "price_vs_category_median_ratio": {
+        "source_tables": [
+          "orders.amount",
+          "orders.category (via listings)"
+        ],
+        "computation": "amount / training_category_median",
+        "point_in_time_safe": true,
+        "notes": "Category median strictly frozen on training set (order_date <= 2025-08-31)."
+      },
+      "seller_age_days": {
+        "source_tables": [
+          "orders.order_date",
+          "sellers.signup_date"
+        ],
+        "computation": "(order_date - seller_signup_date).dt.days",
+        "point_in_time_safe": true,
+        "notes": "Days since seller registration at transaction time."
+      },
+      "seller_total_listings_before": {
+        "source_tables": [
+          "orders.order_date",
+          "listings.listing_date",
+          "sellers.seller_id"
+        ],
+        "computation": "merge_asof backward (listing_date < order_date)",
+        "point_in_time_safe": true,
+        "notes": "Strictly counts listings published before current order."
+      },
+      "buyer_age_days": {
+        "source_tables": [
+          "orders.order_date",
+          "buyers.signup_date"
+        ],
+        "computation": "(order_date - buyer_signup_date).dt.days",
+        "point_in_time_safe": true,
+        "notes": "Days since buyer registration at transaction time."
+      },
+      "buyer_orders_before": {
+        "source_tables": [
+          "orders.order_date",
+          "buyers.buyer_id"
+        ],
+        "computation": "merge_asof backward (order_date < current_order_date)",
+        "point_in_time_safe": true,
+        "notes": "Strictly prior orders by the same buyer."
+      },
+      "buyer_returns_before": {
+        "source_tables": [
+          "orders.order_date",
+          "returns.return_date",
+          "buyers.buyer_id"
+        ],
+        "computation": "merge_asof backward (return_date < order_date)",
+        "point_in_time_safe": true,
+        "notes": "Strictly prior returns completed before current order."
+      },
+      "buyer_return_rate_before": {
+        "source_tables": [
+          "buyer_returns_before",
+          "buyer_orders_before"
+        ],
+        "computation": "buyer_returns_before / max(1, buyer_orders_before)",
+        "point_in_time_safe": true,
+        "notes": "Historical return rate as of order time T."
+      },
+      "device_shared_buyer_count": {
+        "source_tables": [
+          "orders.device_id",
+          "orders.buyer_id"
+        ],
+        "computation": "Training-set distinct buyer count per device",
+        "point_in_time_safe": true,
+        "notes": "Frozen statistic computed exclusively on train_mask."
+      },
+      "multimodal_similarity_score": {
+        "source_tables": [
+          "listings.product_id",
+          "listings.displayed_product_id",
+          "products"
+        ],
+        "computation": "CLIP / TF-IDF text-to-image cosine similarity",
+        "point_in_time_safe": true,
+        "notes": "Listing creation time feature."
+      }
+    },
+    "unsafe_fields_catalog": {
+      "buyer.total_orders": "Simulation-end aggregate in buyers.csv. Includes orders placed after time T.",
+      "buyer.total_returns": "Simulation-end aggregate in buyers.csv. Includes returns completed after time T.",
+      "seller.total_listings": "Simulation-end aggregate in sellers.csv. Includes listings created after time T.",
+      "seller.total_orders_received": "Simulation-end aggregate in sellers.csv. Includes orders received after time T.",
+      "buyer.trust_score_current": "Static uncalibrated score initialized to 70.0 in entity table.",
+      "seller.trust_score_current": "Static uncalibrated score initialized to 70.0 in entity table.",
+      "orders.is_fraudulent": "Ground-truth evaluation label.",
+      "orders.fraud_type": "Ground-truth evaluation label.",
+      "listings.is_fraudulent": "Ground-truth evaluation label.",
+      "listings.fraud_type": "Ground-truth evaluation label.",
+      "returns.is_fraudulent": "Ground-truth evaluation label.",
+      "returns.fraud_type": "Ground-truth evaluation label.",
+      "generator_personas.persona": "Generator simulation control metadata.",
+      "fraud_ground_truth.fraud_ring_id": "Evaluation clustering label."
+    },
+    "late_arriving_returns_isolated": true,
+    "temporal_invariance_under_future_events": true,
+    "passed": true
+  },
+  "right_censoring": {
+    "simulation_window": [
+      "2025-01-01 00:00:00",
+      "2025-12-31 23:59:59"
+    ],
+    "max_turnaround_window_days": 21,
+    "truncation_cutoff_date": "2025-12-10 23:59:59",
+    "orders_with_complete_21d_window": 41382,
+    "orders_with_truncated_window_dec10_to_31": 8618,
+    "observed_returns_dec10_to_31": 717,
+    "orders_last_7_days_dec25_to_31": 2436,
+    "observed_returns_last_7_days": 73,
+    "orders_dec31": 1,
+    "observed_returns_dec31": 0,
+    "return_abuse_total_orders": 1233,
+    "return_abuse_observed_returns": 1167,
+    "return_abuse_censored_orders": 66,
+    "guidelines": {
+      "negative_outcome_fallacy": "Orders placed after Dec 10 without a return in returns.csv CANNOT be treated as confirmed non-returns.",
+      "label_separation": "return_event (binary outcome: item returned) is distinct from return_abuse (fraudulent abuse intent).",
+      "downstream_protocol": "Downstream return fraud evaluation must either censor orders placed after 2025-12-10 or use survival analysis models."
+    },
+    "passed": true
+  },
+  "multimodal_evidence": {
+    "catalog_size": 3000,
+    "real_abo_images_on_disk": 2616,
+    "fallback_images_count": 384,
+    "total_listings": 20000,
+    "fake_listings_count": 500,
+    "genuine_listings_count": 19500,
+    "genuine_sim_mean": 0.7875,
+    "genuine_sim_std": 0.1,
+    "fake_sim_mean": 0.6745,
+    "fake_sim_std": 0.122,
+    "reproduced_single_feature_auc": 0.7599,
+    "category_constrained_swaps": 500,
+    "cross_category_violations": 0,
+    "compatible_subtype_matches": 179,
+    "same_category_variants": 321,
+    "audit_findings": {
+      "diagnostic_role": "Multimodal ROC-AUC of 0.7599 is a diagnostic verification that the perturbation changes observable evidence, NOT proof of production deployment accuracy.",
+      "design_sample_circularity": "In Stage 3.1.1, the perturbation was injected across the full synthetic benchmark. Final evaluation must evaluate on frozen out-of-time test listings.",
+      "asset_limitation": "384 catalog products (12.8%) lack local JPEG assets and rely on synthetic surrogate noise."
+    },
+    "passed": true
+  },
+  "evaluation_protocol": {
+    "protocol_status": "FROZEN",
+    "split_definitions": {
+      "train": {
+        "start": "2025-01-01 00:00:00",
+        "end": "2025-08-31 23:59:59",
+        "months": "Jan - Aug 2025 (8 months)"
+      },
+      "validation": {
+        "start": "2025-09-01 00:00:00",
+        "end": "2025-10-31 23:59:59",
+        "months": "Sep - Oct 2025 (2 months)"
+      },
+      "test": {
+        "start": "2025-11-01 00:00:00",
+        "end": "2025-12-31 23:59:59",
+        "months": "Nov - Dec 2025 (2 months, FROZEN)"
+      }
+    },
+    "orders_split": {
+      "train": {
+        "count": 16952,
+        "fraud_count": 813,
+        "fraud_rate": 0.048,
+        "subtypes": {
+          "return_abuse": 447,
+          "fake_listing": 277,
+          "coordinated_fraud": 76,
+          "seller_buyer_collusion": 13
+        }
+      },
+      "validation": {
+        "count": 12129,
+        "fraud_count": 854,
+        "fraud_rate": 0.0704,
+        "subtypes": {
+          "return_abuse": 319,
+          "fake_listing": 285,
+          "coordinated_fraud": 167,
+          "seller_buyer_collusion": 83
+        }
+      },
+      "test": {
+        "count": 20919,
+        "fraud_count": 1835,
+        "fraud_rate": 0.0877,
+        "subtypes": {
+          "fake_listing": 473,
+          "return_abuse": 467,
+          "seller_buyer_collusion": 450,
+          "coordinated_fraud": 445
+        }
+      }
+    },
+    "listings_split": {
+      "train": {
+        "count": 13489,
+        "fake_count": 301
+      },
+      "validation": {
+        "count": 3825,
+        "fake_count": 143
+      },
+      "test": {
+        "count": 2686,
+        "fake_count": 56
+      }
+    },
+    "returns_split": {
+      "train": {
+        "count": 1758,
+        "fraud_count": 416
+      },
+      "validation": {
+        "count": 1333,
+        "fraud_count": 351
+      },
+      "test": {
+        "count": 2446,
+        "fraud_count": 785
+      }
+    },
+    "entity_overlap": {
+      "buyers": {
+        "train_unique": 3032,
+        "val_unique": 3546,
+        "val_cold_start": 1075,
+        "val_returning": 2471,
+        "test_unique": 4338,
+        "test_cold_start": 892,
+        "test_returning": 3446
+      },
+      "sellers": {
+        "train_unique": 468,
+        "val_unique": 487,
+        "val_cold_start": 20,
+        "val_returning": 467,
+        "test_unique": 499,
+        "test_cold_start": 12,
+        "test_returning": 487
+      }
+    },
+    "rules": [
+      "All model selection, feature engineering, and hyperparameter tuning MUST occur exclusively on Train and Validation.",
+      "Decision thresholds MUST be tuned on Validation and frozen before touching Test.",
+      "Final Test set MUST remain untouched until Phase 3 Stage 3.3 model retraining review.",
+      "Historical v1 and v2 benchmark results remain preserved for reference only."
+    ],
+    "passed": true
+  },
+  "overall_status": "PASS",
+  "elapsed_seconds": 5.2
+}

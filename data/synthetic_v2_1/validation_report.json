@@ -1,0 +1,124 @@
+{
+  "status": "PASS",
+  "checks": {
+    "foreign_keys": {
+      "errors": {
+        "orders_buyer_id_missing": 0,
+        "orders_seller_id_missing": 0,
+        "orders_listing_id_missing": 0,
+        "orders_product_id_missing": 0,
+        "returns_order_id_missing": 0,
+        "returns_buyer_id_missing": 0,
+        "returns_seller_id_missing": 0,
+        "listings_seller_id_missing": 0,
+        "listings_product_id_missing": 0
+      },
+      "passed": true
+    },
+    "null_values": {
+      "null_counts": {
+        "orders": 0,
+        "listings": 0,
+        "returns": 0,
+        "buyers": 0,
+        "sellers": 0
+      },
+      "passed": true
+    },
+    "primary_key_uniqueness": {
+      "duplicates": {
+        "orders": 0,
+        "listings": 0,
+        "returns": 0,
+        "buyers": 0,
+        "sellers": 0,
+        "products": 0
+      },
+      "passed": true
+    },
+    "date_boundary_clamping": {
+      "orders_range": [
+        "2025-01-01 04:38:36.859251",
+        "2025-12-31 00:00:00"
+      ],
+      "returns_range": [
+        "2025-01-10 23:22:06.290238",
+        "2025-12-31 00:00:00"
+      ],
+      "listings_range": [
+        "2025-01-01 00:14:22.427543",
+        "2025-12-30 22:27:03.213752"
+      ],
+      "out_of_bounds_count": 0,
+      "passed": true
+    },
+    "chronological_invariants": {
+      "order_before_listing_violations": 0,
+      "return_before_order_violations": 0,
+      "zero_day_returns_count": 0,
+      "min_delay_days": 1,
+      "order_before_buyer_signup_violations": 0,
+      "passed": true
+    },
+    "id_leakage": {
+      "leaking_id_counts": {
+        "orders": 0,
+        "listings": 0,
+        "returns": 0,
+        "buyers": 0,
+        "sellers": 0
+      },
+      "passed": true
+    },
+    "observable_seller_behavior": {
+      "disposable_sellers_count": 75,
+      "disposable_median_listing_tenure_days": 2.0,
+      "established_median_listing_tenure_days": 130.0,
+      "takeover_sellers_count": 25,
+      "passed": true
+    },
+    "return_delay_overlap": {
+      "legit_mean": 8.78,
+      "fraud_mean": 7.29,
+      "ks_statistic": 0.1279,
+      "cohens_d": -0.2706,
+      "single_feature_auc": 0.5584,
+      "passed": true
+    },
+    "category_constrained_perturbations": {
+      "total_perturbed_listings": 500,
+      "cross_category_violations": 0,
+      "compatible_subtype_matches": 179,
+      "same_category_variants": 321,
+      "passed": true
+    },
+    "generator_metadata_segregation": {
+      "banned_in_buyers": [],
+      "banned_in_sellers": [],
+      "banned_in_listings": [],
+      "passed": true
+    },
+    "fraud_prevalence_targets": {
+      "total_orders": 50000,
+      "fraud_orders": 3502,
+      "actual_fraud_rate": 0.07,
+      "target_fraud_rate": 0.07,
+      "subtype_counts": {
+        "return_abuse": 1233,
+        "fake_listing": 1035,
+        "coordinated_fraud": 688,
+        "seller_buyer_collusion": 546
+      },
+      "passed": true
+    },
+    "return_date_semantics_december": {
+      "dec30_order_count": 395,
+      "dec30_returns_recorded": 0,
+      "dec30_invalid_timing_violations": 0,
+      "dec31_order_count": 1,
+      "dec31_returns_recorded": 0,
+      "policy": "Right-censoring: returns scheduled after 2025-12-31 are unobserved (excluded) rather than clamped to 0 days.",
+      "passed": true
+    }
+  }
+}

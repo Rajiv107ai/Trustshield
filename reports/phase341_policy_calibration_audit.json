@@ -1,0 +1,230 @@
+{
+  "audit_metadata": {
+    "audit_stage": "Phase 3 Stage 3.4.1",
+    "objective": "Independent Policy and Calibration Audit",
+    "timestamp": "2026-10-09T19:36:00Z",
+    "git_branch": "phase-3-data-generalization",
+    "git_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "dataset_version": "v2.1",
+    "dataset_directory": "data/synthetic_v2_1",
+    "audit_status": "COMPLETED_VERIFIED",
+    "models_retrained": false,
+    "production_code_modified": false
+  },
+  "task_a_calibration_audit": {
+    "tracing": {
+      "calibrator_type": "IsotonicRegression(out_of_bounds='clip')",
+      "fitting_cohort": "Validation predictions (N = 12,129, y_val)",
+      "evaluation_cohort_validation": "Evaluated on the exact same Validation predictions (In-Sample)",
+      "evaluation_cohort_test": "Evaluated on Historical Diagnostic Test predictions (Out-of-Sample)"
+    },
+    "in_sample_ece_explanation": {
+      "finding": "The reported validation ECE of 0.0000 is an in-sample mathematical artifact of non-parametric isotonic regression.",
+      "mathematical_mechanism": "Isotonic regression fits a piecewise constant monotonic step function directly minimizing squared error on (p_raw, y_val). When 10 quantile or uniform bins are evaluated on the exact same fitting data, empirical conditional expectations within bins match predicted bin means, collapsing ECE to zero.",
+      "verdict": "MISLEADING_IF_CLAIMED_AS_GENERALIZATION. In-sample ECE = 0.0000 must never be interpreted as proof of perfect calibration in unseen production traffic."
+    },
+    "cohort_separated_calibration_metrics": {
+      "tabular_only": {
+        "fitting_cohort": "validation",
+        "in_sample_validation_ece": 0.0,
+        "in_sample_validation_brier": 0.0639,
+        "out_of_sample_test_ece": 0.0289,
+        "out_of_sample_test_brier": 0.0793
+      },
+      "early_fusion": {
+        "fitting_cohort": "validation",
+        "in_sample_validation_ece": 0.0,
+        "in_sample_validation_brier": 0.0641,
+        "out_of_sample_test_ece": 0.0282,
+        "out_of_sample_test_brier": 0.0798
+      },
+      "late_fusion": {
+        "fitting_cohort": "validation",
+        "in_sample_validation_ece": 0.0,
+        "in_sample_validation_brier": 0.0639,
+        "out_of_sample_test_ece": 0.0282,
+        "out_of_sample_test_brier": 0.0793
+      },
+      "calibrated_noisy_or": {
+        "fitting_cohort": "validation",
+        "in_sample_validation_ece": 0.0,
+        "in_sample_validation_brier": 0.0542,
+        "out_of_sample_test_ece": 0.0259,
+        "out_of_sample_test_brier": 0.0722
+      }
+    },
+    "safest_future_calibration_evaluation": "Use K-fold out-of-fold calibration on training/validation splits, or evaluate calibration strictly on a dedicated, unblinded holdout cohort without reusing historical test sets."
+  },
+  "task_b_capacity_constrained_policy_audit": {
+    "cost_model_audit": {
+      "c_fp": 10.0,
+      "c_fn": 150.0,
+      "c_tp": 10.0,
+      "formula_verified": "Cost(t) = Flagged(t) * 10 + FN(t) * 150",
+      "cost_optimal_point_validation": {
+        "threshold": 0.07,
+        "flagged_orders": 3709,
+        "flagged_volume_pct": 30.58,
+        "tp": 424,
+        "fp": 3285,
+        "fn": 430,
+        "precision": 0.1143,
+        "recall": 0.4965,
+        "expected_cost": 101590.0
+      }
+    },
+    "capacity_limit_flaw_detected": {
+      "reported_capacity_5_pct": {
+        "target_limit_pct": 5.0,
+        "reported_threshold": 0.13,
+        "achieved_volume_pct": 5.76,
+        "flagged_orders": 699,
+        "budget_violation": true,
+        "excess_orders": 93,
+        "explanation": "Stage 3.4 selected operating points using min(abs(volume - target)), which allowed an operating point of 5.76% to be labeled as the 5% capacity point. In production, review capacity is a hard upper bound."
+      }
+    },
+    "corrected_hard_capacity_operating_points": {
+      "deterministic_rule": "Filter sweep points satisfying volume_pct <= capacity_limit; select candidate maximizing True Positives / Recall; break ties by highest precision, then highest threshold.",
+      "capacity_1_pct_hard_limit": {
+        "budget_pct": 1.0,
+        "operational_threshold": 0.20,
+        "flagged_orders": 41,
+        "review_volume_pct": 0.34,
+        "tp": 15,
+        "fp": 26,
+        "fn": 839,
+        "precision": 0.3659,
+        "recall": 0.0176,
+        "cost": 126260.0,
+        "strictly_compliant": true
+      },
+      "capacity_2_pct_hard_limit": {
+        "budget_pct": 2.0,
+        "operational_threshold": 0.20,
+        "flagged_orders": 41,
+        "review_volume_pct": 0.34,
+        "tp": 15,
+        "fp": 26,
+        "fn": 839,
+        "precision": 0.3659,
+        "recall": 0.0176,
+        "cost": 126260.0,
+        "strictly_compliant": true
+      },
+      "capacity_5_pct_hard_limit": {
+        "budget_pct": 5.0,
+        "operational_threshold": 0.15,
+        "flagged_orders": 477,
+        "review_volume_pct": 3.93,
+        "tp": 99,
+        "fp": 378,
+        "fn": 755,
+        "precision": 0.2075,
+        "recall": 0.1159,
+        "cost": 118020.0,
+        "strictly_compliant": true
+      },
+      "capacity_10_pct_hard_limit": {
+        "budget_pct": 10.0,
+        "operational_threshold": 0.11,
+        "flagged_orders": 1111,
+        "review_volume_pct": 9.16,
+        "tp": 185,
+        "fp": 926,
+        "fn": 669,
+        "precision": 0.1665,
+        "recall": 0.2166,
+        "cost": 111460.0,
+        "strictly_compliant": true
+      }
+    }
+  },
+  "task_c_ensemble_semantics": {
+    "score_join_audit": {
+      "join_key": "listing_id",
+      "missing_listings_validation": 0,
+      "missing_listings_test": 0,
+      "fallback_score": 0.05
+    },
+    "correlation_audit": {
+      "pearson_correlation": 0.2533,
+      "spearman_correlation": 0.2448,
+      "independence_assessment": "Positive correlation disproves conditional independence. Furthermore, zero correlation would be insufficient to prove independence. The theoretical assumption of raw Noisy-OR is empirically violated."
+    },
+    "ensemble_comparison_validation": {
+      "max_risk_heuristic": {
+        "roc_auc": 0.7109,
+        "pr_auc": 0.3227,
+        "brier_score": 0.0559,
+        "ece": 0.0238,
+        "is_calibrated": false,
+        "audit_note": "Uncalibrated ranking heuristic. Appropriate for queue sorting, invalid as posterior fraud probability."
+      },
+      "raw_noisy_or": {
+        "roc_auc": 0.7056,
+        "pr_auc": 0.3361,
+        "brier_score": 0.0574,
+        "ece": 0.0468,
+        "is_calibrated": false,
+        "audit_note": "Violates independence assumption; systematically over-predicts risk."
+      },
+      "calibrated_noisy_or": {
+        "roc_auc": 0.7099,
+        "pr_auc": 0.3267,
+        "brier_score": 0.0542,
+        "ece_in_sample": 0.0,
+        "ece_out_of_sample_test": 0.0259,
+        "is_calibrated": true,
+        "audit_note": "Monotonic Isotonic scaling aligns validation empirical frequencies. Must be validated on unseen future holdout before live routing."
+      }
+    }
+  },
+  "task_d_dataset_and_holdout_design": {
+    "v2_2_protocol_specification": {
+      "generator_script": "scripts/generate_realistic_synthetic_data_v2_1.py",
+      "generator_sha256": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "simulation_start": "2026-01-01T00:00:00Z",
+      "simulation_end": "2026-02-28T23:59:59Z",
+      "observation_maturity_cutoff": "2026-02-07T23:59:59Z",
+      "maturity_buffer_days": 21,
+      "censoring_rule": "Orders placed after maturity cutoff are strictly excluded from return-fraud training/evaluation.",
+      "access_control_architecture": {
+        "label_encryption": "AES-256-GCM encrypted labels file (labels.enc)",
+        "prediction_commitment": "Model developers must commit SHA-256 hash of their predictions array (sha256(predictions.npy)) to the audit log before label decryption key is released.",
+        "unblinding_gate": "Single-use unblinding gate managed by Independent Auditor.",
+        "post_unblinding_rule": "Strict freeze on model selection, hyperparameter tuning, and threshold adjustments once unblinded."
+      },
+      "leakage_risks_identified": [
+        "Risk of static entity overlap if random seed 42 is reused without entity rotation.",
+        "Need to verify cross-split graph leakage on rolling relationship projections."
+      ]
+    }
+  },
+  "inconsistencies_catalog": [
+    {
+      "id": "AUDIT-341-01",
+      "severity": "HIGH",
+      "location": "reports/phase34_decision_policy_report.md#operational-capacity-constraints",
+      "issue": "Misleading Capacity Constraint Label (5% Budget achieved 5.76%)",
+      "description": "Stage 3.4 labeled threshold 0.13 as the 5% capacity operating point, but achieved volume was 5.76% (699 orders), exceeding the 5.0% ceiling by 93 orders.",
+      "remediation": "Corrected hard capacity cutoff is t = 0.15, achieving 3.93% volume (477 orders) and strictly complying with the <= 5.0% constraint."
+    },
+    {
+      "id": "AUDIT-341-02",
+      "severity": "MEDIUM",
+      "location": "reports/phase34_graph_ablation_report.md#1-validation-performance-primary-decision-criterion",
+      "issue": "In-sample ECE = 0.0000 reported without explicit in-sample qualifier",
+      "description": "Validation ECE was reported as 0.0000 without explicitly noting that the Isotonic calibrator was evaluated in-sample on its own fitting data.",
+      "remediation": "Report discrimination (ROC/PR-AUC) and calibration (Brier/ECE) with explicit cohort separation: In-Sample Validation ECE (0.0000) vs Out-of-Sample Test ECE (0.0289)."
+    },
+    {
+      "id": "AUDIT-341-03",
+      "severity": "MEDIUM",
+      "location": "reports/phase34_decision_policy_report.md#2-noisy-or-combination-theory-vs-practice",
+      "issue": "Noisy-OR independence justification conflation",
+      "description": "Report noted Pearson r = 0.2533 as disproving independence, but did not formally clarify that even zero correlation is insufficient to establish conditional independence.",
+      "remediation": "Document that conditional independence P(not A and not B) = P(not A)P(not B) is violated both linearly and non-linearly due to ring co-occurrence."
+    }
+  ]
+}

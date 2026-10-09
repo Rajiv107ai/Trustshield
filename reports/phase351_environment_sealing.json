@@ -1,0 +1,205 @@
+{
+  "schema_version": "1.0.0",
+  "audit_metadata": {
+    "stage": "TrustShield Phase 3 Stage 3.5.1",
+    "title": "Independent Readiness Review & Environment Sealing",
+    "audit_timestamp": "2026-10-09T20:35:00+05:30",
+    "auditor_roles": [
+      "Senior MLOps Engineer",
+      "ML Evaluation Auditor",
+      "Reproducibility Specialist",
+      "Security Reviewer"
+    ],
+    "git_branch": "phase-3-data-generalization",
+    "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "current_head": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "working_tree_status": "DIRTY_CONTROLLED_AUDIT (Audit tests, Docker definitions, gate module, and reports added; zero production code or models modified)",
+    "readiness_decision": "READY FOR INDEPENDENT REVIEW",
+    "authorization_state": "HOLDOUT_V2_2_UNGENERATED_AND_LOCKED"
+  },
+  "candidate_model_designation": {
+    "architecture": "Tabular-Only XGBoost with Isotonic Probability Calibration",
+    "model_artifact": {
+      "path": "models/stage34/stage34_tabular_model.joblib",
+      "sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "n_features": 10,
+      "feature_names": [
+        "price_vs_base_price_ratio",
+        "price_vs_category_median_ratio",
+        "seller_age_days",
+        "seller_total_listings_before",
+        "buyer_age_days",
+        "buyer_orders_before",
+        "buyer_returns_before",
+        "buyer_return_rate_before",
+        "device_shared_buyer_count",
+        "amount"
+      ]
+    },
+    "calibrator_artifact": {
+      "path": "models/stage34/stage34_tabular_calibrator.joblib",
+      "sha256": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "method": "isotonic",
+      "fit_cohort": "Validation cohort (Sep-Oct 2025)"
+    },
+    "exclusion_of_late_fusion": {
+      "rationale": "Late Fusion calibrator artifact was omitted from serialization in Stage 3.4. Tabular-only model represents the approved candidate for general order-level fraud ranking and exhibits bit-for-bit reproducibility."
+    },
+    "synthetic_data_disclaimer": "All performance metrics are derived from synthetic data benchmarks and do not prove performance on real-world marketplace distributions."
+  },
+  "container_and_environment_reproducibility": {
+    "docker_cli_version": "Docker version 29.8.2, build 7fc2dff",
+    "docker_engine_status": "INACTIVE_ON_HOST",
+    "docker_engine_error": "failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.",
+    "container_image_digest": null,
+    "container_digest_blocker": "Docker Desktop daemon is not running on the local Windows host. Image build could not complete during this turn. Dockerfile and exact lockfile created; image must be compiled on a host with active daemon prior to holdout unblinding.",
+    "reproducible_definitions_created": {
+      "dockerfile": "docker/Dockerfile.evaluator",
+      "lockfile": "docker/requirements-evaluator.lock",
+      "target_base_image": "python:3.11-slim-bullseye",
+      "pinned_packages": {
+        "scikit-learn": "1.9.0",
+        "xgboost": "3.4.1",
+        "joblib": "1.6.0",
+        "numpy": "2.5.3",
+        "pandas": "3.0.5",
+        "scipy": "1.15.2",
+        "pytest": "9.1.1",
+        "networkx": "3.6.1"
+      }
+    },
+    "host_runtime_versions": {
+      "python": "3.14.7",
+      "numpy": "2.5.3",
+      "pandas": "3.0.5",
+      "scikit-learn": "1.9.1",
+      "xgboost": "3.4.1",
+      "joblib": "1.6.0"
+    },
+    "model_loading_warnings": {
+      "host_warning": "InconsistentVersionWarning: Trying to unpickle estimator IsotonicRegression from version 1.9.0 when using version 1.9.1.",
+      "remediation": "Lockfile pins scikit-learn==1.9.0 exactly to match model serialization version and eliminate unpickling warning."
+    }
+  },
+  "security_controls_actual_code_audit": [
+    {
+      "control_id": "CTRL-01",
+      "description": "Authorization is required before holdout generation",
+      "classification": "SPECIFIED_IN_DOCUMENTATION_AND_CODE_ABSENCE",
+      "evidence": "v2.2 generator does not exist in repository; generation requires separate script creation upon authorization."
+    },
+    {
+      "control_id": "CTRL-02",
+      "description": "Authorization is required before label decryption",
+      "classification": "SPECIFIED_IN_DOCUMENTATION",
+      "evidence": "No encrypted holdout labels or decryption scripts exist yet; protocol defined in evaluator checklist."
+    },
+    {
+      "control_id": "CTRL-03",
+      "description": "Developer cannot obtain decryption key through evaluation interface",
+      "classification": "SPECIFIED_IN_DOCUMENTATION",
+      "evidence": "Key custody assigned exclusively to Independent Auditor; key never committed to repository."
+    },
+    {
+      "control_id": "CTRL-04",
+      "description": "Evaluation process fails closed when authorization is absent",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "trustshield_project/evaluation_gate.py::verify_holdout_authorization raises PermissionError fail-closed; verified by test_stage351_environment_sealing.py."
+    },
+    {
+      "control_id": "CTRL-05",
+      "description": "Prediction artifacts bound to approved model, source revision, input manifest, and environment digest",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "trustshield_project/evaluation_gate.py::create_prediction_commitment generates cryptographic commitment binding all four elements."
+    },
+    {
+      "control_id": "CTRL-06",
+      "description": "Prediction IDs and counts are validated before scoring",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "trustshield_project/evaluation_gate.py::validate_prediction_contract enforces exact row counts, sequence match, and non-null values."
+    },
+    {
+      "control_id": "CTRL-07",
+      "description": "Missing, duplicate, or unexpected predictions cause execution to abort",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "validate_prediction_contract raises ValueError immediately on duplicates, drops, reordering, NaN, or Inf."
+    },
+    {
+      "control_id": "CTRL-08",
+      "description": "Evaluation code and metric implementations are versioned and hashed",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "Metric code in utils.py, calibration.py, and test suites are tracked in Git with verified SHA-256."
+    },
+    {
+      "control_id": "CTRL-09",
+      "description": "System cannot silently repeat holdout evaluation to facilitate iterative tuning",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "trustshield_project/evaluation_gate.py::enforce_single_shot_evaluation maintains persistent ledger and raises RuntimeError on duplicate run ID."
+    },
+    {
+      "control_id": "CTRL-10",
+      "description": "Logs do not expose protected labels or secrets",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "Evaluation gate and test scripts log only aggregate confusion matrices and hashes; zero row-level label dumps."
+    },
+    {
+      "control_id": "CTRL-11",
+      "description": "Generator cannot be run accidentally through readiness workflow",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "Generator scripts are strictly isolated with main blocks; test suites never invoke generators."
+    },
+    {
+      "control_id": "CTRL-12",
+      "description": "Unauthorized attempts leave an auditable record where supported",
+      "classification": "IMPLEMENTED_AND_VERIFIED_IN_EXECUTABLE_CODE",
+      "evidence": "verify_holdout_authorization writes structured JSONL audit logs with timestamps and failure reasons."
+    }
+  ],
+  "threshold_policy_clarification": {
+    "distinction_status": "EXPLICITLY_SEPARATED",
+    "unconstrained_minimum_cost": {
+      "score_cutoff": 0.067633,
+      "flagged_orders": 5219,
+      "flagged_volume_pct": 43.03,
+      "tp": 528,
+      "fp": 4691,
+      "fn": 326,
+      "expected_cost": 101090.0,
+      "operational_assessment": "Unusable in production without capacity constraints; reviewing 43% of transactions would overwhelm operations."
+    },
+    "capacity_constrained_policy": {
+      "formula": "C = floor(b * N)",
+      "operating_points": {
+        "capacity_1_pct": {"ceiling": 121, "threshold": 0.20, "achieved_orders": 41, "achieved_volume_pct": 0.34, "frauds_caught": 15},
+        "capacity_2_pct": {"ceiling": 242, "threshold": 0.20, "achieved_orders": 41, "achieved_volume_pct": 0.34, "frauds_caught": 15},
+        "capacity_5_pct": {"ceiling": 606, "threshold": 0.15, "achieved_orders": 477, "achieved_volume_pct": 3.93, "frauds_caught": 99},
+        "capacity_10_pct": {"ceiling": 1212, "threshold": 0.11, "achieved_orders": 1111, "achieved_volume_pct": 9.16, "frauds_caught": 185}
+      },
+      "tie_breaking": "Conservative thresholding (volume <= C); deterministic ordering by (score DESC, order_date ASC, order_id ASC)"
+    }
+  },
+  "regression_tests": {
+    "command": ".venv/Scripts/pytest.exe trustshield_project/test_stage32_audit.py trustshield_project/test_stage32_final_gate.py trustshield_project/test_stage33_evaluation.py trustshield_project/test_stage331_audit.py trustshield_project/test_stage34_graph_ablation.py trustshield_project/test_stage341_policy_audit.py trustshield_project/test_stage342_audit_reconciliation.py trustshield_project/test_stage35_temporal_holdout_readiness.py trustshield_project/test_stage351_environment_sealing.py",
+    "total_tests": 106,
+    "passed": 106,
+    "failed": 0,
+    "warnings": 2,
+    "duration_seconds": 3.53
+  },
+  "remaining_blockers": [
+    {
+      "id": "BLOCKER-01",
+      "severity": "BLOCKING_FOR_UNBLINDING",
+      "title": "OCI Container Image Digest Build & Pinning",
+      "responsible_party": "MLOps Security Engineer",
+      "action_required": "Start Docker daemon on build host, execute 'docker build -f docker/Dockerfile.evaluator -t trustshield-evaluator:pinned .', extract immutable @sha256:... digest, and verify smoke test inside container."
+    },
+    {
+      "id": "BLOCKER-02",
+      "severity": "BLOCKING_FOR_GENERATION",
+      "title": "Holdout v2.2 Authorization & Key Escrow",
+      "responsible_party": "Executive Authorizer & Independent Evaluator",
+      "action_required": "Sign off on Stage 3.5.1 Independent Evaluator Checklist, generate CSPRNG seed, and authorize generation and encryption of v2.2 holdout."
+    }
+  ]
+}

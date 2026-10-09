@@ -1,0 +1,297 @@
+{
+  "audit_metadata": {
+    "stage": "Phase 3 Stage 3.4.2",
+    "title": "Audit Reconciliation and Evidence Verification",
+    "timestamp": "2026-10-09T19:58:30Z",
+    "git_branch": "phase-3-data-generalization",
+    "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "auditor": "Independent Senior ML Auditor & Reproducibility Specialist",
+    "overall_verdict": "CONDITIONALLY_ACCEPTED",
+    "recommendation": "Stage 3.4.1 findings are mathematically verified with corrected hard-capacity boundaries. Synthetic Dataset v2.2 protocol is approved for generation upon explicit authorization."
+  },
+  "claims_registry": [
+    {
+      "claim_id": "CLAIM-A1",
+      "description": "Validation cohort size equals 12,129 orders",
+      "original_reported_value": 12129,
+      "reproduced_value": 12129,
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "models/stage34/stage342_val_labels.npy:shape[0]",
+      "explanation": "Exact match reproduced from saved validation labels and orders.csv filtered by TRAIN_END < date <= VAL_END.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-A2",
+      "description": "Validation actual fraud count equals 854 orders (prevalence 7.04%)",
+      "original_reported_value": 854,
+      "reproduced_value": 854,
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "models/stage34/stage342_val_labels.npy:sum()",
+      "explanation": "Exact match reproduced. Positive prevalence is 854 / 12,129 = 0.0704098.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-A3",
+      "description": "Confusion matrix at threshold t = 0.07: TP=424, FP=3285, FN=430, TN=7990, Flagged=3709",
+      "original_reported_value": {"tp": 424, "fp": 3285, "fn": 430, "tn": 7990, "flagged": 3709},
+      "reproduced_value": {"tp": 424, "fp": 3285, "fn": 430, "tn": 7990, "flagged": 3709},
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "scripts/run_stage34_experiments.py:380-420",
+      "explanation": "Exact match reproduced. True positives = 424, False negatives = 430, Total fraud = 854.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-A4",
+      "description": "Conservation identities: TP + FN = Total Fraud, TP + FP = Flagged, TN + FP + FN + TP = Total Orders",
+      "original_reported_value": "424 + 430 = 854; 424 + 3285 = 3709; 7990 + 3285 + 430 + 424 = 12129",
+      "reproduced_value": "424 + 430 = 854; 424 + 3285 = 3709; 7990 + 3285 + 430 + 424 = 12129",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "trustshield_project/test_stage342_audit_reconciliation.py:53-70",
+      "explanation": "All three conservation identities hold with zero discrepancy.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-A5",
+      "description": "Expected operational cost at t = 0.07 equals $101,590 under C_FP=$10, C_FN=$150, C_TP=$10",
+      "original_reported_value": 101590.0,
+      "reproduced_value": 101590.0,
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase34_decision_policy_report.md:59",
+      "explanation": "Calculated cost FP*10 + FN*150 + TP*10 = 3285*10 + 430*150 + 424*10 = $101,590. Equivalence to Flagged*10 + Missed*150 = 3709*10 + 430*150 = $101,590 verified.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-A6",
+      "description": "Internal textual wording consistency between cost-optimal cutoff and policy routing cutoff",
+      "original_reported_value": "Passage 1: 424 true positives / 430 missed fraud ($101,590 at t=0.07); Passage 2: 422 intercepted fraud / 432 passed (at t=0.08)",
+      "reproduced_value": "t=0.07 yields TP=424, FN=430; t=0.08 yields TP=422, FN=432",
+      "verification_status": "PARTIALLY_VERIFIED",
+      "evidence_file_and_line": "reports/phase34_decision_policy_report.md:26-33",
+      "explanation": "The text conflated the cost-optimal cutoff (t=0.07, 424 caught) with the 4-tier routing policy cutoff (t=0.08, 422 caught). The arithmetic for each threshold is correct, but imprecise wording created reviewer confusion.",
+      "remediation": "Explicitly distinguish the unconstrained cost-minimizing cutoff (t=0.07) from the 4-tier discrete routing boundaries (ALLOW < 0.08, REVIEW >= 0.08)."
+    },
+    {
+      "claim_id": "CLAIM-A7",
+      "description": "Boundary operator definition: score >= threshold vs score > threshold",
+      "original_reported_value": "score >= threshold",
+      "reproduced_value": "score >= threshold",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "scripts/run_stage34_experiments.py:81",
+      "explanation": "Implementation uses >=. In the validation cohort, exactly 0 scores equal 0.07, so >= and > yield identical confusion matrices.",
+      "remediation": "Document score >= t as the formal boundary semantic."
+    },
+    {
+      "claim_id": "CLAIM-A8",
+      "description": "Cost-minimizing threshold is uniquely t = 0.07 with zero ties in the sweep",
+      "original_reported_value": 0.07,
+      "reproduced_value": 0.07,
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase34_metrics.json:696-706",
+      "explanation": "Recomputed cost across all 80 grid points from 0.01 to 0.80. Minimum cost is uniquely $101,590 at t=0.07.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-B1",
+      "description": "Original capacity selection algorithm enforced a hard upper bound",
+      "original_reported_value": "Hard capacity constraint",
+      "reproduced_value": "Nearest-distance selection min(abs(vol - target))",
+      "verification_status": "DISPROVEN",
+      "evidence_file_and_line": "scripts/run_stage34_experiments.py:390-395",
+      "explanation": "The original Stage 3.4 script selected candidate operating points by minimizing absolute distance to target capacity, allowing volume to exceed budget.",
+      "remediation": "Replace with strict hard ceiling filter: volume <= floor(budget * N)."
+    },
+    {
+      "claim_id": "CLAIM-B2",
+      "description": "Stage 3.4 reported 5% capacity operating point (t = 0.13, 699 orders, 5.76% volume) satisfied capacity limit",
+      "original_reported_value": "5.76% review volume for 5% budget",
+      "reproduced_value": "5.76% > 5.00% (699 orders > 606 orders maximum budget)",
+      "verification_status": "DISPROVEN",
+      "evidence_file_and_line": "reports/phase34_decision_policy_report.md:84",
+      "explanation": "Operating at t=0.13 sends 699 orders to review, causing a 15.3% queue overflow (+93 orders) beyond the 606-order ceiling.",
+      "remediation": "Reject t=0.13 as non-compliant for 5% capacity."
+    },
+    {
+      "claim_id": "CLAIM-B3",
+      "description": "Corrected 5% capacity operating point: threshold t = 0.15 flags 477 orders (3.93% volume) catching 99 frauds",
+      "original_reported_value": "t = 0.15, vol = 477 (3.93%), TP = 99",
+      "reproduced_value": "t = 0.15, vol = 477 (3.93%), TP = 99, FP = 378, FN = 755, TN = 10897, Cost = $118,020",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "trustshield_project/test_stage341_policy_audit.py:80-92",
+      "explanation": "Under strict integer ceiling floor(0.05 * 12129) = 606 orders, t=0.15 is the maximum-recall operating point strictly obeying the hard budget.",
+      "remediation": "Adopt t=0.15 as the verified 5% capacity operating point."
+    },
+    {
+      "claim_id": "CLAIM-B4",
+      "description": "Corrected 1% capacity operating point: threshold t = 0.20 flags 41 orders (0.34% volume) catching 15 frauds",
+      "original_reported_value": "t = 0.20, vol = 41 (0.34%), TP = 15",
+      "reproduced_value": "t = 0.20, vol = 41 (0.34%), TP = 15, FP = 26, FN = 839, TN = 11249, Cost = $126,260",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "trustshield_project/test_stage341_policy_audit.py:75-79",
+      "explanation": "Under ceiling floor(0.01 * 12129) = 121 orders, t=0.20 flags 41 orders <= 121. Due to discrete step jumping from 41 to 477, 41 is the maximal compliant volume.",
+      "remediation": "Document step granularity limitation."
+    },
+    {
+      "claim_id": "CLAIM-B5",
+      "description": "Corrected 2% capacity operating point: threshold t = 0.20 flags 41 orders (0.34% volume) catching 15 frauds",
+      "original_reported_value": "t = 0.20, vol = 41 (0.34%), TP = 15",
+      "reproduced_value": "t = 0.20, vol = 41 (0.34%), TP = 15, FP = 26, FN = 839, TN = 11249, Cost = $126,260",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase341_policy_calibration_audit.json:97-109",
+      "explanation": "Under ceiling floor(0.02 * 12129) = 242 orders, t=0.20 is the highest achievable volume <= 242 because next step has 477 orders.",
+      "remediation": "Document step granularity limitation."
+    },
+    {
+      "claim_id": "CLAIM-B6",
+      "description": "Corrected 10% capacity operating point: threshold t = 0.11 flags 1,111 orders (9.16% volume) catching 185 frauds",
+      "original_reported_value": "t = 0.11, vol = 1111 (9.16%), TP = 185",
+      "reproduced_value": "t = 0.11, vol = 1111 (9.16%), TP = 185, FP = 926, FN = 669, TN = 10349, Cost = $111,460",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase341_policy_calibration_audit.json:123-134",
+      "explanation": "Under ceiling floor(0.10 * 12129) = 1212 orders, t=0.11 flags 1,111 orders <= 1212. Next threshold step flags 1,545 orders.",
+      "remediation": "Adopt t=0.11 as the verified 10% capacity operating point."
+    },
+    {
+      "claim_id": "CLAIM-C1",
+      "description": "Validation ECE = 0.0000 achieved by Isotonic Calibration proves perfect calibration",
+      "original_reported_value": "ECE = 0.0000",
+      "reproduced_value": "ECE = 0.0000 (IN_SAMPLE_FIT_COHORT only); out-of-sample test ECE = 0.0282",
+      "verification_status": "DISPROVEN",
+      "evidence_file_and_line": "trustshield_project/test_stage341_policy_audit.py:34-45",
+      "explanation": "ECE = 0.0000 is an in-sample artifact of PAVA step blocks aligning within 10 uniform bins on the fitting data. Out-of-sample diagnostic test ECE is 0.0282.",
+      "remediation": "Classify validation ECE as IN_SAMPLE_FIT_COHORT and disallow using it as proof of out-of-time calibration."
+    },
+    {
+      "claim_id": "CLAIM-C2",
+      "description": "Diagnostic test calibration: out-of-sample test ECE equals 0.0282 (Late Fusion) and 0.0289 (Tabular-Only)",
+      "original_reported_value": 0.0282,
+      "reproduced_value": 0.028196,
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase34_metrics.json:473",
+      "explanation": "Exact reproduction matches 0.0282. Reflects true out-of-sample probability alignment.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-C3",
+      "description": "Binning behavior: 6 out of 10 uniform bins are completely empty",
+      "original_reported_value": "6 of 10 bins empty",
+      "reproduced_value": "Bins [0.3, 0.4), [0.5, 0.6), [0.6, 0.7), [0.7, 0.8), [0.8, 0.9), [0.9, 1.0) empty",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "trustshield_project/calibration.py:28-50",
+      "explanation": "Maximum predicted calibrated probability is 0.4444 on validation, leaving upper bins unoccupied.",
+      "remediation": "Document empty bin dynamics."
+    },
+    {
+      "claim_id": "CLAIM-D1",
+      "description": "Score joins between orders and listings are complete with zero row drops or duplicates",
+      "original_reported_value": 0,
+      "reproduced_value": 0,
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "scripts/run_stage34_experiments.py:382",
+      "explanation": "All 12,129 validation orders and 20,919 test orders join cleanly via listing_id. Zero missing listing IDs.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-D2",
+      "description": "Correlation between order fraud risk and listing fraud risk is positive (r = 0.2533, rho = 0.2448)",
+      "original_reported_value": {"pearson": 0.2533, "spearman": 0.2448},
+      "reproduced_value": {"pearson": 0.2533, "spearman": 0.2448},
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase34_metrics.json:766-769",
+      "explanation": "Moderate positive correlation reproduced exactly.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-D3",
+      "description": "Conditional independence assumption of Noisy-OR is violated",
+      "original_reported_value": "Independence violated",
+      "reproduced_value": "Independence violated linearly (r > 0) and non-linearly (syndicate co-occurrence)",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase341_policy_calibration_audit.md:145-160",
+      "explanation": "Common syndicate actors operate fraudulent listings and compromised buyers simultaneously, violating P(not A and not B) = P(not A)P(not B).",
+      "remediation": "Disallow uncalibrated Noisy-OR in production."
+    },
+    {
+      "claim_id": "CLAIM-D4",
+      "description": "Max-Risk is an uncalibrated ranking heuristic, not a calibrated posterior probability",
+      "original_reported_value": "Uncalibrated ranking heuristic",
+      "reproduced_value": "Uncalibrated ranking heuristic (merges divergent priors 8.77% vs 2.08%)",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "reports/phase34_decision_policy_report.md:125-135",
+      "explanation": "Taking max(P_order, P_listing) destroys posterior calibration. It is effective for queue sorting, but invalid for expected loss modeling.",
+      "remediation": "Explicitly restrict Max-Risk to ranking use cases."
+    },
+    {
+      "claim_id": "CLAIM-E1",
+      "description": "Baseline commit 4615a53602d0a4ffe447d4d2fd14bd69a70bf740 is present in local Git history",
+      "original_reported_value": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+      "reproduced_value": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740 (HEAD of phase-3-data-generalization)",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "git rev-parse HEAD",
+      "explanation": "Exact commit hash verified as active HEAD.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-E2",
+      "description": "Generator script SHA-256 equals 0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "original_reported_value": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "reproduced_value": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "scripts/generate_realistic_synthetic_data_v2_1.py",
+      "explanation": "SHA-256 hash matches disk byte-for-byte.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-E3",
+      "description": "21-day observation maturity rule excludes orders lacking full observation window before 2026-02-28 23:59:59",
+      "original_reported_value": "Cutoff 2026-02-07 23:59:59",
+      "reproduced_value": "2026-02-28 23:59:59 - 21 days = 2026-02-07 23:59:59",
+      "verification_status": "VERIFIED",
+      "evidence_file_and_line": "trustshield_project/test_stage342_audit_reconciliation.py:215-225",
+      "explanation": "Exact 21-day mathematical difference verified. Orders placed on or after 2026-02-08 are right-censored.",
+      "remediation": "None required."
+    },
+    {
+      "claim_id": "CLAIM-E4",
+      "description": "Cryptographic commit-reveal process guarantees uncorrupted evaluation",
+      "original_reported_value": "SHA-256 prediction array hash commitment",
+      "reproduced_value": "Prediction hashing proves commitment to bytes, but does not prove uncompromised environment or approved model architecture",
+      "verification_status": "PARTIALLY_VERIFIED",
+      "evidence_file_and_line": "reports/phase341_policy_calibration_audit.md:175-190",
+      "explanation": "Prediction commitment is necessary but insufficient. Additional operational controls (container hashing, audit execution logs, feature store checksums) are required.",
+      "remediation": "Specify execution environment hashing in the v2.2 unblinding charter."
+    }
+  ],
+  "discrepancy_register": [
+    {
+      "id": "DISC-342-01",
+      "severity": "HIGH",
+      "claim_ref": "CLAIM-B2",
+      "title": "Capacity Constraint Over-Allocation in Stage 3.4",
+      "detail": "Stage 3.4 reported t=0.13 as the 5% capacity operating point (volume 5.76%, 699 orders), exceeding the 606-order ceiling (+93 orders). Corrected threshold is t=0.15 (volume 3.93%, 477 orders, 99 fraud caught).",
+      "status": "RECONCILED"
+    },
+    {
+      "id": "DISC-342-02",
+      "severity": "MEDIUM",
+      "claim_ref": "CLAIM-C1",
+      "title": "In-Sample Evaluation Conflated with Generalization",
+      "detail": "Stage 3.4 reported Validation ECE = 0.0000 without explicitly disclosing that the Isotonic calibrator was evaluated on its own fitting data. Diagnostic test ECE is 0.0282.",
+      "status": "RECONCILED"
+    },
+    {
+      "id": "DISC-342-03",
+      "severity": "LOW",
+      "claim_ref": "CLAIM-A6",
+      "title": "Conflation of Cost-Optimal and 4-Tier Policy Cutoffs",
+      "detail": "Reports mixed terminology between unconstrained cost-optimal cutoff (t=0.07, 424 fraud caught) and 4-tier routing boundary (t=0.08, 422 fraud caught).",
+      "status": "RECONCILED"
+    }
+  ],
+  "regression_tests": {
+    "test_suite": "trustshield_project/test_stage342_audit_reconciliation.py",
+    "total_tests": 13,
+    "passed": 13,
+    "failed": 0,
+    "errors": 0
+  }
+}

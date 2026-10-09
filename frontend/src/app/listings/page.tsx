@@ -109,7 +109,7 @@ export default function ListingIntelligencePage() {
   const { viewMode } = useViewMode();
   const [activePreset, setActivePreset] = useState<ListingScenarioPreset>(LISTING_PRESETS[0]);
   const [formData, setFormData] = useState<ListingScoreRequest>(LISTING_PRESETS[0].payload);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<ListingScoreResponse | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -127,7 +127,20 @@ export default function ListingIntelligencePage() {
   };
 
   useEffect(() => {
-    executeAudit(LISTING_PRESETS[0].payload);
+    let active = true;
+    TrustShieldApi.analyzeListing(LISTING_PRESETS[0].payload)
+      .then((res) => {
+        if (active) setResult(res.data);
+      })
+      .catch((err) => {
+        console.error("Listing analysis failed:", err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const selectPreset = (preset: ListingScenarioPreset) => {

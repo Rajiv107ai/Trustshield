@@ -42,3 +42,5 @@ redis>=5.0
 neo4j>=5.20
 prometheus-client>=0.20.0
 sse-starlette>=2.0
+# Security & Evaluation Gate (AES-256-GCM authenticated envelope encryption)
+cryptography>=42.0

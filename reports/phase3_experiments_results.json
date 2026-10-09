@@ -1,0 +1,1177 @@
+{
+  "metadata": {
+    "timestamp": "2026-10-09T11:29:59Z",
+    "elapsed_seconds": 4.27,
+    "python_version": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+    "models_audited": [
+      "fake_listing_detector",
+      "return_fraud_detector",
+      "phase3_combined_graph_model"
+    ]
+  },
+  "fake_listing_detector": {
+    "dataset_counts": {
+      "train": 9923,
+      "val": 3840,
+      "test": 6237,
+      "test_unseen_sellers": 3768,
+      "test_seen_sellers": 2469
+    },
+    "feature_distribution_stats": [
+      {
+        "feature": "price_vs_base_price_ratio",
+        "legit_mean": 1.0124,
+        "legit_std": 0.1535,
+        "legit_median": 1.0007,
+        "fraud_mean": 0.724,
+        "fraud_std": 0.3052,
+        "fraud_median": 0.6517,
+        "ks_statistic": 0.5419,
+        "ks_pvalue": 6.765878586976549e-67,
+        "cohens_d": -1.1942,
+        "single_feature_auc": 0.7691
+      },
+      {
+        "feature": "price_vs_category_median_ratio",
+        "legit_mean": 1.2899,
+        "legit_std": 1.2183,
+        "legit_median": 1.0079,
+        "fraud_mean": 0.7941,
+        "fraud_std": 0.6479,
+        "fraud_median": 0.5781,
+        "ks_statistic": 0.3395,
+        "ks_pvalue": 2.3367845261819115e-25,
+        "cohens_d": -0.5081,
+        "single_feature_auc": 0.7071
+      },
+      {
+        "feature": "seller_age_days_at_listing",
+        "legit_mean": 79.8605,
+        "legit_std": 64.2454,
+        "legit_median": 66.0,
+        "fraud_mean": 77.8952,
+        "fraud_std": 64.7025,
+        "fraud_median": 62.0,
+        "ks_statistic": 0.0536,
+        "ks_pvalue": 0.4745733781754271,
+        "cohens_d": -0.0305,
+        "single_feature_auc": 0.5099
+      },
+      {
+        "feature": "seller_listings_before",
+        "legit_mean": 22.2904,
+        "legit_std": 22.7987,
+        "legit_median": 15.0,
+        "fraud_mean": 23.0282,
+        "fraud_std": 25.691,
+        "fraud_median": 14.0,
+        "ks_statistic": 0.0404,
+        "ks_pvalue": 0.8087713991239928,
+        "cohens_d": 0.0304,
+        "single_feature_auc": 0.5048
+      },
+      {
+        "feature": "multimodal_similarity_score",
+        "legit_mean": 0.7888,
+        "legit_std": 0.101,
+        "legit_median": 0.789,
+        "fraud_mean": 0.5674,
+        "fraud_std": 0.1107,
+        "fraud_median": 0.5733,
+        "ks_statistic": 0.7093,
+        "ks_pvalue": 1.6801676610104803e-122,
+        "cohens_d": -2.0901,
+        "single_feature_auc": 0.9276
+      }
+    ],
+    "baseline_metrics_th_0.50": {
+      "n_samples": 6237,
+      "n_pos": 158,
+      "prevalence": 0.0253,
+      "roc_auc": 0.9496,
+      "pr_auc": 0.7406,
+      "precision": 0.7152,
+      "recall": 0.6835,
+      "f1": 0.699,
+      "brier_score": 0.0123,
+      "ece": 0.0104
+    },
+    "baseline_metrics_val_optimal_th": {
+      "optimal_threshold": 0.48,
+      "metrics": {
+        "n_samples": 6237,
+        "n_pos": 158,
+        "prevalence": 0.0253,
+        "roc_auc": 0.9496,
+        "pr_auc": 0.7406,
+        "precision": 0.7143,
+        "recall": 0.6962,
+        "f1": 0.7051,
+        "brier_score": 0.0123,
+        "ece": 0.0104
+      }
+    },
+    "ablations": {
+      "without_price_vs_base_price_ratio": {
+        "metrics": {
+          "n_samples": 6237,
+          "n_pos": 158,
+          "prevalence": 0.0253,
+          "roc_auc": 0.8956,
+          "pr_auc": 0.4925,
+          "precision": 0.6883,
+          "recall": 0.3354,
+          "f1": 0.4511,
+          "brier_score": 0.0176,
+          "ece": 0.0133
+        },
+        "delta_roc_auc": -0.054,
+        "delta_pr_auc": -0.2481
+      },
+      "without_price_vs_category_median_ratio": {
+        "metrics": {
+          "n_samples": 6237,
+          "n_pos": 158,
+          "prevalence": 0.0253,
+          "roc_auc": 0.9491,
+          "pr_auc": 0.7384,
+          "precision": 0.723,
+          "recall": 0.6772,
+          "f1": 0.6993,
+          "brier_score": 0.0127,
+          "ece": 0.0102
+        },
+        "delta_roc_auc": -0.0005,
+        "delta_pr_auc": -0.0022
+      },
+      "without_seller_age_days_at_listing": {
+        "metrics": {
+          "n_samples": 6237,
+          "n_pos": 158,
+          "prevalence": 0.0253,
+          "roc_auc": 0.9553,
+          "pr_auc": 0.7579,
+          "precision": 0.8374,
+          "recall": 0.6519,
+          "f1": 0.7331,
+          "brier_score": 0.0104,
+          "ece": 0.0064
+        },
+        "delta_roc_auc": 0.0057,
+        "delta_pr_auc": 0.0173
+      },
+      "without_seller_listings_before": {
+        "metrics": {
+          "n_samples": 6237,
+          "n_pos": 158,
+          "prevalence": 0.0253,
+          "roc_auc": 0.9518,
+          "pr_auc": 0.7481,
+          "precision": 0.8092,
+          "recall": 0.6709,
+          "f1": 0.7336,
+          "brier_score": 0.0109,
+          "ece": 0.0089
+        },
+        "delta_roc_auc": 0.0022,
+        "delta_pr_auc": 0.0075
+      },
+      "without_multimodal_similarity_score": {
+        "metrics": {
+          "n_samples": 6237,
+          "n_pos": 158,
+          "prevalence": 0.0253,
+          "roc_auc": 0.7714,
+          "pr_auc": 0.5445,
+          "precision": 0.9726,
+          "recall": 0.4494,
+          "f1": 0.6147,
+          "brier_score": 0.0141,
+          "ece": 0.0131
+        },
+        "delta_roc_auc": -0.1782,
+        "delta_pr_auc": -0.1961
+      },
+      "only_multimodal_similarity": {
+        "n_samples": 6237,
+        "n_pos": 158,
+        "prevalence": 0.0253,
+        "roc_auc": 0.9205,
+        "pr_auc": 0.4745,
+        "precision": 0.6986,
+        "recall": 0.3228,
+        "f1": 0.4416,
+        "brier_score": 0.017,
+        "ece": 0.0024
+      },
+      "only_price_anomaly_features": {
+        "n_samples": 6237,
+        "n_pos": 158,
+        "prevalence": 0.0253,
+        "roc_auc": 0.7692,
+        "pr_auc": 0.5345,
+        "precision": 0.9012,
+        "recall": 0.462,
+        "f1": 0.6109,
+        "brier_score": 0.0141,
+        "ece": 0.0036
+      },
+      "only_seller_history_features": {
+        "n_samples": 6237,
+        "n_pos": 158,
+        "prevalence": 0.0253,
+        "roc_auc": 0.4912,
+        "pr_auc": 0.0245,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "brier_score": 0.0266,
+        "ece": 0.0094
+      }
+    },
+    "generalization": {
+      "unseen_sellers": {
+        "n_samples": 3768,
+        "n_pos": 99,
+        "prevalence": 0.0263,
+        "roc_auc": 0.9582,
+        "pr_auc": 0.7441,
+        "precision": 0.7234,
+        "recall": 0.6869,
+        "f1": 0.7047,
+        "brier_score": 0.0129,
+        "ece": 0.0099
+      },
+      "seen_sellers": {
+        "n_samples": 2469,
+        "n_pos": 59,
+        "prevalence": 0.0239,
+        "roc_auc": 0.9362,
+        "pr_auc": 0.7318,
+        "precision": 0.7018,
+        "recall": 0.678,
+        "f1": 0.6897,
+        "brier_score": 0.0114,
+        "ece": 0.0114
+      }
+    }
+  },
+  "return_fraud_detector": {
+    "dataset_counts": {
+      "train": 1982,
+      "val": 930,
+      "test": 1917,
+      "test_unseen_buyers": 1480,
+      "test_seen_buyers": 437
+    },
+    "feature_distribution_stats": [
+      {
+        "feature": "days_to_return",
+        "legit_mean": 10.7623,
+        "legit_std": 6.1047,
+        "legit_median": 11.0,
+        "fraud_mean": 3.5899,
+        "fraud_std": 3.3427,
+        "fraud_median": 3.0,
+        "ks_statistic": 0.6726,
+        "ks_pvalue": 1.0915553952481345e-173,
+        "cohens_d": -1.4574,
+        "single_feature_auc": 0.8441
+      },
+      {
+        "feature": "buyer_age_days_at_return",
+        "legit_mean": 87.2468,
+        "legit_std": 62.8053,
+        "legit_median": 71.5,
+        "fraud_mean": 83.4442,
+        "fraud_std": 62.4408,
+        "fraud_median": 67.5,
+        "ks_statistic": 0.0668,
+        "ks_pvalue": 0.05306305455415608,
+        "cohens_d": -0.0607,
+        "single_feature_auc": 0.5206
+      },
+      {
+        "feature": "seller_age_days_at_return",
+        "legit_mean": 114.0624,
+        "legit_std": 61.3001,
+        "legit_median": 112.0,
+        "fraud_mean": 116.3795,
+        "fraud_std": 61.0844,
+        "fraud_median": 114.0,
+        "ks_statistic": 0.0482,
+        "ks_pvalue": 0.29952929853271487,
+        "cohens_d": 0.0379,
+        "single_feature_auc": 0.511
+      },
+      {
+        "feature": "order_amount",
+        "legit_mean": 1695.2517,
+        "legit_std": 2565.6908,
+        "legit_median": 878.015,
+        "fraud_mean": 1718.9696,
+        "fraud_std": 2798.4442,
+        "fraud_median": 878.22,
+        "ks_statistic": 0.029,
+        "ks_pvalue": 0.8773605347324241,
+        "cohens_d": 0.0088,
+        "single_feature_auc": 0.5024
+      },
+      {
+        "feature": "buyer_prior_returns",
+        "legit_mean": 0.3254,
+        "legit_std": 0.8795,
+        "legit_median": 0.0,
+        "fraud_mean": 3.4281,
+        "fraud_std": 4.4447,
+        "fraud_median": 2.0,
+        "ks_statistic": 0.5369,
+        "ks_pvalue": 1.291880653030683e-106,
+        "cohens_d": 0.9684,
+        "single_feature_auc": 0.8236
+      },
+      {
+        "feature": "buyer_orders_before_return",
+        "legit_mean": 6.324,
+        "legit_std": 6.0138,
+        "legit_median": 5.0,
+        "fraud_mean": 5.9371,
+        "fraud_std": 5.4378,
+        "fraud_median": 4.5,
+        "ks_statistic": 0.0425,
+        "ks_pvalue": 0.45083086371090614,
+        "cohens_d": -0.0675,
+        "single_feature_auc": 0.5198
+      },
+      {
+        "feature": "buyer_return_rate_before",
+        "legit_mean": 0.0409,
+        "legit_std": 0.0972,
+        "legit_median": 0.0,
+        "fraud_mean": 0.4398,
+        "fraud_std": 0.2884,
+        "fraud_median": 0.5,
+        "ks_statistic": 0.6942,
+        "ks_pvalue": 1.8655896558599288e-186,
+        "cohens_d": 1.8537,
+        "single_feature_auc": 0.8476
+      },
+      {
+        "feature": "seller_prior_returns",
+        "legit_mean": 5.8177,
+        "legit_std": 6.3812,
+        "legit_median": 4.0,
+        "fraud_mean": 5.8219,
+        "fraud_std": 6.2515,
+        "fraud_median": 4.0,
+        "ks_statistic": 0.024,
+        "ks_pvalue": 0.970009705446958,
+        "cohens_d": 0.0007,
+        "single_feature_auc": 0.5043
+      },
+      {
+        "feature": "seller_orders_before_return",
+        "legit_mean": 71.2489,
+        "legit_std": 68.7844,
+        "legit_median": 50.5,
+        "fraud_mean": 72.545,
+        "fraud_std": 71.1524,
+        "fraud_median": 53.0,
+        "ks_statistic": 0.04,
+        "ks_pvalue": 0.5289422069198835,
+        "cohens_d": 0.0185,
+        "single_feature_auc": 0.5047
+      },
+      {
+        "feature": "seller_return_rate_before",
+        "legit_mean": 0.0738,
+        "legit_std": 0.0496,
+        "legit_median": 0.0747,
+        "fraud_mean": 0.0736,
+        "fraud_std": 0.0515,
+        "fraud_median": 0.0735,
+        "ks_statistic": 0.0313,
+        "ks_pvalue": 0.8131293404755381,
+        "cohens_d": -0.0034,
+        "single_feature_auc": 0.5078
+      },
+      {
+        "feature": "reason_defective",
+        "legit_mean": 0.3142,
+        "legit_std": 0.4642,
+        "legit_median": 0.0,
+        "fraud_mean": 0.3165,
+        "fraud_std": 0.4651,
+        "fraud_median": 0.0,
+        "ks_statistic": 0.0024,
+        "ks_pvalue": 1.0,
+        "cohens_d": 0.0051,
+        "single_feature_auc": 0.5012
+      },
+      {
+        "feature": "reason_changed_mind",
+        "legit_mean": 0.3471,
+        "legit_std": 0.4761,
+        "legit_median": 0.0,
+        "fraud_mean": 0.3579,
+        "fraud_std": 0.4794,
+        "fraud_median": 0.0,
+        "ks_statistic": 0.0108,
+        "ks_pvalue": 0.9999999996833678,
+        "cohens_d": 0.0226,
+        "single_feature_auc": 0.5054
+      },
+      {
+        "feature": "reason_size_issue",
+        "legit_mean": 0.1964,
+        "legit_std": 0.3972,
+        "legit_median": 0.0,
+        "fraud_mean": 0.1871,
+        "fraud_std": 0.39,
+        "fraud_median": 0.0,
+        "ks_statistic": 0.0093,
+        "ks_pvalue": 0.9999999999998744,
+        "cohens_d": -0.0236,
+        "single_feature_auc": 0.5047
+      },
+      {
+        "feature": "reason_wrong_item_received",
+        "legit_mean": 0.1424,
+        "legit_std": 0.3494,
+        "legit_median": 0.0,
+        "fraud_mean": 0.1385,
+        "fraud_std": 0.3454,
+        "fraud_median": 0.0,
+        "ks_statistic": 0.0039,
+        "ks_pvalue": 1.0,
+        "cohens_d": -0.0111,
+        "single_feature_auc": 0.5019
+      }
+    ],
+    "baseline_metrics_th_0.50": {
+      "n_samples": 1917,
+      "n_pos": 644,
+      "prevalence": 0.3359,
+      "roc_auc": 0.9235,
+      "pr_auc": 0.8806,
+      "precision": 0.8277,
+      "recall": 0.6786,
+      "f1": 0.7457,
+      "brier_score": 0.115,
+      "ece": 0.0841
+    },
+    "baseline_metrics_val_optimal_th": {
+      "optimal_threshold": 0.49,
+      "metrics": {
+        "n_samples": 1917,
+        "n_pos": 644,
+        "prevalence": 0.3359,
+        "roc_auc": 0.9235,
+        "pr_auc": 0.8806,
+        "precision": 0.8218,
+        "recall": 0.6801,
+        "f1": 0.7443,
+        "brier_score": 0.115,
+        "ece": 0.0841
+      }
+    },
+    "ablations": {
+      "without_days_to_return": {
+        "metrics": {
+          "n_samples": 1917,
+          "n_pos": 644,
+          "prevalence": 0.3359,
+          "roc_auc": 0.7689,
+          "pr_auc": 0.766,
+          "precision": 0.9738,
+          "recall": 0.4612,
+          "f1": 0.6259,
+          "brier_score": 0.1715,
+          "ece": 0.1866
+        },
+        "delta_roc_auc": -0.1546,
+        "delta_pr_auc": -0.1146
+      },
+      "without_buyer_return_rate_before": {
+        "metrics": {
+          "n_samples": 1917,
+          "n_pos": 644,
+          "prevalence": 0.3359,
+          "roc_auc": 0.8645,
+          "pr_auc": 0.6905,
+          "precision": 0.7327,
+          "recall": 0.3447,
+          "f1": 0.4688,
+          "brier_score": 0.19,
+          "ece": 0.1638
+        },
+        "delta_roc_auc": -0.059,
+        "delta_pr_auc": -0.1901
+      },
+      "without_buyer_prior_returns": {
+        "metrics": {
+          "n_samples": 1917,
+          "n_pos": 644,
+          "prevalence": 0.3359,
+          "roc_auc": 0.9194,
+          "pr_auc": 0.8706,
+          "precision": 0.8521,
+          "recall": 0.6351,
+          "f1": 0.7278,
+          "brier_score": 0.1215,
+          "ece": 0.0889
+        },
+        "delta_roc_auc": -0.0041,
+        "delta_pr_auc": -0.01
+      },
+      "without_seller_return_rate_before": {
+        "metrics": {
+          "n_samples": 1917,
+          "n_pos": 644,
+          "prevalence": 0.3359,
+          "roc_auc": 0.9243,
+          "pr_auc": 0.8823,
+          "precision": 0.8487,
+          "recall": 0.6708,
+          "f1": 0.7493,
+          "brier_score": 0.1142,
+          "ece": 0.0834
+        },
+        "delta_roc_auc": 0.0008,
+        "delta_pr_auc": 0.0017
+      },
+      "without_order_amount": {
+        "metrics": {
+          "n_samples": 1917,
+          "n_pos": 644,
+          "prevalence": 0.3359,
+          "roc_auc": 0.9327,
+          "pr_auc": 0.8953,
+          "precision": 0.8861,
+          "recall": 0.6646,
+          "f1": 0.7595,
+          "brier_score": 0.1086,
+          "ece": 0.0801
+        },
+        "delta_roc_auc": 0.0092,
+        "delta_pr_auc": 0.0147
+      },
+      "without_days_to_return_and_return_rate": {
+        "metrics": {
+          "n_samples": 1917,
+          "n_pos": 644,
+          "prevalence": 0.3359,
+          "roc_auc": 0.6479,
+          "pr_auc": 0.4852,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "brier_score": 0.3268,
+          "ece": 0.3267
+        },
+        "delta_roc_auc": -0.2756,
+        "delta_pr_auc": -0.3954
+      },
+      "only_shortcut_features_days_and_rate": {
+        "n_samples": 1917,
+        "n_pos": 644,
+        "prevalence": 0.3359,
+        "roc_auc": 0.9333,
+        "pr_auc": 0.8831,
+        "precision": 0.9496,
+        "recall": 0.5854,
+        "f1": 0.7243,
+        "brier_score": 0.1053,
+        "ece": 0.0634
+      },
+      "only_plausible_behavioral_features": {
+        "n_samples": 1917,
+        "n_pos": 644,
+        "prevalence": 0.3359,
+        "roc_auc": 0.471,
+        "pr_auc": 0.3269,
+        "precision": 0.3116,
+        "recall": 0.2748,
+        "f1": 0.2921,
+        "brier_score": 0.2975,
+        "ece": 0.2282
+      }
+    },
+    "generalization": {
+      "unseen_buyers": {
+        "n_samples": 1480,
+        "n_pos": 412,
+        "prevalence": 0.2784,
+        "roc_auc": 0.9032,
+        "pr_auc": 0.8197,
+        "precision": 0.7588,
+        "recall": 0.6262,
+        "f1": 0.6862,
+        "brier_score": 0.1186,
+        "ece": 0.087
+      },
+      "seen_buyers": {
+        "n_samples": 437,
+        "n_pos": 232,
+        "prevalence": 0.5309,
+        "roc_auc": 0.9642,
+        "pr_auc": 0.9701,
+        "precision": 0.9521,
+        "recall": 0.7716,
+        "f1": 0.8524,
+        "brier_score": 0.1028,
+        "ece": 0.0879
+      }
+    }
+  },
+  "phase3_transaction_model": {
+    "dataset_counts": {
+      "train": 22848,
+      "val": 10266,
+      "test": 16886,
+      "test_unseen_sellers": 2764,
+      "test_seen_sellers": 14122,
+      "test_unseen_buyers": 10131,
+      "test_seen_buyers": 6755
+    },
+    "feature_distribution_stats": [
+      {
+        "feature": "price_vs_base_price_ratio",
+        "legit_mean": 1.0056,
+        "legit_std": 0.1535,
+        "legit_median": 0.9928,
+        "fraud_mean": 0.8777,
+        "fraud_std": 0.2726,
+        "fraud_median": 0.9351,
+        "ks_statistic": 0.2516,
+        "ks_pvalue": 1.6657400510121085e-66,
+        "cohens_d": -0.5779,
+        "single_feature_auc": 0.6191
+      },
+      {
+        "feature": "price_vs_category_median_ratio",
+        "legit_mean": 1.2716,
+        "legit_std": 1.1572,
+        "legit_median": 1.0079,
+        "fraud_mean": 1.0671,
+        "fraud_std": 0.9949,
+        "fraud_median": 0.8185,
+        "ks_statistic": 0.1556,
+        "ks_pvalue": 1.7234287411531376e-25,
+        "cohens_d": -0.1894,
+        "single_feature_auc": 0.5957
+      },
+      {
+        "feature": "seller_age_days",
+        "legit_mean": 108.338,
+        "legit_std": 63.8277,
+        "legit_median": 105.0,
+        "fraud_mean": 117.6291,
+        "fraud_std": 64.425,
+        "fraud_median": 119.0,
+        "ks_statistic": 0.0667,
+        "ks_pvalue": 5.0164780937231395e-05,
+        "cohens_d": 0.1449,
+        "single_feature_auc": 0.5411
+      },
+      {
+        "feature": "seller_total_listings_before",
+        "legit_mean": 29.3079,
+        "legit_std": 24.6481,
+        "legit_median": 22.0,
+        "fraud_mean": 30.7282,
+        "fraud_std": 24.4835,
+        "fraud_median": 24.0,
+        "ks_statistic": 0.0555,
+        "ks_pvalue": 0.0013070235873183379,
+        "cohens_d": 0.0578,
+        "single_feature_auc": 0.5271
+      },
+      {
+        "feature": "buyer_age_days",
+        "legit_mean": 79.0497,
+        "legit_std": 63.4306,
+        "legit_median": 64.0,
+        "fraud_mean": 84.1135,
+        "fraud_std": 65.4325,
+        "fraud_median": 69.0,
+        "ks_statistic": 0.0435,
+        "ks_pvalue": 0.021876168587119417,
+        "cohens_d": 0.0786,
+        "single_feature_auc": 0.5211
+      },
+      {
+        "feature": "buyer_orders_before",
+        "legit_mean": 4.9332,
+        "legit_std": 6.1389,
+        "legit_median": 3.0,
+        "fraud_mean": 5.0416,
+        "fraud_std": 6.1166,
+        "fraud_median": 3.0,
+        "ks_statistic": 0.018,
+        "ks_pvalue": 0.8291741273578673,
+        "cohens_d": 0.0177,
+        "single_feature_auc": 0.5088
+      },
+      {
+        "feature": "buyer_returns_before",
+        "legit_mean": 0.3251,
+        "legit_std": 0.8334,
+        "legit_median": 0.0,
+        "fraud_mean": 1.7298,
+        "fraud_std": 3.532,
+        "fraud_median": 0.0,
+        "ks_statistic": 0.234,
+        "ks_pvalue": 1.8664745072236487e-57,
+        "cohens_d": 0.5474,
+        "single_feature_auc": 0.6405
+      },
+      {
+        "feature": "buyer_return_rate_before",
+        "legit_mean": 0.0502,
+        "legit_std": 0.1329,
+        "legit_median": 0.0,
+        "fraud_mean": 0.2766,
+        "fraud_std": 0.3679,
+        "fraud_median": 0.0,
+        "ks_statistic": 0.3041,
+        "ks_pvalue": 1.3461623568541453e-97,
+        "cohens_d": 0.8186,
+        "single_feature_auc": 0.6501
+      },
+      {
+        "feature": "device_shared_buyer_count",
+        "legit_mean": 1.0651,
+        "legit_std": 0.2466,
+        "legit_median": 1.0,
+        "fraud_mean": 1.1127,
+        "fraud_std": 0.3162,
+        "fraud_median": 1.0,
+        "ks_statistic": 0.0477,
+        "ks_pvalue": 0.008974055902485347,
+        "cohens_d": 0.168,
+        "single_feature_auc": 0.5238
+      },
+      {
+        "feature": "amount",
+        "legit_mean": 1757.6528,
+        "legit_std": 3124.5775,
+        "legit_median": 871.08,
+        "fraud_mean": 1393.9427,
+        "fraud_std": 2291.3695,
+        "fraud_median": 682.18,
+        "ks_statistic": 0.1031,
+        "ks_pvalue": 2.0766776044417657e-11,
+        "cohens_d": -0.1327,
+        "single_feature_auc": 0.5573
+      },
+      {
+        "feature": "share_degree",
+        "legit_mean": 0.3639,
+        "legit_std": 0.5788,
+        "legit_median": 0.0,
+        "fraud_mean": 0.8809,
+        "fraud_std": 0.7498,
+        "fraud_median": 1.0,
+        "ks_statistic": 0.3629,
+        "ks_pvalue": 4.570679479043401e-140,
+        "cohens_d": 0.7719,
+        "single_feature_auc": 0.6946
+      },
+      {
+        "feature": "share_component_size",
+        "legit_mean": 1.5317,
+        "legit_std": 1.0265,
+        "legit_median": 1.0,
+        "fraud_mean": 2.2838,
+        "fraud_std": 1.38,
+        "fraud_median": 2.0,
+        "ks_statistic": 0.3629,
+        "ks_pvalue": 4.570679479043401e-140,
+        "cohens_d": 0.6184,
+        "single_feature_auc": 0.6922
+      },
+      {
+        "feature": "buyer_seller_degree",
+        "legit_mean": 3.8812,
+        "legit_std": 5.2042,
+        "legit_median": 2.0,
+        "fraud_mean": 3.9576,
+        "fraud_std": 5.3039,
+        "fraud_median": 2.0,
+        "ks_statistic": 0.011,
+        "ks_pvalue": 0.9985664501925124,
+        "cohens_d": 0.0145,
+        "single_feature_auc": 0.5039
+      },
+      {
+        "feature": "buyer_pagerank",
+        "legit_mean": 0.0002,
+        "legit_std": 0.0003,
+        "legit_median": 0.0001,
+        "fraud_mean": 0.0002,
+        "fraud_std": 0.0002,
+        "fraud_median": 0.0001,
+        "ks_statistic": 0.0495,
+        "ks_pvalue": 0.005896606648152954,
+        "cohens_d": -0.0807,
+        "single_feature_auc": 0.5113
+      },
+      {
+        "feature": "seller_buyer_degree",
+        "legit_mean": 55.3516,
+        "legit_std": 60.6172,
+        "legit_median": 37.0,
+        "fraud_mean": 58.7258,
+        "fraud_std": 60.9589,
+        "fraud_median": 40.0,
+        "ks_statistic": 0.0584,
+        "ks_pvalue": 0.0005915243332361303,
+        "cohens_d": 0.0555,
+        "single_feature_auc": 0.5259
+      },
+      {
+        "feature": "seller_pagerank",
+        "legit_mean": 0.0029,
+        "legit_std": 0.0031,
+        "legit_median": 0.002,
+        "fraud_mean": 0.0029,
+        "fraud_std": 0.0031,
+        "fraud_median": 0.0019,
+        "ks_statistic": 0.0417,
+        "ks_pvalue": 0.032015984531655994,
+        "cohens_d": 0.0132,
+        "single_feature_auc": 0.5051
+      },
+      {
+        "feature": "seller_buyer_concentration_hhi",
+        "legit_mean": 0.0661,
+        "legit_std": 0.1534,
+        "legit_median": 0.0208,
+        "fraud_mean": 0.0569,
+        "fraud_std": 0.1314,
+        "fraud_median": 0.0213,
+        "ks_statistic": 0.0361,
+        "ks_pvalue": 0.08924187107039505,
+        "cohens_d": -0.0644,
+        "single_feature_auc": 0.5037
+      },
+      {
+        "feature": "buyer_seller_edge_weight_before",
+        "legit_mean": 0.0313,
+        "legit_std": 0.1801,
+        "legit_median": 0.0,
+        "fraud_mean": 0.0192,
+        "fraud_std": 0.1372,
+        "fraud_median": 0.0,
+        "ks_statistic": 0.0111,
+        "ks_pvalue": 0.9984320748189149,
+        "cohens_d": -0.0757,
+        "single_feature_auc": 0.5055
+      }
+    ],
+    "baseline_metrics_th_0.50": {
+      "n_samples": 16886,
+      "n_pos": 1535,
+      "prevalence": 0.0909,
+      "roc_auc": 0.789,
+      "pr_auc": 0.4418,
+      "precision": 0.6857,
+      "recall": 0.3212,
+      "f1": 0.4374,
+      "brier_score": 0.064,
+      "ece": 0.0265
+    },
+    "baseline_metrics_val_optimal_th": {
+      "optimal_threshold": 0.27,
+      "metrics": {
+        "n_samples": 16886,
+        "n_pos": 1535,
+        "prevalence": 0.0909,
+        "roc_auc": 0.789,
+        "pr_auc": 0.4418,
+        "precision": 0.6847,
+        "recall": 0.3212,
+        "f1": 0.4373,
+        "brier_score": 0.064,
+        "ece": 0.0265
+      }
+    },
+    "ablations": {
+      "without_device_shared_buyer_count": {
+        "metrics": {
+          "n_samples": 16886,
+          "n_pos": 1535,
+          "prevalence": 0.0909,
+          "roc_auc": 0.784,
+          "pr_auc": 0.4366,
+          "precision": 0.7249,
+          "recall": 0.3192,
+          "f1": 0.4432,
+          "brier_score": 0.064,
+          "ece": 0.0283
+        },
+        "delta_roc_auc": -0.005,
+        "delta_pr_auc": -0.0052
+      },
+      "without_buyer_return_rate_before": {
+        "metrics": {
+          "n_samples": 16886,
+          "n_pos": 1535,
+          "prevalence": 0.0909,
+          "roc_auc": 0.7693,
+          "pr_auc": 0.3436,
+          "precision": 0.7324,
+          "recall": 0.1355,
+          "f1": 0.2287,
+          "brier_score": 0.0722,
+          "ece": 0.0428
+        },
+        "delta_roc_auc": -0.0197,
+        "delta_pr_auc": -0.0982
+      },
+      "without_price_vs_base_price_ratio": {
+        "metrics": {
+          "n_samples": 16886,
+          "n_pos": 1535,
+          "prevalence": 0.0909,
+          "roc_auc": 0.7333,
+          "pr_auc": 0.3078,
+          "precision": 0.6163,
+          "recall": 0.2072,
+          "f1": 0.3101,
+          "brier_score": 0.073,
+          "ece": 0.0364
+        },
+        "delta_roc_auc": -0.0557,
+        "delta_pr_auc": -0.134
+      },
+      "without_buyer_seller_edge_weight_before": {
+        "metrics": {
+          "n_samples": 16886,
+          "n_pos": 1535,
+          "prevalence": 0.0909,
+          "roc_auc": 0.789,
+          "pr_auc": 0.4422,
+          "precision": 0.6866,
+          "recall": 0.3212,
+          "f1": 0.4376,
+          "brier_score": 0.0639,
+          "ece": 0.0265
+        },
+        "delta_roc_auc": 0.0,
+        "delta_pr_auc": 0.0004
+      },
+      "without_return_features": {
+        "metrics": {
+          "n_samples": 16886,
+          "n_pos": 1535,
+          "prevalence": 0.0909,
+          "roc_auc": 0.7329,
+          "pr_auc": 0.3031,
+          "precision": 0.749,
+          "recall": 0.1264,
+          "f1": 0.2163,
+          "brier_score": 0.0743,
+          "ece": 0.0464
+        },
+        "delta_roc_auc": -0.0561,
+        "delta_pr_auc": -0.1387
+      },
+      "without_price_anomaly_features": {
+        "metrics": {
+          "n_samples": 16886,
+          "n_pos": 1535,
+          "prevalence": 0.0909,
+          "roc_auc": 0.7236,
+          "pr_auc": 0.3059,
+          "precision": 0.6056,
+          "recall": 0.2111,
+          "f1": 0.313,
+          "brier_score": 0.0731,
+          "ece": 0.0364
+        },
+        "delta_roc_auc": -0.0654,
+        "delta_pr_auc": -0.1359
+      },
+      "without_all_graph_features_zero_graph": {
+        "metrics": {
+          "n_samples": 16886,
+          "n_pos": 1535,
+          "prevalence": 0.0909,
+          "roc_auc": 0.6029,
+          "pr_auc": 0.2419,
+          "precision": 0.9055,
+          "recall": 0.1186,
+          "f1": 0.2097,
+          "brier_score": 0.078,
+          "ece": 0.0619
+        },
+        "delta_roc_auc": -0.1861,
+        "delta_pr_auc": -0.1999
+      },
+      "only_suspicious_features_device_return_price": {
+        "n_samples": 16886,
+        "n_pos": 1535,
+        "prevalence": 0.0909,
+        "roc_auc": 0.7195,
+        "pr_auc": 0.4266,
+        "precision": 0.8074,
+        "recall": 0.2567,
+        "f1": 0.3895,
+        "brier_score": 0.0663,
+        "ece": 0.0428
+      },
+      "only_plausible_behavioral_features": {
+        "n_samples": 16886,
+        "n_pos": 1535,
+        "prevalence": 0.0909,
+        "roc_auc": 0.5341,
+        "pr_auc": 0.1083,
+        "precision": 0.1451,
+        "recall": 0.0241,
+        "f1": 0.0413,
+        "brier_score": 0.0913,
+        "ece": 0.0603
+      }
+    },
+    "generalization": {
+      "unseen_sellers": {
+        "n_samples": 2764,
+        "n_pos": 215,
+        "prevalence": 0.0778,
+        "roc_auc": 0.7289,
+        "pr_auc": 0.4204,
+        "precision": 0.74,
+        "recall": 0.3442,
+        "f1": 0.4698,
+        "brier_score": 0.0549,
+        "ece": 0.0324
+      },
+      "seen_sellers": {
+        "n_samples": 14122,
+        "n_pos": 1320,
+        "prevalence": 0.0935,
+        "roc_auc": 0.7979,
+        "pr_auc": 0.444,
+        "precision": 0.6769,
+        "recall": 0.3174,
+        "f1": 0.4322,
+        "brier_score": 0.0657,
+        "ece": 0.0264
+      },
+      "unseen_buyers": {
+        "n_samples": 10131,
+        "n_pos": 771,
+        "prevalence": 0.0761,
+        "roc_auc": 0.7973,
+        "pr_auc": 0.4403,
+        "precision": 0.7318,
+        "recall": 0.3256,
+        "f1": 0.4506,
+        "brier_score": 0.0529,
+        "ece": 0.0199
+      },
+      "seen_buyers": {
+        "n_samples": 6755,
+        "n_pos": 764,
+        "prevalence": 0.1131,
+        "roc_auc": 0.7738,
+        "pr_auc": 0.4432,
+        "precision": 0.6436,
+        "recall": 0.3168,
+        "f1": 0.4246,
+        "brier_score": 0.0805,
+        "ece": 0.0394
+      }
+    },
+    "fraud_subtype_breakdown": {
+      "fake_listing": {
+        "n_samples": 15744,
+        "n_pos": 393,
+        "prevalence": 0.025,
+        "roc_auc": 0.8209,
+        "pr_auc": 0.4904,
+        "precision": 0.4541,
+        "recall": 0.4784,
+        "f1": 0.4659,
+        "brier_score": 0.02,
+        "ece": 0.0299
+      },
+      "return_abuse": {
+        "n_samples": 15738,
+        "n_pos": 387,
+        "prevalence": 0.0246,
+        "roc_auc": 0.9556,
+        "pr_auc": 0.5319,
+        "precision": 0.5595,
+        "recall": 0.7416,
+        "f1": 0.6378,
+        "brier_score": 0.0156,
+        "ece": 0.0317
+      },
+      "coordinated_fraud": {
+        "n_samples": 15798,
+        "n_pos": 447,
+        "prevalence": 0.0283,
+        "roc_auc": 0.8112,
+        "pr_auc": 0.0846,
+        "precision": 0.0661,
+        "recall": 0.0358,
+        "f1": 0.0464,
+        "brier_score": 0.0312,
+        "ece": 0.0177
+      },
+      "seller_buyer_collusion": {
+        "n_samples": 15659,
+        "n_pos": 308,
+        "prevalence": 0.0197,
+        "roc_auc": 0.5066,
+        "pr_auc": 0.0195,
+        "precision": 0.0088,
+        "recall": 0.0065,
+        "f1": 0.0075,
+        "brier_score": 0.0266,
+        "ece": 0.0245
+      }
+    },
+    "temporal_breakdown": {
+      "month_01": {
+        "n_samples": 27,
+        "n_pos": 27,
+        "prevalence": 1.0,
+        "roc_auc": 0.5,
+        "pr_auc": 1.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "brier_score": 0.9331,
+        "ece": 0.9654
+      },
+      "month_11": {
+        "n_samples": 6704,
+        "n_pos": 541,
+        "prevalence": 0.0807,
+        "roc_auc": 0.8022,
+        "pr_auc": 0.4335,
+        "precision": 0.6299,
+        "recall": 0.3586,
+        "f1": 0.457,
+        "brier_score": 0.0571,
+        "ece": 0.0221
+      },
+      "month_12": {
+        "n_samples": 10155,
+        "n_pos": 967,
+        "prevalence": 0.0952,
+        "roc_auc": 0.7925,
+        "pr_auc": 0.4587,
+        "precision": 0.7275,
+        "recall": 0.3092,
+        "f1": 0.434,
+        "brier_score": 0.0662,
+        "ece": 0.0309
+      }
+    }
+  }
+}

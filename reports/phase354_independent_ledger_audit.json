@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.4.0",
+  "audit_stage": "Stage 3.5.4 — Independent Ledger Integration, Crash-Safety & Adversarial Manifest Audit",
+  "audit_timestamp_utc": "2026-10-09T16:15:00Z",
+  "local_timezone": "+05:30",
+  "repository": {
+    "url": "https://github.com/Rajiv107ai/Trustshield",
+    "active_branch": "phase-3-data-generalization",
+    "baseline_commit": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "current_head": "4615a53602d0a4ffe447d4d2fd14bd69a70bf740",
+    "matches_baseline": true,
+    "working_tree_status": {
+      "uncommitted_user_modifications_preserved": true,
+      "untracked_evaluation_files_added": [
+        "trustshield_project/test_stage354_independent_ledger.py",
+        "reports/phase354_independent_ledger_audit.md",
+        "reports/phase354_independent_ledger_audit.json"
+      ],
+      "files_modified_in_audit": [
+        "trustshield_project/evaluation_gate.py"
+      ],
+      "commits_or_pushes_executed": false
+    }
+  },
+  "protected_artifacts": {
+    "scripts/generate_realistic_synthetic_data_v2_1.py": {
+      "sha256": "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_1/dataset_manifest.json": {
+      "sha256": "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_1/orders.csv": {
+      "sha256": "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f",
+      "status": "UNMUTATED"
+    },
+    "models/stage34/stage34_tabular_model.joblib": {
+      "sha256": "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
+      "status": "UNMUTATED"
+    },
+    "models/stage34/stage34_tabular_calibrator.joblib": {
+      "sha256": "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8",
+      "status": "UNMUTATED"
+    },
+    "data/synthetic_v2_2": {
+      "exists": false,
+      "status": "UNGENERATED_AND_LOCKED"
+    }
+  },
+  "container_verification": {
+    "docker_cli_version": "29.8.2, build 7fc2dff",
+    "docker_daemon_status": "INACTIVE",
+    "docker_info_exit_code": 1,
+    "error_message": "failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine; open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.",
+    "container_digest": null,
+    "digest_fabricated": false,
+    "status": "BLOCKED_DAEMON_INACTIVE_ON_HOST"
+  },
+  "remote_ledger_integration": {
+    "client_adapter": "RemoteLedgerAdapter",
+    "reference_service": "MockRemoteLedgerService",
+    "concurrency_control": "Optimistic Concurrency Control (CAS) with monotonic versioning",
+    "authentication": "Bearer API token authentication",
+    "terminal_state_enforcement": "Server-side rejection of mutations on COMPLETED or FAILED runs",
+    "fault_tolerance": "Fail-closed on network timeouts, drops, or ambiguous HTTP responses",
+    "assurance_level": {
+      "contract_tests": "VERIFIED_IN_CODE",
+      "production_cross_machine": "UNVERIFIED (Requires external evaluator service deployment)"
+    }
+  },
+  "crash_safety_and_pre_scoring_isolation": {
+    "failure_points_tested": [
+      "Prior to run claim",
+      "Contract validation failure",
+      "Manifest digest mismatch",
+      "Commitment hash mismatch",
+      "Ledger claim conflict (409)",
+      "Immediately before label access boundary",
+      "During scoring execution (matrix crash)",
+      "During terminal persistence"
+    ],
+    "label_access_isolation": "VERIFIED (Scorer call count strictly zero across all pre-scoring failure points)",
+    "post_label_crash_recovery": "VERIFIED (Run permanently marked consumed with labels_accessed=True; automatic replay strictly blocked)"
+  },
+  "adversarial_manifest_audit": {
+    "path_traversal_prevention": "VERIFIED (Absolute paths, '..', and parent segments rejected with ValueError)",
+    "symlink_escape_prevention": "VERIFIED (Symlinks pointing outside dataset root rejected with ValueError)",
+    "closed_dataset_policy": "VERIFIED (Unexpected unlisted files rejected when allow_extra_files=False)",
+    "toctou_prevention": "VERIFIED (load_and_verify_dataset_file verifies exact byte hash in memory during DataFrame parsing)",
+    "tabular_pk_integrity": "VERIFIED (Duplicate and null order IDs in CSV files rejected)"
+  },
+  "commitment_canonicalization": {
+    "data_type": "IEEE 754 64-bit float",
+    "endianness": "Explicit little-endian (<f8)",
+    "input_checks": "1D ndarray, finite values only (no NaN/Inf), bounded [0.0, 1.0]",
+    "cryptographic_nature": "Hash-based commitment scheme (not a digital signature)",
+    "status": "VERIFIED_IN_CODE"
+  },
+  "test_execution_results": {
+    "stage_354_tests": {
+      "command": ".\\.venv\\Scripts\\pytest.exe trustshield_project/test_stage354_independent_ledger.py",
+      "exit_code": 0,
+      "total": 20,
+      "passed": 20,
+      "failed": 0
+    },
+    "cumulative_phase_3_tests": {
+      "command": ".\\.venv\\Scripts\\pytest.exe trustshield_project/test_stage32_audit.py trustshield_project/test_stage32_final_gate.py trustshield_project/test_stage33_evaluation.py trustshield_project/test_stage331_audit.py trustshield_project/test_stage34_graph_ablation.py trustshield_project/test_stage341_policy_audit.py trustshield_project/test_stage342_audit_reconciliation.py trustshield_project/test_stage35_temporal_holdout_readiness.py trustshield_project/test_stage351_environment_sealing.py trustshield_project/test_stage352_gate_security.py trustshield_project/test_stage353_replay_binding.py trustshield_project/test_stage354_independent_ledger.py",
+      "exit_code": 0,
+      "total": 192,
+      "passed": 192,
+      "failed": 0,
+      "warnings": 2
+    }
+  },
+  "blockers_and_open_conditions": [
+    {
+      "id": "BLK-01",
+      "severity": "BLOCKING_FOR_UNBLINDING",
+      "title": "Docker Daemon Inactive on Host",
+      "description": "Evaluator OCI container image cannot be built or digested on this Windows host due to inactive Docker Desktop engine",
+      "owner": "MLOps Security Engineer",
+      "remediation": "Start Docker daemon on authorized build host, compile docker/Dockerfile.evaluator, and record immutable OCI digest"
+    },
+    {
+      "id": "BLK-02",
+      "severity": "SECURITY_LIMITATION",
+      "title": "Independent Remote Ledger Service Deployment Required",
+      "description": "Cross-machine replay resistance is verified in contract tests, but requires deployment of an independent evaluator ledger microservice outside developer reach",
+      "owner": "Evaluator & Security Architect",
+      "remediation": "Deploy the verified RemoteLedgerAdapter service endpoint on independent evaluator infrastructure"
+    },
+    {
+      "id": "BLK-03",
+      "severity": "BLOCKING_FOR_GENERATION",
+      "title": "Holdout v2.2 Generation Authorization",
+      "description": "Synthetic Dataset v2.2 generator does not exist and holdout labels remain ungenerated pending independent evaluator CSPRNG seed escrow",
+      "owner": "Governance Board & Evaluator",
+      "remediation": "Sign off on Independent Evaluator Checklist, escrow random seed and decryption keys, and authorize generation"
+    }
+  ],
+  "readiness_decision": {
+    "status": "CONDITIONALLY READY",
+    "rationale": "External ledger client, CAS concurrency control, crash safety, TOCTOU elimination, and manifest security are fully implemented and verified in code with 192 passing regression tests. Status remains conditionally ready pending container build on an active Docker host and independent remote ledger service deployment.",
+    "holdout_data_status": "SYNTHETIC_DATASET_V2_2_UNGENERATED_AND_UNBLINDED"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "status": "PASS",
+  "checks": {
+    "date_bounds": {
+      "orders_range": [
+        "2025-01-01 00:00:00",
+        "2025-12-31 00:00:00"
+      ],
+      "returns_range": [
+        "2025-01-13 00:00:00",
+        "2025-12-31 00:00:00"
+      ],
+      "listings_range": [
+        "2025-01-01 00:00:00",
+        "2025-12-30 00:00:00"
+      ],
+      "date_overflow_count": 0,
+      "passed": true
+    },
+    "chronological_order": {
+      "order_before_listing_violations": 0,
+      "return_before_order_violations": 0,
+      "order_before_buyer_signup_violations": 0,
+      "passed": true
+    },
+    "duplicates": {
+      "duplicate_counts": {
+        "orders": 0,
+        "listings": 0,
+        "returns": 0,
+        "buyers": 0,
+        "sellers": 0,
+        "products": 0
+      },
+      "passed": true
+    },
+    "id_leakage": {
+      "leaking_id_counts": {
+        "orders": 0,
+        "listings": 0,
+        "returns": 0,
+        "buyers": 0,
+        "sellers": 0
+      },
+      "passed": true
+    },
+    "return_delay_overlap": {
+      "legit_mean": 8.48,
+      "legit_std": 5.99,
+      "fraud_mean": 6.85,
+      "fraud_std": 4.63,
+      "ks_statistic": 0.1382,
+      "cohens_d": -0.3036,
+      "single_feature_auc": 0.562,
+      "passed": true
+    },
+    "buyer_return_rate_overlap": {
+      "legit_mean": 0.0905,
+      "fraud_mean": 0.2843,
+      "ks_statistic": 0.5623,
+      "cohens_d": 1.2968,
+      "passed": true
+    }
+  }
+}

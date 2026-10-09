@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ from backend.model_loader import store
 
 
 def calc_f1_default(y: np.ndarray, p: np.ndarray) -> float:
-    return float(f1_score(y, (p >= 0.5).astype(int), zero_division=0))
+    return float(f1_score(y, (p >= 0.5).astype(int), zero_division=cast(Any, 0)))
 
 
 def calc_brier(y: np.ndarray, p: np.ndarray) -> float:
@@ -80,7 +80,7 @@ def main():
     # Model inference on test split
     meta = store.feature_meta
     cols_to_use = meta.get("all_feature_cols", feature_cols) if meta is not None else feature_cols
-    X_test = test_df.reindex(columns=cols_to_use, fill_value=0.0).fillna(0.0)
+    X_test = test_df.reindex(cols_to_use, axis=1, fill_value=0.0).fillna(0.0)
 
     raw_probs = np.asarray(store.combined_graph_model.predict_proba(X_test))[:, 1]
     if store.calibrator is not None:
@@ -113,7 +113,7 @@ def main():
         y_sim, p_sim = simulate_prevalence_shift(y_test, cal_probs, target_prevalence=target_p, seed=42)
         roc = float(roc_auc_score(y_sim, p_sim))
         pr = float(average_precision_score(y_sim, p_sim))
-        f1 = float(f1_score(y_sim, (p_sim >= 0.5).astype(int), zero_division=0))
+        f1 = float(f1_score(y_sim, (p_sim >= 0.5).astype(int), zero_division=cast(Any, 0)))
         brier = float(brier_score_loss(y_sim, p_sim))
 
         prev_results.append({
@@ -143,7 +143,7 @@ def main():
         idx = rng.choice(len(y_test), size=int(len(y_test) * 0.8), replace=False)
         seed_roc_scores.append(float(roc_auc_score(y_test[idx], cal_probs[idx])))
         seed_pr_scores.append(float(average_precision_score(y_test[idx], cal_probs[idx])))
-        seed_f1_scores.append(float(f1_score(y_test[idx], (cal_probs[idx] >= 0.5).astype(int), zero_division=0)))
+        seed_f1_scores.append(float(f1_score(y_test[idx], (cal_probs[idx] >= 0.5).astype(int), zero_division=cast(Any, 0))))
 
     roc_summary = multiseed_summary(seed_roc_scores)
     pr_summary = multiseed_summary(seed_pr_scores)
