@@ -252,17 +252,17 @@ cd Trustshield
 # Create and activate Python virtual environment
 python -m venv .venv
 
-# Windows (PowerShell):
-.\.venv\Scripts\Activate.ps1
+# Windows (PowerShell - Direct execution without policy changes):
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Alternative (Activate environment first):
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser  # Run once if scripts are disabled
+# .\.venv\Scripts\Activate.ps1
+# uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Linux / macOS:
 # source .venv/bin/activate
-
-# Install dependencies (includes cryptography>=42.0)
-pip install -r requirements.txt
-
-# Start the FastAPI serving gateway
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+# uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 * **Interactive OpenAPI Docs**: `http://localhost:8000/docs`
 * **Health Check**: `http://localhost:8000/health`
