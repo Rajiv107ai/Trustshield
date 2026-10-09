@@ -122,25 +122,25 @@ export default function EvaluationStudioPage() {
           <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
             <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-center">
               <div className="text-[10px] uppercase text-[#8995A3]">True Positives (Blocked Fraud)</div>
-              <div className="text-2xl font-bold text-emerald-400 mt-1">{tp.toLocaleString()}</div>
+              <div suppressHydrationWarning className="text-2xl font-bold text-emerald-400 mt-1">{tp.toLocaleString("en-US")}</div>
               <div className="text-[10px] text-emerald-300 mt-0.5">Fraud caught successfully</div>
             </div>
 
             <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/30 text-center">
               <div className="text-[10px] uppercase text-[#8995A3]">False Positives (User Friction)</div>
-              <div className="text-2xl font-bold text-rose-400 mt-1">{fp.toLocaleString()}</div>
+              <div suppressHydrationWarning className="text-2xl font-bold text-rose-400 mt-1">{fp.toLocaleString("en-US")}</div>
               <div className="text-[10px] text-rose-300 mt-0.5">Good users challenged</div>
             </div>
 
             <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
               <div className="text-[10px] uppercase text-[#8995A3]">False Negatives (Missed Fraud)</div>
-              <div className="text-2xl font-bold text-amber-400 mt-1">{fn.toLocaleString()}</div>
+              <div suppressHydrationWarning className="text-2xl font-bold text-amber-400 mt-1">{fn.toLocaleString("en-US")}</div>
               <div className="text-[10px] text-amber-300 mt-0.5">Chargebacks incurred</div>
             </div>
 
             <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-center">
               <div className="text-[10px] uppercase text-[#8995A3]">True Negatives (Clean Allows)</div>
-              <div className="text-2xl font-bold text-blue-400 mt-1">{tn.toLocaleString()}</div>
+              <div suppressHydrationWarning className="text-2xl font-bold text-blue-400 mt-1">{tn.toLocaleString("en-US")}</div>
               <div className="text-[10px] text-blue-300 mt-0.5">Frictionless checkouts</div>
             </div>
           </div>

@@ -102,6 +102,7 @@ pytest trustshield_project/test_core_fixes.py -v
 ## 📚 Governance & Research Documentation
 
 Detailed scientific audit logs and architectural reports are maintained in [`docs/`](../docs/README.md):
+- [**System Design & Core Specifications**](../docs/SPECIFICATIONS.md)
 - [**Master Technical Repair Report**](../docs/FINAL_REPAIR_REPORT.md)
 - [**Repair Baseline State**](../docs/REPAIR_BASELINE.md)
 - [**Phase 0: Baseline Audit**](../docs/BASELINE_AUDIT.md)

@@ -5,7 +5,7 @@ import { useViewMode } from "@/context/ViewModeContext";
 import { Search, Sparkles, Microscope, CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
 
 export function Header() {
-  const { viewMode, setViewMode, isLive, apiUrl, refreshHealth } = useViewMode();
+  const { viewMode, setViewMode, isLive, apiUrl, refreshHealth, setSearchOpen } = useViewMode();
 
   return (
     <header className="h-16 border-b border-[#202A35] bg-[#0E131A] px-6 flex items-center justify-between sticky top-0 z-30 select-none">
@@ -46,10 +46,7 @@ export function Header() {
       <div className="flex items-center gap-3">
         {/* Search Modal Trigger */}
         <button
-          onClick={() => {
-            const event = new KeyboardEvent("keydown", { key: "k", metaKey: true });
-            window.dispatchEvent(event);
-          }}
+          onClick={() => setSearchOpen(true)}
           className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#111821] hover:bg-[#151D27] border border-[#202A35] text-xs text-[#8995A3] transition-all"
         >
           <Search className="w-3.5 h-3.5 text-[#596574]" />
@@ -60,29 +57,43 @@ export function Header() {
         </button>
 
         {/* DUAL-AUDIENCE GLOBAL VIEW TOGGLE */}
-        <div className="flex items-center p-0.5 bg-[#0A0E13] border border-[#202A35] rounded-lg">
-          <button
-            onClick={() => setViewMode("executive")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              viewMode === "executive"
-                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-semibold"
-                : "text-[#8995A3] hover:text-[#E8EDF3]"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Story View</span>
-          </button>
-          <button
-            onClick={() => setViewMode("inspector")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              viewMode === "inspector"
-                ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm font-semibold"
-                : "text-[#8995A3] hover:text-[#E8EDF3]"
-            }`}
-          >
-            <Microscope className="w-3.5 h-3.5" />
-            <span>AI Inspector</span>
-          </button>
+        <div className="flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-1 text-[11px] font-mono text-[#8995A3]">
+            <span className="text-[#596574]">Active:</span>
+            <span
+              suppressHydrationWarning
+              className={`font-semibold ${viewMode === "executive" ? "text-blue-400" : "text-purple-400"}`}
+            >
+              {viewMode === "executive" ? "Executive ROI" : "Deep ML Forensics"}
+            </span>
+          </div>
+
+          <div className="flex items-center p-0.5 bg-[#0A0E13] border border-[#202A35] rounded-lg">
+            <button
+              suppressHydrationWarning
+              onClick={() => setViewMode("executive")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                viewMode === "executive"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-semibold"
+                  : "text-[#8995A3] hover:text-[#E8EDF3]"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Story View</span>
+            </button>
+            <button
+              suppressHydrationWarning
+              onClick={() => setViewMode("inspector")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                viewMode === "inspector"
+                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm font-semibold"
+                  : "text-[#8995A3] hover:text-[#E8EDF3]"
+              }`}
+            >
+              <Microscope className="w-3.5 h-3.5" />
+              <span>AI Inspector</span>
+            </button>
+          </div>
         </div>
       </div>
     </header>

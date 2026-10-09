@@ -517,7 +517,10 @@ def score_transaction(req: TransactionScoreRequest):
             evidence_availability={
                 "tabular": True,
                 "graph": bool(req.share_degree > 0 or req.buyer_pagerank > 0),
-                "gnn_embeddings": bool(req.buyer_id in store.buyer_embeddings or req.seller_id in store.seller_embeddings),
+                "gnn_embeddings": bool(
+                    (req.buyer_id and req.buyer_id in store.buyer_embeddings)
+                    or (req.seller_id and req.seller_id in store.seller_embeddings)
+                ),
                 "multimodal": req.multimodal_similarity_score is not None,
                 "calibrator_active": store.phase5_calibrator is not None,
                 "shap_active": shap_attrs is not None,

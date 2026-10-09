@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getBaseApiUrl, setBaseApiUrl, TrustShieldApi } from "@/lib/api/client";
 import { ReadyResponse } from "@/lib/types/api";
 
@@ -22,19 +22,53 @@ interface ViewModeContextType {
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
+  // Initialize with deterministic defaults to prevent SSR/client hydration mismatch
   const [viewMode, setViewModeState] = useState<ViewMode>("executive");
-  const [apiUrl, setApiUrlState] = useState<string>("http://localhost:8000");
+  const [apiUrl, setApiUrlState] = useState<string>(() =>
+    (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "")
+  );
   const [isLive, setIsLive] = useState<boolean>(false);
   const [readyInfo, setReadyInfo] = useState<ReadyResponse | null>(null);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    const savedMode = localStorage.getItem("trustshield_view_mode") as ViewMode | null;
-    if (savedMode === "executive" || savedMode === "inspector") {
-      setViewModeState(savedMode);
+  const refreshHealth = useCallback(async () => {
+    try {
+      const readyRes = await TrustShieldApi.getReady();
+      setIsLive(readyRes.isLive);
+      setReadyInfo(readyRes.data);
+    } catch {
+      setIsLive(false);
     }
-    setApiUrlState(getBaseApiUrl());
-    refreshHealth();
+  }, []);
+
+  useEffect(() => {
+    // Read persisted view mode & API URL on client mount after hydration has completed
+    try {
+      const savedMode = localStorage.getItem("trustshield_view_mode") as ViewMode | null;
+      if (savedMode === "executive" || savedMode === "inspector") {
+        setViewModeState(savedMode);
+      }
+    } catch {
+      // Ignore localStorage access errors (e.g. sandboxed iframe or private browsing)
+    }
+
+    try {
+      setApiUrlState(getBaseApiUrl());
+    } catch {
+      // Ignore
+    }
+
+    let mounted = true;
+    TrustShieldApi.getReady()
+      .then((readyRes) => {
+        if (mounted) {
+          setIsLive(readyRes.isLive);
+          setReadyInfo(readyRes.data);
+        }
+      })
+      .catch(() => {
+        if (mounted) setIsLive(false);
+      });
 
     // Hotkey handler for ⌘K / Ctrl+K
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -44,12 +78,19 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      mounted = false;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const setViewMode = (mode: ViewMode) => {
     setViewModeState(mode);
-    localStorage.setItem("trustshield_view_mode", mode);
+    try {
+      localStorage.setItem("trustshield_view_mode", mode);
+    } catch {
+      // Ignore
+    }
   };
 
   const toggleViewMode = () => {
@@ -61,16 +102,6 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
     setBaseApiUrl(url);
     setApiUrlState(url);
     refreshHealth();
-  };
-
-  const refreshHealth = async () => {
-    try {
-      const readyRes = await TrustShieldApi.getReady();
-      setIsLive(readyRes.isLive);
-      setReadyInfo(readyRes.data);
-    } catch {
-      setIsLive(false);
-    }
   };
 
   return (

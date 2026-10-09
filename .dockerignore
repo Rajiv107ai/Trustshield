@@ -23,3 +23,34 @@ docs/
 *.md
 pyrightconfig.json
 pytest.ini
+
+# Large datasets and archives
+data/
+**/data/
+*.tar
+*.tar.gz
+*.zip
+*.7z
+*.rar
+
+# Frontend build/dependency artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/build/
+
+# Generated outputs
+outputs/
+artifacts/
+logs/
+*.log
+
+# Notebooks / local experiments
+*.ipynb
+.ipynb_checkpoints/
+
+# IDE / OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

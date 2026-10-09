@@ -37,32 +37,19 @@ function TransactionAnalyzerContent() {
   const searchParams = useSearchParams();
   const { viewMode, isLive } = useViewMode();
 
+  const presetParam = searchParams.get("preset");
+  const initialPreset = (presetParam && SCENARIO_PRESETS.find((p) => p.id === presetParam)) || SCENARIO_PRESETS[0];
+
   // Active form state
   const [formData, setFormData] = useState<TransactionScoreRequest>(
-    SCENARIO_PRESETS[0].payload
+    initialPreset.payload
   );
   const [activePresetId, setActivePresetId] = useState<string>(
-    SCENARIO_PRESETS[0].id
+    initialPreset.id
   );
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [result, setResult] = useState<TransactionScoreResponse | null>(null);
   const [operatorActionSuccess, setOperatorActionSuccess] = useState<string | null>(null);
-
-  // Initialize from preset or URL query param
-  useEffect(() => {
-    const presetParam = searchParams.get("preset");
-    if (presetParam) {
-      const match = SCENARIO_PRESETS.find((p) => p.id === presetParam);
-      if (match) {
-        setFormData(match.payload);
-        setActivePresetId(match.id);
-        executeScore(match.payload);
-        return;
-      }
-    }
-    // Default initial execution
-    executeScore(SCENARIO_PRESETS[0].payload);
-  }, [searchParams]);
 
   const executeScore = async (payload: TransactionScoreRequest) => {
     setLoading(true);
@@ -77,13 +64,33 @@ function TransactionAnalyzerContent() {
     }
   };
 
+  useEffect(() => {
+    let mounted = true;
+    TrustShieldApi.scoreTransaction(initialPreset.payload)
+      .then((res) => {
+        if (mounted) {
+          setResult(res.data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (mounted) {
+          console.error("Scoring failed:", err);
+          setLoading(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [initialPreset]);
+
   const handleSelectPreset = (preset: ScenarioPreset) => {
     setActivePresetId(preset.id);
     setFormData(preset.payload);
     executeScore(preset.payload);
   };
 
-  const handleInputChange = (field: keyof TransactionScoreRequest, value: any) => {
+  const handleInputChange = (field: keyof TransactionScoreRequest, value: unknown) => {
     const next = { ...formData, [field]: value };
     setFormData(next);
   };

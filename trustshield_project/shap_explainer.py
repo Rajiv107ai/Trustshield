@@ -42,8 +42,12 @@ FEATURE_FRIENDLY_NAMES: Dict[str, str] = {
     "price_vs_category_median_ratio": "Price vs Category Median Ratio",
     "device_shared_buyer_count": "Device Collision Count (Shared Buyers)",
     "seller_total_listings_before": "Seller Listing Catalog Breadth",
+    "seller_listings_before": "Prior Seller Listings Count",
     "seller_age_days": "Seller Account Age (Days)",
+    "seller_age_days_at_listing": "Seller Account Age at Listing (Days)",
     "buyer_age_days": "Buyer Account Age (Days)",
+    "buyer_age_days_at_return": "Buyer Account Age at Return (Days)",
+    "seller_age_days_at_return": "Seller Account Age at Return (Days)",
     "amount": "Order Dollar Amount",
     "order_amount": "Order Dollar Amount",
     "buyer_pagerank": "Buyer Graph Centrality (PageRank)",
@@ -53,6 +57,18 @@ FEATURE_FRIENDLY_NAMES: Dict[str, str] = {
     "seller_buyer_concentration_hhi": "Merchant-Buyer Concentration Index (HHI)",
     "buyer_seller_edge_weight_before": "Historical Repeat Transaction Count",
     "multimodal_similarity_score": "Visual-Semantic Listing Consistency (CLIP)",
+    "days_to_return": "Days Elapsed from Delivery to Return",
+    "buyer_prior_returns": "Buyer Prior Return Claims",
+    "buyer_orders_before_return": "Buyer Completed Orders Prior to Return",
+    "seller_prior_returns": "Seller Return Claims Incurred",
+    "seller_orders_before_return": "Seller Orders Fulfilled Prior to Return",
+    "seller_return_rate_before": "Seller Historical Return Rate",
+    "reason_defective": "Return Claim Reason: Defective",
+    "reason_changed_mind": "Return Claim Reason: Remorse",
+    "reason_size_issue": "Return Claim Reason: Sizing",
+    "reason_wrong_item_received": "Return Claim Reason: Wrong Item",
+    "gnn_cosine_sim_ring": "Cosine Proximity to Fraud Ring Centroid",
+    "gnn_risk_prob": "GNN Neighborhood Risk Score",
 }
 
 
@@ -122,7 +138,7 @@ class TrustShieldSHAPExplainer:
             row_data = {col: float(features.get(col, 0.0) or 0.0) for col in self.feature_names}
             X = pd.DataFrame([row_data])[self.feature_names]
         elif isinstance(features, pd.DataFrame):
-            X = features.reindex(columns=self.feature_names, fill_value=0.0).iloc[[0]]
+            X = features.reindex(columns=self.feature_names, fill_value=0.0).fillna(0.0).iloc[[0]]
         else:
             raise ValueError(f"Unsupported features type: {type(features)}")
 
