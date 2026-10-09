@@ -1,0 +1,59 @@
+{
+  "champion_model": "late_fusion",
+  "action_thresholds": {
+    "allow_cutoff": 0.08,
+    "review_cutoff": 0.25,
+    "hold_cutoff": 0.6
+  },
+  "cost_model": {
+    "manual_review_cost_c_fp": 10.0,
+    "fraud_loss_cost_c_fn": 150.0
+  },
+  "cost_optimal_threshold": 0.07,
+  "capacity_operating_points": {
+    "capacity_1_pct": {
+      "target_capacity_pct": 1.0,
+      "operational_threshold": 0.2,
+      "achieved_volume_pct": 0.34,
+      "flagged_orders": 41,
+      "precision": 0.3659,
+      "recall": 0.0176,
+      "fraud_caught": 15,
+      "fraud_missed": 839,
+      "false_alarms": 26
+    },
+    "capacity_2_pct": {
+      "target_capacity_pct": 2.0,
+      "operational_threshold": 0.2,
+      "achieved_volume_pct": 0.34,
+      "flagged_orders": 41,
+      "precision": 0.3659,
+      "recall": 0.0176,
+      "fraud_caught": 15,
+      "fraud_missed": 839,
+      "false_alarms": 26
+    },
+    "capacity_5_pct": {
+      "target_capacity_pct": 5.0,
+      "operational_threshold": 0.13,
+      "achieved_volume_pct": 5.76,
+      "flagged_orders": 699,
+      "precision": 0.1888,
+      "recall": 0.1546,
+      "fraud_caught": 132,
+      "fraud_missed": 722,
+      "false_alarms": 567
+    },
+    "capacity_10_pct": {
+      "target_capacity_pct": 10.0,
+      "operational_threshold": 0.11,
+      "achieved_volume_pct": 9.16,
+      "flagged_orders": 1111,
+      "precision": 0.1665,
+      "recall": 0.2166,
+      "fraud_caught": 185,
+      "fraud_missed": 669,
+      "false_alarms": 926
+    }
+  }
+}

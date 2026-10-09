@@ -1,0 +1,68 @@
+{
+  "generator": "generate_realistic_synthetic_data_v2.py",
+  "timestamp": "2026-10-09T11:40:22Z",
+  "random_seed": 42,
+  "elapsed_seconds": 9.73,
+  "files": {
+    "addresses.csv": {
+      "row_count": 4950,
+      "file_size": 168343,
+      "sha256": "6bd1810838f5fff64f253d9a022f3cb69e3a87a65713a699f5d032ef2e2385cc"
+    },
+    "devices.csv": {
+      "row_count": 5000,
+      "file_size": 185046,
+      "sha256": "fbff496bad859c4350faae2fc9488461a8d775f0399f73e5b4efb0efd5aef964"
+    },
+    "device_mapping.csv": {
+      "row_count": 5400,
+      "file_size": 157031,
+      "sha256": "1a3f407894352f20e8dbeb411bf72b2365cb2d1f8864362c62c40cd2d499d922"
+    },
+    "address_sharing_log.csv": {
+      "row_count": 600,
+      "file_size": 47216,
+      "sha256": "3dbb37724809f52b43b4efb9a7d515acc831baf8e324693961f8b35293f45e07"
+    },
+    "device_sharing_log.csv": {
+      "row_count": 400,
+      "file_size": 31275,
+      "sha256": "ca793a5509e9290dc18bb1988cc130fc6d66895252bee16799dc56bda5147a6f"
+    },
+    "buyers.csv": {
+      "row_count": 5000,
+      "file_size": 277781,
+      "sha256": "6c637537e6635583a407945e62b6345645debf5735853d988c05f0d6d0ba790f"
+    },
+    "sellers.csv": {
+      "row_count": 500,
+      "file_size": 37440,
+      "sha256": "1753d62c81f67d7ce71c330526e4b155ebe67076b16e99a843d8c685086f205e"
+    },
+    "products.csv": {
+      "row_count": 3000,
+      "file_size": 527904,
+      "sha256": "b699e4e80d59d50e48d912273b868d523d3180fcb52615ecda6898fefa02afa7"
+    },
+    "listings.csv": {
+      "row_count": 20000,
+      "file_size": 1631391,
+      "sha256": "36baf952356704ef8919901ef9cb6b6b7d9694194e3dbf4e09615ce0c9b40d8d"
+    },
+    "orders.csv": {
+      "row_count": 50000,
+      "file_size": 5616265,
+      "sha256": "98f6245d1cfd2ab86b0ad3757faf0064f57486cff622433ebe4538ad08a82d43"
+    },
+    "returns.csv": {
+      "row_count": 5943,
+      "file_size": 574746,
+      "sha256": "6e0301d08cf1e3c6222ceb77a0becb297a1ddf2c505ad4b2c1b9a7865aa5dc35"
+    },
+    "fraud_ground_truth.csv": {
+      "row_count": 2150,
+      "file_size": 136006,
+      "sha256": "6b0288de85c6b93c2d00c959d40042623a3074386797c3346879743f41aea5d1"
+    }
+  }
+}
