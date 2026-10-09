@@ -176,7 +176,7 @@ export default function ModelRegistryPage() {
                   <td className="py-2.5 px-3 text-[#8995A3]">{(bin.pred * 100).toFixed(0)}%</td>
                   <td className="py-2.5 px-3 text-rose-400">{(bin.rawAcc * 100).toFixed(1)}%</td>
                   <td className="py-2.5 px-3 text-emerald-400 font-bold">{(bin.calAcc * 100).toFixed(1)}%</td>
-                  <td className="py-2.5 px-3 text-[#8995A3]">{bin.count.toLocaleString()}</td>
+                  <td suppressHydrationWarning className="py-2.5 px-3 text-[#8995A3]">{bin.count.toLocaleString("en-US")}</td>
                   <td className="py-2.5 px-3 text-right text-emerald-400 font-semibold">
                     {Math.abs(bin.pred - bin.calAcc).toFixed(3)}
                   </td>

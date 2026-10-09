@@ -28,7 +28,7 @@ export interface ReadyResponse {
   redis_ready?: boolean;
   neo4j_ready?: boolean;
   components?: Record<string, string>;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 // 2. Transaction Scoring
@@ -86,7 +86,7 @@ export interface TransactionScoreResponse {
   evidence_availability?: Record<string, boolean>;
   infrastructure_sources?: Record<string, string>;
   shap_attributions?: Record<string, number>;
-  top_risk_drivers?: Array<Record<string, any>>;
+  top_risk_drivers?: Array<Record<string, unknown>>;
 }
 
 // 3. Fraud Rings
@@ -130,7 +130,7 @@ export interface ListingScoreResponse {
   model_used: string;
   clip_scored: boolean;
   multimodal_similarity_score: number;
-  investigator_narrative: Record<string, any>;
+  investigator_narrative: Record<string, unknown>;
 }
 
 // 5. Return Abuse Scoring
@@ -165,7 +165,7 @@ export interface ReturnScoreResponse {
 export interface DossierRequest {
   entity_type: "transaction" | "order" | "buyer" | "seller" | "ring" | string;
   entity_id: string;
-  transaction_data?: Record<string, any>;
+  transaction_data?: Record<string, unknown>;
   include_graph_evidence?: boolean;
 }
 
@@ -187,7 +187,7 @@ export interface DossierModelInference {
   conformal_prediction_set: string;
   triggered_reason_codes: string[];
   shap_attributions?: Record<string, number>;
-  top_risk_drivers?: Array<Record<string, any>>;
+  top_risk_drivers?: Array<Record<string, unknown>>;
   shap_narrative?: string;
 }
 
@@ -196,7 +196,7 @@ export interface DossierGraphFindings {
   cluster_id?: string;
   cluster_size: number;
   topology_summary: string;
-  suspicious_relationships: Array<Record<string, any>>;
+  suspicious_relationships: Array<Record<string, unknown>>;
 }
 
 export interface DossierRecommendation {
@@ -256,7 +256,7 @@ export interface BenchmarkItem {
 
 export interface SystemBenchmarkResponse {
   status: string;
-  benchmarks: {
+  benchmarks?: {
     hybrid_inference?: BenchmarkItem;
     trust_engine_scoring?: BenchmarkItem;
     redis_get_embedding?: BenchmarkItem;
@@ -276,8 +276,8 @@ export interface FeatureShapDriver {
 
 export interface TransactionExplainRequest {
   order_id?: string;
-  transaction_data?: Record<string, any>;
-  [key: string]: any;
+  transaction_data?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface TransactionExplainResponse {

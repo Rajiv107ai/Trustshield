@@ -204,7 +204,7 @@ This benchmark empirically profiles three volume tiers:
         gen_time = round(r["entity_gen_s"] + r["catalog_gen_s"] + r["orders_gen_s"] + r["fraud_inject_s"], 2)
         md += f"| **{r['tier']}** | {r['sellers']:,} | {r['buyers']:,} | {r['orders']:,} | {gen_time}s | {r['feature_eng_s']}s | {r['graph_construct_s']}s | {r['total_time_s']}s | {r['peak_memory_mb']} MB | {r['inference_throughput_qps']:,} req/s |\n"
 
-    md += """
+    md += f"""
 ---
 
 ## 3. Detailed Component Breakdown

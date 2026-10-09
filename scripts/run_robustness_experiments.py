@@ -79,7 +79,7 @@ def main():
 
     # Model inference on test split
     meta = store.feature_meta
-    cols_to_use = meta.get("all_feature_cols", feature_cols)
+    cols_to_use = meta.get("all_feature_cols", feature_cols) if meta is not None else feature_cols
     X_test = test_df.reindex(columns=cols_to_use, fill_value=0.0).fillna(0.0)
 
     raw_probs = np.asarray(store.combined_graph_model.predict_proba(X_test))[:, 1]
@@ -197,7 +197,7 @@ This report presents **non-parametric bootstrap confidence intervals (1,000 resa
     for r in prev_results:
         md += f"| **{r['target_prevalence']}** | {r['target_prevalence']} | {r['actual_prevalence']} | {r['samples']:,} | `{r['roc_auc']:.4f}` | `{r['pr_auc']:.4f}` | `{r['f1']:.4f}` | `{r['brier']:.4f}` |\n"
 
-    md += f"""
+    md += rf"""
 ### Key Mathematical Observations:
 1. **Prevalence Invariance of ROC-AUC:** As theoretically expected, ROC-AUC remains largely constant across class ratios (~`{prev_results[0]['roc_auc']:.4f}` at 1% vs. `{prev_results[-1]['roc_auc']:.4f}` at 15%), confirming that true-positive / false-positive trade-offs do not degrade under base-rate shifts.
 2. **PR-AUC Proportional Scaling:** PR-AUC naturally scales from `{prev_results[0]['pr_auc']:.4f}` (at 1% baseline) to `{prev_results[-1]['pr_auc']:.4f}` (at 15% attack surge), reflecting the rising baseline chance constraint $P(Y=1)$.

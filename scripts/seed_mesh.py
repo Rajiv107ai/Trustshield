@@ -150,8 +150,14 @@ def generate_cypher_statements(
         statements.append(f"MERGE (d:Device {{id: '{shared_dev}'}});")
         statements.append(f"MERGE (a:Address {{id: '{shared_addr}'}});")
         statements.append(f"MERGE (s:Seller {{id: '{collusion_seller}', seller_id: '{collusion_seller}'}});")
-        statements.append(f"MERGE (s)-[:USES_DEVICE {{first_seen_date: date()}}]->(d);")
-        statements.append(f"MERGE (s)-[:USES_ADDRESS]->(a);")
+        statements.append(
+            f"MATCH (s:Seller {{id: '{collusion_seller}'}}), (d:Device {{id: '{shared_dev}'}}) "
+            f"MERGE (s)-[:USES_DEVICE {{first_seen_date: date()}}]->(d);"
+        )
+        statements.append(
+            f"MATCH (s:Seller {{id: '{collusion_seller}'}}), (a:Address {{id: '{shared_addr}'}}) "
+            f"MERGE (s)-[:USES_ADDRESS]->(a);"
+        )
 
         for m in members:
             b_id = str(m)
@@ -394,7 +400,7 @@ def seed_redis(
         client = redis.Redis.from_url(redis_url, decode_responses=True)
         pipe = client.pipeline(transaction=False)
         for cmd, args in commands:
-            getattr(pipe, cmd.lower())(*args)
+            pipe.execute_command(cmd, *args)
         pipe.execute()
         print(f"Successfully loaded {len(commands)} keys/structures into Redis via pipeline.")
         return True

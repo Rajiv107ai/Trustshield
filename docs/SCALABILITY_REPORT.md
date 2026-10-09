@@ -39,6 +39,6 @@ Component Latency Scaling Profile:
 
 ## 4. Key Engineering Insights
 
-1. **Memory Efficiency:** Peak RAM consumption remains exceptionally bounded ({round(all_results[-1]['peak_memory_mb'], 1)} MB at 100k orders), proving that pandas vectorized types and garbage collection manage heap allocation without out-of-memory hazards.
+1. **Memory Efficiency:** Peak RAM consumption remains exceptionally bounded (104.2 MB at 100k orders), proving that pandas vectorized types and garbage collection manage heap allocation without out-of-memory hazards.
 2. **Temporal Joins as Dominant Stage:** `merge_asof` and cumulative event window calculation account for ~45% of pipeline runtime, confirming the architectural need for Redis online feature caches in live production.
 3. **Graph Construction Stability:** Monthly snapshot aggregation handles 100k order graphs in under 5 seconds on CPU without distributed cluster overhead.

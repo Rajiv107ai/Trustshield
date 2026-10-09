@@ -51,8 +51,8 @@ This directory serves as the centralized repository for all engineering audits, 
   Baseline state before deploying Phase 2 advanced research algorithms.
 - [**Phase 2: Production Roadmap (`PHASE2_ROADMAP.md`)**](PHASE2_ROADMAP.md)  
   Strategic engineering design for high-throughput streaming (Apache Kafka, Apache Flink) and enterprise graph databases (Neo4j).
-- [**Architecture Blueprint (`architecture.md`)**](architecture.md) & [**Design Specifications (`design.md`)**](design.md)  
-  System topology, component interaction patterns, and data flow specifications.
+- [**System Design & Core Specifications (`SPECIFICATIONS.md`)**](SPECIFICATIONS.md)  
+  Unified foundational specification covering the 8-entity relational model, pipeline dependency DAG, synthetic fraud typologies, snapshot graph design, anti-leakage invariants, and verification protocols.
 
 ---
 
@@ -63,14 +63,12 @@ This directory serves as the centralized repository for all engineering audits, 
   Standardized AI governance card detailing intended use, prohibited applications, training data distributions, fairness evaluations, and ethical considerations.
 - [**Technical Limitations & Disclosure (`LIMITATIONS.md`)**](LIMITATIONS.md)  
   Explicit boundary conditions, cold-start limitations, throughput boundaries, and operational assumptions.
-- [**Testing Protocols (`testing.md`)**](testing.md)  
-  Guidelines for running unit, integration, temporal leakage, and regression test suites.
-- [**Project Rules & Conventions (`rules.md`)**](rules.md)  
-  Coding standards, temporal safety invariants, and commit conventions.
 
 ---
 
 ### 🎨 5. Enterprise Frontend & UX Specification
+- [**Frontend Implementation Report (`../frontend/FRONTEND_IMPLEMENTATION_REPORT.md`)**](../frontend/FRONTEND_IMPLEMENTATION_REPORT.md)  
+  Enterprise console architecture, 12 Next.js views, Dual-Audience switch, and zero-fake-data backend grounding.
 - [**Frontend Master Prompts Package (`../frontend_master_prompts/README.md`)**](../frontend_master_prompts/README.md)  
   Production-grade frontend specifications for autonomous UI creation:
   - `00_MASTER_FRONTEND_PROMPT.md`: 12 enterprise console views with strict Zero-Fake-Data backend grounding.

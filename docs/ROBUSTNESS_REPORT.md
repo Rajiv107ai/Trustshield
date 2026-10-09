@@ -1,6 +1,6 @@
 # TrustShield AI — Robustness, Confidence Intervals & Prevalence Sensitivity Report
 
-> **Execution Date:** October 07, 2026 (21:27 UTC)  
+> **Execution Date:** October 08, 2026 (07:41 UTC)  
 > **Evaluation Split:** Months 11–12 Out-of-Time Test Set (16,886 orders)  
 > **Model Evaluated:** Calibrated Production Graph + Tabular XGBoost / RF Pipeline  
 > **Scope:** Audited under Fix Pack Items FIX-19 (Bootstrap CIs), FIX-20 (Multi-Seed), and FIX-21 (Prevalence Sensitivity).
@@ -57,5 +57,5 @@ This report presents **non-parametric bootstrap confidence intervals (1,000 resa
 
 ## 5. Verification Conclusion
 
-- **Zero Overfitting to Random Seed:** The narrow standard deviation ($\sigma pprox 0.0037$) proves results are robust and not an artifact of random data splits.
+- **Zero Overfitting to Random Seed:** The narrow standard deviation ($\sigma \approx 0.0037$) proves results are robust and not an artifact of random data splits.
 - **Auditable Evidence:** All experiments were generated deterministically and without synthetic data fabrication.

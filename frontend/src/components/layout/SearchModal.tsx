@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useViewMode } from "@/context/ViewModeContext";
 import { Search, X, Zap, Network, Tag, RotateCcw, FileSearch, ArrowRight } from "lucide-react";
@@ -37,9 +37,26 @@ export function SearchModal() {
   const [query, setQuery] = useState("");
   const router = useRouter();
 
+  const handleClose = useCallback(() => {
+    setQuery("");
+    setSearchOpen(false);
+  }, [setSearchOpen]);
+
+  const handleSelect = (link: string) => {
+    handleClose();
+    router.push(link);
+  };
+
   useEffect(() => {
-    if (!searchOpen) setQuery("");
-  }, [searchOpen]);
+    if (!searchOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [searchOpen, handleClose]);
 
   if (!searchOpen) return null;
 
@@ -52,13 +69,13 @@ export function SearchModal() {
           item.type.toLowerCase().includes(query.toLowerCase())
       );
 
-  const handleSelect = (link: string) => {
-    setSearchOpen(false);
-    router.push(link);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+    >
       <div className="w-full max-w-xl bg-[#111821] border border-[#202A35] rounded-xl shadow-2xl overflow-hidden">
         {/* Search Input Bar */}
         <div className="flex items-center px-4 border-b border-[#202A35] bg-[#0E131A]">
@@ -71,7 +88,7 @@ export function SearchModal() {
             className="w-full h-12 bg-transparent text-sm text-[#E8EDF3] placeholder-[#596574] focus:outline-none font-mono"
             autoFocus
           />
-          <button onClick={() => setSearchOpen(false)} className="text-[#596574] hover:text-[#E8EDF3]">
+          <button onClick={handleClose} className="text-[#596574] hover:text-[#E8EDF3]">
             <X className="w-4 h-4" />
           </button>
         </div>
