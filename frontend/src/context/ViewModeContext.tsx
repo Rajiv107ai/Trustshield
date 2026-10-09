@@ -17,31 +17,20 @@ interface ViewModeContextType {
   refreshHealth: () => Promise<void>;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
+  isMounted: boolean;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
-  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("trustshield_view_mode");
-        if (saved === "executive" || saved === "inspector") return saved as ViewMode;
-      } catch {}
-    }
-    return "executive";
-  });
-  const [apiUrl, setApiUrlState] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        return getBaseApiUrl();
-      } catch {}
-    }
-    return (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
-  });
+  const [viewMode, setViewModeState] = useState<ViewMode>("executive");
+  const [apiUrl, setApiUrlState] = useState<string>(
+    (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "")
+  );
   const [isLive, setIsLive] = useState<boolean>(false);
   const [readyInfo, setReadyInfo] = useState<ReadyResponse | null>(null);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
+  const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -54,6 +43,21 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setIsMounted(true);
+
+    try {
+      const saved = localStorage.getItem("trustshield_view_mode");
+      if (saved === "executive" || saved === "inspector") {
+        setViewModeState(saved as ViewMode);
+      }
+    } catch {}
+
+    try {
+      const customUrl = localStorage.getItem("trustshield_api_url");
+      if (customUrl) {
+        setApiUrlState(customUrl.replace(/\/+$/, ""));
+      }
+    } catch {}
 
     let mounted = true;
     TrustShieldApi.getReady()
@@ -114,6 +118,7 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
         refreshHealth,
         searchOpen,
         setSearchOpen,
+        isMounted,
       }}
     >
       {children}
