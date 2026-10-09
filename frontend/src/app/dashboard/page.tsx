@@ -110,11 +110,11 @@ export default function DashboardPage() {
           <h1 className="text-xl font-bold tracking-tight text-[#E8EDF3] flex items-center gap-2">
             <span>Enterprise Command Center</span>
             {viewMode === "executive" ? (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-normal">
+              <span suppressHydrationWarning className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-normal">
                 Executive Story Mode
               </span>
             ) : (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-normal">
+              <span suppressHydrationWarning className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-normal">
                 Deep AI Inspector Mode
               </span>
             )}
