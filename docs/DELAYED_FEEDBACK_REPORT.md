@@ -1,6 +1,6 @@
 # TrustShield AI — Chargeback Feedback Delay Simulation Report
 
-> **Experiment Date:** October 07, 2026 (21:28 UTC)  
+> **Experiment Date:** October 08, 2026 (07:41 UTC)  
 > **Simulation Purpose:** Quantify the performance penalty of delayed ground truth in production fraud operations.  
 > **Evaluation Split:** Months 11–12 Out-of-Time Test Set (16,886 orders)  
 > **Context:** Directly addresses the limitation documented in `docs/LIMITATIONS.md` Section 1.

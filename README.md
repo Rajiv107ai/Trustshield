@@ -1,91 +1,149 @@
-# TrustShield AI — Advanced Fraud Intelligence Platform
+# TrustShield AI — E-Commerce Fraud Intelligence Platform
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
-[![PyTorch Geometric](https://img.shields.io/badge/PyG-HeteroGNN-EE4C2C.svg)](https://pyg.org)
-[![Redis](https://img.shields.io/badge/Redis-16D%20Embedding%20Store-DC382D.svg)](docs/INFRASTRUCTURE.md)
-[![Neo4j](https://img.shields.io/badge/Neo4j-Temporal%20Cypher%20Graph-45818e.svg)](docs/INFRASTRUCTURE.md)
-[![Prometheus](https://img.shields.io/badge/Prometheus-Metrics%20Exporter-E6522C.svg)](docs/OBSERVABILITY.md)
-[![Grafana](https://img.shields.io/badge/Grafana-Live%20Dashboards-F46800.svg)](docs/OBSERVABILITY.md)
-[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-5--Service%20Mesh-2496ED.svg)](docker-compose.yml)
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-brightgreen.svg)](.github/workflows/ci.yml)
-[![Test Suite](https://img.shields.io/badge/Tests-214%20Passed-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
-[![Explainability](https://img.shields.io/badge/Explainability-TreeSHAP%20Exact-8A2BE2.svg)](trustshield_project/shap_explainer.py)
-[![Leakage Safe](https://img.shields.io/badge/Temporal%20Leakage-Guarded%20Strict-blue.svg)](docs/FINAL_REPAIR_REPORT.md)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Next.js-16_(React_19)-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![PyTorch Geometric](https://img.shields.io/badge/PyG-HeteroGNN-EE4C2C?logo=pytorch&logoColor=white)](https://pyg.org)
+[![Redis](https://img.shields.io/badge/Redis-Feature_Store-DC382D?logo=redis&logoColor=white)](docs/INFRASTRUCTURE.md)
+[![Neo4j](https://img.shields.io/badge/Neo4j-Graph_DB-45818E?logo=neo4j&logoColor=white)](docs/INFRASTRUCTURE.md)
+[![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-E6522C?logo=prometheus&logoColor=white)](docs/OBSERVABILITY.md)
+[![Grafana](https://img.shields.io/badge/Grafana-Monitoring-F46800?logo=grafana&logoColor=white)](docs/OBSERVABILITY.md)
+[![Tests Passing](https://img.shields.io/badge/Tests-214_Passed-brightgreen)](trustshield_project/)
+[![Type Check](https://img.shields.io/badge/Pyright-0_Errors-brightgreen)](pyrightconfig.json)
 
-**TrustShield AI** is an advanced, technically defensible e-commerce fraud-intelligence platform. It combines multi-entity relational graph learning, continuous-time edge dynamics, multimodal visual embedding retrieval, validated probability calibration, live Redis/Neo4j infrastructure integration, Server-Sent Events (SSE) transaction streaming, evidence-grounded forensic dossiers, and Prometheus/Grafana cloud-native observability. All components operate under strict temporal isolation (`event_time < decision_time`).
+**TrustShield AI** is an end-to-end fraud detection platform built for modern e-commerce marketplaces. Instead of analyzing orders as isolated events, TrustShield connects buyers, sellers, products, devices, and addresses into a unified **Trust Graph** to uncover coordinated fraud rings, fake listings, and return abuse in real time.
 
 ---
 
-## 🏛️ System Architecture
+## 💡 The Problem & Why Traditional Detection Fails
+
+Most e-commerce fraud systems look at transactions one by one:
+* *"Is this card number unusual?"*
+* *"Is the purchase amount unusually high?"*
+
+Fraudsters know this and work around it. Modern fraud is organized:
+1. **Collusion Rings:** Bad actors create dozens of buyer and seller accounts that share the same laptops, phones, or delivery addresses, placing fake orders to game merchant ratings.
+2. **Catalog & Image Theft:** Fake sellers scrape photos of legitimate items from genuine merchants, list them at deep discounts, and never ship the products.
+3. **Return Abuse & Wardrobing:** Serial returners order expensive items, swap them with cheap counterfeits, or claim items arrived broken to trigger automatic refunds.
+
+When you look at each order in isolation, everything seems normal. But when you look at the **graph of connections**, the fraud ring becomes obvious. TrustShield was designed to see that full picture.
+
+---
+
+## 🏗️ System Architecture
 
 ```mermaid
 graph TD
-    subgraph Ingestion & Gateways
-        A[Inbound Transaction / Listing] --> B[FastAPI Gateway /transaction/score]
-        B --> C[Boundary Schema Validation Pydantic v2]
-        C --> D[Cold-Start History Verification]
+    subgraph Ingestion Layer
+        A[Inbound Transaction / Listing] --> B[FastAPI Gateway]
+        B --> C[Pydantic v2 Schema Validation]
     end
 
-    subgraph Deep Representation Learning
-        D --> E[Behavioral Tabular Features XGBoost / RF]
-        D --> F[Heterogeneous GNN PyG HeteroData]
-        D --> G[Temporal GNN Time2Vec Recency Encoder]
-        D --> H[Multimodal CLIP Image-Text Embeddings]
-        H --> I[(FAISS Vector Similarity Index)]
+    subgraph Multi-Layer Intelligence
+        C --> D[Behavioral Tabular Features<br/>XGBoost / Random Forest]
+        C --> E[Graph Relational Intelligence<br/>NetworkX & PyTorch Geometric]
+        C --> F[Multimodal Analysis<br/>CLIP Image-Text + FAISS Index]
     end
 
-    subgraph Subgraph Intelligence & Aggregation
-        F --> J[Candidate Ring & Burstiness Discovery]
-        E & F & G & H & J --> K[Calibration Layer Isotonic / Platt]
-        K --> L[Advanced Trust Engine Stacking Meta-Learner]
-        L --> M[Split Conformal Uncertainty Coverage 95%]
+    subgraph Trust Engine & Decisions
+        D & E & F --> G[Stacking Meta-Learner & Calibration]
+        G --> H{Decision Router}
+        H -->|Risk < 0.20| I[ALLOW: Instant Settlement]
+        H -->|0.20 - 0.70| J[REVIEW / HOLD: Manual Check]
+        H -->|Risk > 0.70| K[BLOCK: Decline & Freeze]
     end
 
-    subgraph Operational & Forensic Layer
-        M --> N{Decision Routing}
-        N -->|ALLOW| O[Clear for Instant Settlement]
-        N -->|REVIEW / HOLD| P[GenAI Forensic Investigation Agent]
-        N -->|BLOCK| Q[Payment Decline & Account Freeze]
-        P --> R[(Forensic RAG Knowledge Base)]
-        P --> S[(Neo4j Graph Investigation Layer)]
-        R & S --> T[Automated Grounded Dossier Report]
+    subgraph Operations & Monitoring
+        J --> L[TreeSHAP Explainer & Forensic Agent]
+        L --> M[Next.js 16 Operator Console]
+        G --> N[Redis Feature Store & Neo4j Graph]
+        B --> O[Prometheus Metrics & Grafana Dashboards]
     end
 ```
 
 ---
 
-## 🔬 Core Scientific & Research Innovations
+## ⚡ Key Workflows Built So Far
 
-1. **Heterogeneous Relational GNN (`hetero_gnn.py`):**  
-   Models multi-relational interactions across Buyers, Sellers, Devices, and Addresses without collapsing distinct relationships into homogeneous adjacency.
-2. **Temporal Correctness & Invariant Enforcement (`temporal_gnn.py`):**  
-   Continuous-time harmonic encoding ($Time2Vec$) with zero future information tolerance ($\Delta t \ge 0$ asserted).
-3. **Multimodal Near-Duplicate & Cross-Seller Reuse (`multimodal_clip_faiss.py`):**  
-   Sub-millisecond FAISS vector search flagging counterfeit cross-seller visual reuse ($+0.062$ ROC-AUC lift).
-4. **Candidate Fraud Ring Intelligence (`advanced_ring_intelligence.py`):**  
-   Identifies collusion clusters using topological edge density, hardware sharing collision rates, merchant concentration (Herfindahl-Hirschman Index), and inter-order burstiness dispersion.
-5. **Stacking Meta-Learner & Conformal Uncertainty (`advanced_trust_engine.py`):**  
-   Finite-sample coverage guarantees with prediction sets $\{0\}$, $\{1\}$, or $\{0, 1\}$, routing ambiguous predictions to human review.
-6. **Grounded Forensic GenAI Agent (`investigation_agent.py` & `investigation_rag.py`):**  
-   Generates verifiable investigator dossiers with an automated hallucination guard; strictly decoupled from numerical risk determination.
+Here is a breakdown of the core workflows implemented and running across the platform:
+
+### 1. Real-Time Transaction Scoring & Decision Routing
+* **API Route:** `POST /transaction/score`
+* Evaluates incoming transactions in **under 15ms**.
+* Derives behavioral ratios (order velocity, return history, price vs. category median) and graph properties (shared device count, PageRank score).
+* Runs the features through a calibrated stacking model and routes the order into one of four actions:
+  * 🟢 **ALLOW** — Safe transaction, approved immediately.
+  * 🟡 **REVIEW** — Borderline risk, routed to fraud analysts.
+  * 🟠 **HOLD** — High suspicion, payment authorized but delivery paused.
+  * 🔴 **BLOCK** — Definite fraud, order cancelled and account flagged.
+
+### 2. Instant TreeSHAP Explainability Engine
+* **API Route:** `POST /transaction/explain`
+* Fraud analysts cannot act on a black-box probability; they need to know *why* an order was flagged.
+* Uses TreeSHAP to calculate exact local feature attributions in **under 10ms**.
+* Automatically separates signals into:
+  * **Top Risk Drivers:** e.g., *"Device shared across 4 buyer accounts (+32% risk)"*, *"Abnormal price discount (+18% risk)"*.
+  * **Top Mitigating Factors:** e.g., *"Account tenure over 180 days (-14% risk)"*, *"Zero prior dispute history (-8% risk)"*.
+* Synthesizes plain-English explanations so non-technical operators can understand the reasoning immediately.
+
+### 3. Live Server-Sent Events (SSE) Transaction Stream
+* **API Route:** `GET /stream/transactions?interval=2.0`
+* Real-time streaming endpoint that pushes dynamic transaction decisions directly to connected frontend clients.
+* Includes automatic 15-second heartbeat keepalive frames, clean client disconnect handling, and bounded concurrency to prevent server memory leaks.
+
+### 4. Multimodal Catalog & Image Duplicate Detection
+* **API Route:** `POST /listing/analyze`
+* Uses OpenAI's **CLIP** model and a **FAISS** vector index to cross-check product images and text descriptions against genuine catalog items.
+* Flags suspicious listings when:
+  * A seller reuses images belonging to a different, established seller.
+  * The image does not match the product title and description (e.g., description says *"Luxury Leather Watch"* but image is an unbranded accessory).
+
+### 5. Automated Forensic Investigation Dossier Generator
+* **API Route:** `POST /investigation/generate-dossier`
+* Designed for complex fraud cases requiring escalation.
+* Pulls 2-hop graph connections from Neo4j, transaction history from Redis, and fraud policy rules, synthesizing a complete, verifiable forensic dossier for fraud investigators.
+* Employs strict anti-hallucination verification so all claims in the report are grounded in actual database records.
+
+### 6. Fraud Ring & Collusion Discovery
+* **API Route:** `GET /fraud-rings`
+* Analyzes topological clusters using shared device fingerprints and shared physical addresses.
+* Calculates cluster burstiness (how fast transactions are placed within the cluster) and merchant concentration (Herfindahl-Hirschman Index) to detect coordinated rings before individual accounts rack up thousands in chargebacks.
+
+### 7. Dual-Audience Next.js 16 Web Console
+* Built with Next.js 16 (App Router), React 19, and Tailwind CSS.
+* **12 Dedicated Views:**
+  * **Dashboard:** Real-time metrics, system health probes, and decision breakdown.
+  * **Transactions:** Interactive risk simulator with 1-click test scenarios.
+  * **Live Stream:** Chronological feed of streaming transactions.
+  * **Fraud Rings:** Interactive ring clustering and one-click account freezes.
+  * **Trust Graph:** Visual entity relationship explorer.
+  * **Listing Studio:** Multimodal CLIP image and text mismatch analyzer.
+  * **Returns Studio:** Wardrobing and return abuse tracker.
+  * **Investigations:** Case management and AI forensic dossiers.
+  * **Model Observatory:** Calibration curves (ECE), Brier scores, and ROC-AUC metrics.
+  * **Research Evaluation:** Before-and-after ablations and confusion matrices.
+  * **System Telemetry:** Live service health check (`/health` vs `/ready`) and microservice pings.
+  * **Settings:** Backend gateway URL switcher and configuration.
+* **Dual-Audience Switch:**
+  * **Executive Story View:** Clean cards, plain-English reasons, and traffic-light indicators for business stakeholders.
+  * **Deep AI Inspector:** Full probability breakdowns, 16D GNN embeddings, SHAP waterfall charts, and conformal prediction bounds for engineers.
+* **Keyboard Shortcut:** `⌘K` / `Ctrl+K` instant search modal across transactions, entities, and fraud rings.
 
 ---
 
-## 📊 Empirical Performance (Strict Leakage-Free Validation)
+## 📊 Scientific Results & Model Performance
 
-Evaluated under strict temporal isolation (`order_date > VAL_END`) with full 3-way split separation and isotonic probability calibration:
+TrustShield was tested under strict **temporal isolation** (training on Months 1–8, validating on Months 9–10, and testing on Months 11–12). Future data is strictly blocked from leaking into past predictions.
 
-| Architecture / Model | Validation ROC-AUC | Test ROC-AUC | Test PR-AUC | ECE (Raw → Calibrated) | Brier Score | Latency (p95) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Tabular Baseline (RF)** | 0.742 | 0.678 | 0.418 | 0.082 → 0.021 | 0.058 | 4.2 ms |
-| **Tabular + Graph (Phase 3)** | 0.785 | 0.678 | 0.426 | 0.066 → 0.000 | 0.041 | 8.6 ms |
-| **Heterogeneous GNN (HeteroData)** | 0.782 | 0.710 | 0.435 | 0.071 → 0.015 | 0.048 | 42.1 ms |
-| **Hybrid (Tabular + Graph + GNN)** | **0.857** | **0.775** | **0.448** | **0.064 → 0.000** | **0.039** | **48.6 ms** |
-| **Canonical Trust Engine (Stacking)** | **0.871** | **0.792** | **0.465** | **Calibrated** | **0.036** | **14.8 ms** |
+| Model / Architecture | Test ROC-AUC | Test PR-AUC | ECE (Calibration Error) | Decision Latency (p95) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Tabular Baseline (Random Forest)** | 0.678 | 0.418 | 0.082 → 0.021 | 4.2 ms |
+| **Tabular + Graph Topology Features** | 0.678 | 0.426 | 0.066 → 0.000 | 8.6 ms |
+| **Heterogeneous GNN (`HeteroData`)** | 0.710 | 0.435 | 0.071 → 0.015 | 42.1 ms |
+| **Hybrid (Tabular + Graph + GNN)** | **0.775** | **0.448** | **0.064 → 0.000** | **48.6 ms** |
+| **Stacking Trust Engine (Final Ensemble)** | **0.792** | **0.465** | **Calibrated** | **14.8 ms** |
 
-> **Audit Note on Leakage Elimination:** Prior un-cutoff graphs leaked October sharing relationships into September validation rows, creating artificially inflated metrics. The figures above reflect verified generalization performance on unseen future intervals under strict event_time < decision_time enforcement.
-
+*Note: All models use isotonic calibration so that output probabilities reflect true observed fraud frequencies.*
 
 ---
 
@@ -93,324 +151,168 @@ Evaluated under strict temporal isolation (`order_date > VAL_END`) with full 3-w
 
 ```
 trustshield_full_handoff/
-├── .github/workflows/ci.yml          # Automated CI/CD pipeline (lint, typecheck, tests, container build)
-├── docker-compose.yml                # Orchestration mesh (API, Neo4j Graph DB, Redis feature store)
-├── Dockerfile                        # Multi-stage production container definition
-├── .dockerignore                     # Build context exclusions
-├── .env.example                      # Environment variable template
-├── pyrightconfig.json                # Static type analysis configuration (includes backend & project)
-├── pytest.ini                        # Pytest markers and exclusion policies
-├── requirements.txt                  # Production dependencies
-│
-├── backend/                          # FastAPI Serving Layer
-│   ├── README.md                     # Serving layer architecture & API guide
-│   ├── main.py                       # HTTP API routes, lifespan loader, SSE stream, metrics
+├── backend/                          # FastAPI REST API & Microservice Layer
+│   ├── main.py                       # API endpoints, SSE stream, health probes
 │   ├── schemas.py                    # Strict Pydantic v2 boundary schemas
-│   ├── model_loader.py               # Pre-trained artifact store & lazy cache
-│   ├── services/                     # Microservice integration layer
-│   │   ├── audit_service.py          # Bounded in-memory & file-based audit trails
-│   │   ├── cache_service.py          # Redis 16D vector store & circuit-breaker fallback
-│   │   ├── graph_service.py          # Neo4j temporal graph & topology query service
-│   │   └── investigation_service.py  # Forensic dossier synthesis & anti-hallucination guard
-│   ├── test_backend.py               # Serving layer integration tests (29 tests)
-│   ├── test_new_extensions.py        # Extensions tests: Dossier, SSE, Metrics (9 tests)
-│   └── test_services.py              # Live driver & circuit breaker service tests (5 tests)
+│   ├── model_loader.py               # Pre-trained artifact manager and cache
+│   ├── services/                     # Microservice integration modules
+│   │   ├── audit_service.py          # Audit trails and logging
+│   │   ├── cache_service.py          # Redis 16D feature store & circuit breaker
+│   │   ├── graph_service.py          # Neo4j Cypher query service
+│   │   ├── investigation_service.py  # Forensic dossier generator
+│   │   ├── metrics_service.py        # Prometheus metrics collection
+│   │   └── stream_service.py         # SSE real-time transaction event generator
+│   └── test_*.py                     # Serving layer test suites (43 tests)
 │
-├── docker/                           # Production Service Mesh Configurations
-│   ├── prometheus/prometheus.yml     # Prometheus metrics scraper config (15s scrape interval)
-│   └── grafana/provisioning/         # Auto-provisioned datasource & dashboard templates
+├── frontend/                         # Next.js 16 Enterprise Console
+│   ├── src/app/                      # 12 interactive dashboard views
+│   ├── src/components/               # Layout, Header, Sidebar, ⌘K search modal
+│   ├── src/context/                  # ViewModeContext (Executive vs. Deep AI toggle)
+│   └── src/lib/                      # Typed API client and fraud scenario presets
 │
-├── frontend/                         # Production Next.js 16 Enterprise Console
-│   ├── README.md                     # Frontend console guide & run commands
-│   ├── FRONTEND_IMPLEMENTATION_REPORT.md # Full architecture & component report
-│   └── src/                          # 12 views, Dual-Audience switch & ⌘K search
-│
-├── frontend_master_prompts/          # Enterprise Frontend Architecture & UI Master Prompts
-│   ├── README.md                     # Frontend engineering prompt package guide
-│   ├── 00_MASTER_FRONTEND_PROMPT.md  # Complete 12-view frontend prompt for AI coding assistants
-│   ├── 01_TECH_STACK_AND_TOKENS.md   # Design tokens & color system
-│   ├── 02_API_SCHEMAS_TYPESCRIPT.md  # TypeScript API interfaces matching backend schemas
-│   └── 03_SCENARIOS_AND_DUAL_MODE.md # Interactive fraud scenarios & plain-English translations
+├── frontend_master_prompts/          # Enterprise frontend specifications & UI design tokens
 │
 ├── trustshield_project/              # Core ML, Graph & Forensic Research Suite
-│   ├── README.md                     # Core intelligence module guide & research docs
-│   ├── shap_explainer.py             # Sub-10ms TreeSHAP attributions & investigator narrative
-│   ├── test_shap_explainer.py        # Unit & integration tests for SHAP engine (8 tests)
-│   ├── temporal_utils.py             # Canonical temporal invariants & historical filtering
-│   ├── advanced_ring_intelligence.py # Collusion ring detection & burstiness metrics
-│   ├── advanced_trust_engine.py      # Stacking meta-learner & split conformal coverage
-│   ├── trust_engine.py               # Unified Trust Engine, entropy & calibration
+│   ├── entity_generator.py           # Synthetic generator for 8 marketplace entities
+│   ├── product_listing_generator.py  # Products and listings with ABO dataset integration
+│   ├── order_return_generator.py     # Chronological orders and organic returns
+│   ├── fraud_injection.py            # Layered injection for 4 fraud scenarios
+│   ├── baseline_model.py             # Tabular baseline models (Random Forest / XGBoost)
+│   ├── phase2_specialized_models.py  # Fake listing & return abuse models
+│   ├── graph_features.py             # Snapshot graph topological feature extraction
 │   ├── hetero_gnn.py                 # PyTorch Geometric HeteroData GNN
 │   ├── temporal_gnn.py               # Time2Vec continuous-time edge learning
-│   ├── multimodal_clip_faiss.py      # CLIP visual-text embeddings & FAISS index
-│   ├── investigation_agent.py        # Autonomous forensic investigation agent
-│   ├── investigation_rag.py          # Vector RAG evidence synthesis
-│   ├── neo4j_investigator.py         # Property graph cypher query generator
-│   ├── calibration.py                # Isotonic regression & Platt calibration
-│   ├── robustness.py                 # Non-parametric bootstrap & seed sensitivity
-│   ├── missingness.py                # Missing value imputation & indicator flags
-│   ├── mlops_pipeline.py             # Feature store, drift detection & DAG pipeline
-│   ├── reproducibility.py            # Deterministic RNG & environment fingerprinting
-│   ├── splits.py                     # Chronological train/val/test boundary splits
-│   ├── versioning.py                 # Artifact SHA-256 fingerprinting & cataloging
-│   ├── test_repair_pipeline_regression.py # 20-point temporal invariant & regression suite
-│   ├── test_phase2_suite.py          # Comprehensive Phase 2 test suite
-│   └── test_seed_mesh.py             # Unit tests for Neo4j & Redis mesh seeding
+│   ├── multimodal_clip_faiss.py      # CLIP embeddings and FAISS index
+│   ├── shap_explainer.py             # Sub-10ms TreeSHAP explainability engine
+│   ├── trust_engine.py               # Unified Trust Engine
+│   ├── advanced_trust_engine.py      # Stacking meta-learner & conformal uncertainty
+│   └── test_*.py                     # Unit, leakage, and regression tests (171 tests)
 │
-├── docs/                             # Engineering Audits & Governance Docs
-│   ├── README.md                     # Centralized documentation index & sitemap
-│   ├── ARCHITECTURE_AND_EXTENSIONS_PLAN.md # Strategic enterprise architecture blueprint
-│   ├── ROBUSTNESS_REPORT.md          # Adversarial perturbation & noise sensitivity audit
-│   ├── SCALABILITY_REPORT.md         # QPS stress benchmark & concurrency saturation profile
-│   ├── DELAYED_FEEDBACK_REPORT.md    # Delayed chargeback feedback analysis & drift decay
-│   ├── REALTIME_ARCHITECTURE.md      # SSE ingest protocol, keepalive & disconnect lifecycle
-│   ├── OBSERVABILITY.md              # Prometheus metrics, latency histograms & Grafana dash
-│   ├── INVESTIGATION_API.md          # Grounded dossier API & anti-hallucination validation
-│   ├── INFRASTRUCTURE.md             # Neo4j graph & Redis 16D store integration
-│   ├── FINAL_REPAIR_REPORT.md        # Master technical repair audit
-│   ├── REPAIR_BASELINE.md            # Pre-repair vulnerability baseline & checklist
-│   ├── BASELINE_AUDIT.md             # Initial architectural audit
-│   ├── 49_POINT_REAUDIT.md           # 49-point scientific re-audit
-│   ├── FINAL_BEFORE_AFTER.md         # Empirical before/after benchmarks
-│   ├── BUG_INVENTORY.json            # Machine-readable tracked bug registry
-│   ├── MODEL_CARD.md                 # System Model Card & ethical scope
-│   ├── LIMITATIONS.md                # Technical constraints & edge conditions
-│   ├── PHASE2_FINAL_REPORT.md        # Comprehensive Phase 2 research report
-│   └── PHASE2_ROADMAP.md             # Infrastructure & streaming roadmap
+├── docker/                           # Production Service Mesh Configurations
+│   ├── prometheus/prometheus.yml     # Prometheus metrics scraper config
+│   └── grafana/                      # Pre-provisioned dashboards & datasources
 │
-├── models/                           # Serialized Joblib & FAISS Artifacts
+├── models/                           # Serialized Joblib & FAISS Model Artifacts
 │   ├── combined_graph_model.joblib   # Tabular + graph Random Forest
 │   ├── hybrid_model.joblib           # GNN + Tabular XGBoost model
-│   ├── calibrator.joblib             # Fitted isotonic calibrator (Phase 3)
-│   ├── phase5_calibrator.joblib      # Fitted isotonic calibrator (Phase 5)
-│   ├── fraud_rings.joblib            # Pre-ranked candidate rings
-│   ├── buyer_embeddings.joblib       # Pre-computed buyer representation vectors
-│   ├── seller_embeddings.joblib      # Pre-computed seller representation vectors
-│   └── clip_cache/                   # Cached CLIP multimodal embeddings
+│   ├── calibrator.joblib             # Fitted isotonic calibrator
+│   └── clip_cache/                   # Cached CLIP embeddings
 │
-└── scripts/                          # Pipeline Execution & Training Scripts
-    ├── README.md                     # Script execution reference & guides
-    ├── seed_mesh.py                  # Neo4j graph & Redis feature store mesh data seeder
-    ├── run_robustness_experiments.py # Stress-testing feature noise & missing data resilience
-    ├── run_scalability_experiment.py # Benchmarking QPS, p95/p99 latency under concurrency
-    ├── run_delayed_feedback_experiment.py # Simulating 7-60 day delayed chargeback feedback
-    ├── train_and_save_models.py      # Baseline model training & artifact serialization
-    ├── train_phase5.py               # Phase 5 Hybrid XGBoost model training
-    ├── e2e_smoke_validation.py       # End-to-end scoring parity & artifact validation
-    ├── smoke_test_api.py             # Live HTTP API endpoint verification client
-    └── build_clip_embeddings.py      # Offline multimodal embedding generator
+├── scripts/                          # Utility & Training Scripts
+│   ├── seed_mesh.py                  # Neo4j and Redis database seeder
+│   ├── train_and_save_models.py      # Model training pipeline
+│   ├── run_robustness_experiments.py # Adversarial noise & missingness experiments
+│   ├── run_scalability_experiment.py # QPS throughput & concurrency benchmarks
+│   └── e2e_smoke_validation.py       # End-to-end pipeline verification
+│
+├── docs/                             # Engineering Audits & Specifications
+│   ├── README.md                     # Central documentation hub
+│   ├── SPECIFICATIONS.md             # Unified system design & architecture specs
+│   ├── INFRASTRUCTURE.md             # Redis & Neo4j deployment specs
+│   ├── OBSERVABILITY.md              # Prometheus & Grafana monitoring specs
+│   └── *.md                          # Experiment reports, model cards & audits
+│
+├── docker-compose.yml                # 5-Service mesh (API, Neo4j, Redis, Prometheus, Grafana)
+├── Dockerfile                        # Multi-stage production container
+├── pyrightconfig.json                # Type checking configuration
+├── pytest.ini                        # Test runner configuration
+└── requirements.txt                  # Python dependencies
 ```
 
 ---
 
-## ⚡ API Endpoint Reference
+## 🚀 Quickstart Guide
 
-The serving layer provides sub-20ms inference endpoints with boundary schema validation:
+### 1. Run the Python Backend
 
-### 1. Readiness & Health Probes
-- **`GET /health`**: Returns model and graph loading status (`200 OK`).
-- **`GET /ready`**: Orchestrator readiness check returning `ServiceState` (`ready`, `degraded`, or `not_ready`).
-
-### 2. Transaction Scoring
-- **`POST /transaction/score`**  
-  Evaluates transaction requests via the Unified Trust Engine. Returns calibrated risk, decision routing, entropy confidence, model disagreement, and diagnostic reason codes.
-
-```json
-// Example POST /transaction/score Request
-{
-  "order_id": "ORD_98124",
-  "buyer_id": "BUYER_1042",
-  "seller_id": "SELLER_0891",
-  "amount": 289.50,
-  "buyer_orders_before": 14,
-  "buyer_returns_before": 2,
-  "share_degree": 3,
-  "buyer_pagerank": 0.0018
-}
-```
-
-```json
-// Example POST /transaction/score Response
-{
-  "order_id": "ORD_98124",
-  "overall_fraud_probability": 0.1245,
-  "risk_label": "low",
-  "decision": "ALLOW",
-  "trust_score": 87.55,
-  "confidence": 0.884,
-  "model_used": "Hybrid GNN + XGBoost (Phase 5, tabular+graph+GNN embeddings)",
-  "model_version": "phase5-hybrid",
-  "cold_start": false,
-  "model_disagreement": 0.042,
-  "reason_codes": []
-}
-```
-
-### 3. TreeSHAP Explainability Engine
-- **`POST /transaction/explain`**  
-  Computes exact local Shapley values via TreeSHAP in sub-10ms. Categorizes top risk contributors (amplifying risk) and top mitigations (reducing risk), resolves friendly feature labels, and synthesizes plain-English investigator narratives.
-
-### 4. Forensic Investigation Dossier API
-- **`POST /investigation/generate-dossier`**  
-  Synthesizes an evidence-grounded forensic dossier across observed entity facts, model inference, graph topology, and policy RAG guidelines. Enforces strict anti-hallucination verification.
-
-### 5. Real-Time Transaction SSE Stream
-- **`GET /stream/transactions?interval=2.0`**  
-  Server-Sent Events (SSE) stream pushing dynamic transaction decisions with heartbeat keepalive, client disconnect lifecycle management, and bounded concurrency.
-
-### 6. Production Metrics & Observability
-- **`GET /metrics`**: Prometheus text format exporter exposing request rates, p50/p95/p99 latency histograms, fraud decisions, and observable fallbacks.
-- **`GET /system/benchmark`**: High-resolution empirical benchmark measuring actual local hardware percentiles across model inference, Trust Engine, Redis, and Neo4j.
-
-### 7. Collusion Ring Intelligence
-- **`GET /fraud-rings?min_risk_score=0.4&limit=10`**  
-  Retrieves pre-ranked candidate collusion rings with member counts, risk metrics, and burstiness scores.
-
-### 8. Multimodal Listing Integrity
-- **`POST /listing/analyze`**  
-  Performs image-text alignment and FAISS cross-seller catalog duplicate matching to detect fraudulent listings.
-
-### 9. Return Abuse Fraud Detection
-- **`POST /return/analyze`**  
-  Evaluates return abuse probabilities, historical velocity, and category claim flags.
-
----
-
-## 🚀 Quickstart & Deployment
-
-### Local Environment Setup
 ```bash
-# 1. Clone the repository
+# Clone the repository
 git clone https://github.com/Rajiv107ai/Trustshield.git
 cd Trustshield
 
-# 2. Create and activate a Python virtual environment
+# Create and activate virtual environment
 python -m venv .venv
-.\.venv\Scripts\activate   # Windows
-# source .venv/bin/activate # Linux / macOS
+.\.venv\Scripts\activate      # Windows
+# source .venv/bin/activate    # Linux / macOS
 
-# 3. Install dependencies
-pip install --upgrade pip
+# Install dependencies
 pip install -r requirements.txt
 
-# 4. Start the FastAPI server
+# Start the FastAPI server
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+* Interactive API docs: `http://localhost:8000/docs`
+* Health probe: `http://localhost:8000/health`
 
-Interactive API documentation will be available at `http://localhost:8000/docs`.
+### 2. Run the Next.js Frontend Console
 
-### Frontend Console Quickstart (Next.js 16)
 ```bash
-# 1. Navigate to frontend directory
+# In a new terminal, navigate to frontend
 cd frontend
 
-# 2. Install dependencies (Node 20+)
+# Install Node dependencies
 npm install
 
-# 3. Launch interactive web console
+# Start development server
 npm run dev
-# Access the enterprise console at http://localhost:3000
 ```
+* Open your browser at: `http://localhost:3000`
 
-### Docker Deployment
+### 3. Run the Full 5-Service Docker Mesh
+
+To run the complete platform (API + Neo4j + Redis + Prometheus + Grafana):
+
 ```bash
-# Build production container
-docker build -t trustshield:latest .
-
-# Run container with healthchecks enabled
-docker run -d -p 8000:8000 --name trustshield-api trustshield:latest
-
-# Check container logs and health
-docker logs -f trustshield-api
-curl http://localhost:8000/ready
-```
-
-### Docker Compose (Full 5-Service Mesh: API + Neo4j + Redis + Prometheus + Grafana)
-```bash
-# 1. Initialize environment file from template
+# Copy environment configuration
 cp .env.example .env
 
-# 2. Launch orchestrated 5-service mesh in background
+# Start all 5 services
 docker compose up -d
 
-# 3. Inspect health and running services
-docker compose ps
-
-# Access services:
-# - TrustShield Scoring API & Swagger UI: http://localhost:8000/docs
-# - Prometheus Metrics Scraper UI:        http://localhost:9090
-# - Grafana Pre-Configured Dashboard:     http://localhost:3001 (admin / trustshield_admin)
-# - Neo4j Browser Console:                http://localhost:7474 (user: neo4j, pass: trustshield_dev_secret)
-# - Redis In-Memory Feature Store:        localhost:6379
-
-# 4. Hydrate Neo4j property graph & Redis feature store with pre-computed GNN embeddings
+# Seed the Neo4j graph and Redis feature store with embeddings
 python scripts/seed_mesh.py
-# (Or offline dry-run to generate seed_graph.cypher and seed_redis.txt)
-python scripts/seed_mesh.py --dry-run
 ```
+* **TrustShield API:** `http://localhost:8000/docs`
+* **Grafana Dashboards:** `http://localhost:3001` (user: `admin`, pass: `trustshield_admin`)
+* **Prometheus Metrics:** `http://localhost:9090`
+* **Neo4j Browser:** `http://localhost:7474` (user: `neo4j`, pass: `trustshield_dev_secret`)
 
 ---
 
 ## 🧪 Testing & Validation
 
-The comprehensive 214-test suite covers unit logic, temporal invariant safety, data leakage guards, API integration, static typing, and Phase 2 advanced models:
+The codebase includes an automated test suite verifying everything from generator math to serving latency and data leakage guards:
 
 ```bash
-# Static type analysis (0 errors enforced across project & backend)
-npx --yes pyright
+# Run the complete test suite (all 214 tests)
+pytest -v
 
-# Flake8 critical syntax & undefined symbol validation (E9, F63, F7, F82)
-flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv,external,synthetic_data_export
+# Run backend serving integration tests (43 tests)
+pytest backend/test_backend.py backend/test_new_extensions.py backend/test_services.py -v
 
-# Run complete test suite (all 214 tests, zero skipped or deselected)
-pytest -v --tb=short
-
-# Run complete regression test suite (temporal invariants, calibration & API contracts: 20 tests)
-pytest trustshield_project/test_repair_pipeline_regression.py -v
-
-# Run TreeSHAP explainability unit & integration test suite (8 tests)
+# Run TreeSHAP explainability tests (8 tests)
 pytest trustshield_project/test_shap_explainer.py -v
 
-# Run complete Phase 2 advanced research suite (16 tests)
-pytest trustshield_project/test_phase2_suite.py -v
+# Run strict temporal leakage regression tests (20 tests)
+pytest trustshield_project/test_repair_pipeline_regression.py -v
 
-# Run Neo4j & Redis mesh seeder test suite (5 tests)
-pytest trustshield_project/test_seed_mesh.py -v
-
-# Run live driver & services tests (5 tests)
-pytest backend/test_services.py -v
-
-# Run new extensions test suite (Dossier, SSE, Metrics, Temporal Safety: 9 tests)
-pytest backend/test_new_extensions.py -v
-
-# Run backend serving integration tests (29 tests)
-pytest backend/test_backend.py -v
-
-# Run full end-to-end smoke validation
-python scripts/e2e_smoke_validation.py
+# Run Pyright static type checker (0 errors enforced)
+pyright backend trustshield_project
 ```
 
 ---
 
-## 📚 Complete Project Documentation
+## 📚 Documentation Links
 
-Visit the centralized [**Documentation Hub (`docs/README.md`)**](docs/README.md) or explore the individual documents below:
+For in-depth architectural blueprints, research reports, and mathematical details:
+* [**System Design & Core Specifications (`docs/SPECIFICATIONS.md`)**](docs/SPECIFICATIONS.md) — Unified 8-entity model, pipeline DAG, synthetic fraud design, and anti-leakage invariants.
+* [**Infrastructure & Service Mesh (`docs/INFRASTRUCTURE.md`)**](docs/INFRASTRUCTURE.md) — Redis 16D embedding store and Neo4j Cypher graph integration.
+* [**Production Observability (`docs/OBSERVABILITY.md`)**](docs/OBSERVABILITY.md) — Prometheus metrics registry and Grafana dashboard templates.
+* [**Master Technical Repair Report (`docs/FINAL_REPAIR_REPORT.md`)**](docs/FINAL_REPAIR_REPORT.md) — Comprehensive repair evidence and leakage elimination report.
+* [**System Model Card (`docs/MODEL_CARD.md`)**](docs/MODEL_CARD.md) — Intended use, ethical considerations, and governance disclosures.
+* [**Full Documentation Hub (`docs/README.md`)**](docs/README.md) — Complete index of all 23 research papers, stress tests, and benchmarks.
 
-- [**Real-Time Streaming Architecture (`docs/REALTIME_ARCHITECTURE.md`)**](docs/REALTIME_ARCHITECTURE.md) — SSE ingest protocol, keepalive, bounded concurrency & disconnect lifecycle.
-- [**Production Observability (`docs/OBSERVABILITY.md`)**](docs/OBSERVABILITY.md) — Prometheus histograms, low-cardinality enforcement, empirical benchmarks & Grafana dashboard.
-- [**Forensic Investigation API (`docs/INVESTIGATION_API.md`)**](docs/INVESTIGATION_API.md) — Evidence-grounded dossier generation, RAG index & anti-hallucination guard.
-- [**Infrastructure & Service Mesh (`docs/INFRASTRUCTURE.md`)**](docs/INFRASTRUCTURE.md) — Redis 16D vector store, Neo4j temporal Cypher, Docker Compose & offline degradation contracts.
-- [**Master Technical Repair Report**](docs/FINAL_REPAIR_REPORT.md) — Comprehensive repair evidence, temporal leakage elimination & verification (169/169 tests).
-- [**Repair Baseline State**](docs/REPAIR_BASELINE.md) — Pre-repair commit audit and defect classification.
-- [**Tracked Bug Registry**](docs/BUG_INVENTORY.json) — Comprehensive inventory of verified fixes.
-- [**Phase 0: Baseline Audit**](docs/BASELINE_AUDIT.md) — Initial codebase inspection and gap identification.
-- [**Phase 1: 49-Point Core Re-Audit**](docs/49_POINT_REAUDIT.md) — Complete line-by-line scientific audit.
-- [**Phase 1: Final Before/After Report**](docs/FINAL_BEFORE_AFTER.md) — Controlled empirical benchmark comparison.
-- [**Phase 2: Baseline State Inspection**](docs/PHASE2_BASELINE.md) — Pre-Phase-2 architectural readiness.
-- [**Phase 2: Advanced Final Research Report**](docs/PHASE2_FINAL_REPORT.md) — Complete Phase 2 mathematical synthesis.
-- [**Full Project Master Audit Baseline**](docs/FULL_PROJECT_AUDIT_BASELINE.md) — Holistic project inventory.
-- [**Full Project Master Audit Report**](docs/FULL_PROJECT_AUDIT_REPORT.md) — Final verified engineering audit.
-- [**System Model Card**](docs/MODEL_CARD.md) — Intended use, ethical considerations, and performance limits.
-- [**Technical Limitations & Disclosure**](docs/LIMITATIONS.md) — Production boundary conditions.
-- [**Phase 2 Long-Term Production Roadmap**](docs/PHASE2_ROADMAP.md) — Post-Phase-1 infrastructure and production milestones.
+---
 
+## ⚖️ License & Integrity Note
+This project is developed for research and educational purposes. All synthetic identities, transaction streams, and fraud scenarios are generated under strict temporal invariants without using real personal identifiable information (PII).
