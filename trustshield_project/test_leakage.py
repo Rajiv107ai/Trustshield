@@ -7,7 +7,9 @@ from baseline_model import TRAIN_END, VAL_END
 class TestFeatureSetSanity:
     BANNED_COLS = {
         "is_fraudulent", "fraud_type", "price_anomaly", "image_mismatch",
-        "fraud_ring_id", "displayed_product_id",
+        "fraud_ring_id", "displayed_product_id", "share_type", "fraud_linked",
+        "graph_fraud_degree_ratio", "community_id",
+        "trust_score", "risk_score", "overall_fraud_probability",
     }
 
     def test_no_banned_columns_in_features(self, pipeline):
@@ -16,6 +18,71 @@ class TestFeatureSetSanity:
 
     def test_fraud_ring_id_absent_from_df(self, pipeline):
         assert "fraud_ring_id" not in pipeline["df"].columns
+
+    def test_features_strictly_invariant_to_label_permutation(self, pipeline):
+        """Permuting is_fraudulent, fraud_type, or fraud_ring_id must have ZERO impact
+        on tabular or graph features.
+        
+        If a feature depended on labels (e.g. a hypothetical graph_fraud_degree_ratio),
+        permuting the label vector would alter the feature values.
+        """
+        import numpy as np
+        from baseline_model import build_features
+        from graph_features import (
+            attach_relationship_snapshot_features,
+            build_monthly_snapshots,
+            attach_snapshot_features,
+            add_edge_weight_before,
+            SIM_START,
+        )
+
+        res = pipeline["result"]
+        base = pipeline["base"]
+        txn = pipeline["txn"]
+        cat = pipeline["catalog"]
+
+        # 1. Run feature building on unpermuted data
+        df1, tab_cols = build_features(
+            res["orders"], res["listings"], res["returns"],
+            txn["buyers"], cat["sellers"], cat["products"]
+        )
+        df1 = attach_relationship_snapshot_features(df1, base["address_sharing_log"], base["device_sharing_log"])
+        snaps1, months1 = build_monthly_snapshots(res["orders"].assign(order_date=pd.to_datetime(res["orders"]["order_date"])), SIM_START)
+        df1 = attach_snapshot_features(df1, snaps1, months1)
+        df1 = add_edge_weight_before(df1)
+
+        # 2. Create permuted copies with scrambled labels
+        orders_perm = res["orders"].copy()
+        rng = np.random.RandomState(42)
+        orders_perm["is_fraudulent"] = rng.permutation(orders_perm["is_fraudulent"].values)
+        if "fraud_type" in orders_perm.columns:
+            orders_perm["fraud_type"] = rng.permutation(orders_perm["fraud_type"].values)
+
+        listings_perm = res["listings"].copy()
+        listings_perm["is_fraudulent"] = rng.permutation(listings_perm["is_fraudulent"].values)
+
+        df2, _ = build_features(
+            orders_perm, listings_perm, res["returns"],
+            txn["buyers"], cat["sellers"], cat["products"]
+        )
+        df2 = attach_relationship_snapshot_features(df2, base["address_sharing_log"], base["device_sharing_log"])
+        snaps2, months2 = build_monthly_snapshots(orders_perm.assign(order_date=pd.to_datetime(orders_perm["order_date"])), SIM_START)
+        df2 = attach_snapshot_features(df2, snaps2, months2)
+        df2 = add_edge_weight_before(df2)
+
+        graph_cols = [
+            "share_degree", "share_component_size", "buyer_seller_degree", "buyer_pagerank",
+            "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi",
+            "buyer_seller_edge_weight_before"
+        ]
+        all_eval_cols = tab_cols + graph_cols
+        for col in all_eval_cols:
+            v1 = df1[col].to_numpy()
+            v2 = df2[col].to_numpy()
+            np.testing.assert_array_equal(
+                v1, v2,
+                err_msg=f"Feature '{col}' changed when ground truth labels were permuted! Target leakage detected!"
+            )
 
 
 class TestTemporalIntegrity:

@@ -180,9 +180,10 @@ def leakage_audit(df, feature_cols):
        (the model would be predicting its own past outputs).
     """
     banned = {
-        # Ground-truth label columns
+        # Ground-truth label columns and label-derived graph columns
         "is_fraudulent", "fraud_type", "price_anomaly", "image_mismatch",
-        "fraud_ring_id", "displayed_product_id",
+        "fraud_ring_id", "displayed_product_id", "share_type", "fraud_linked",
+        "graph_fraud_degree_ratio", "community_id",
         # Model-output columns (FIX-04: feedback loop guard)
         "trust_score", "risk_score", "overall_fraud_probability",
         "predicted_fraud", "decision", "model_reason_code", "model_probability",
