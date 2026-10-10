@@ -102,6 +102,23 @@ def test_bearer_token_authentication(auth_client):
     assert response.status_code == 200
 
 
+def test_query_param_authentication(auth_client):
+    """Query parameter 'api_key' authentication must be supported (e.g., for SSE streams and clients)."""
+    response = auth_client.post(
+        "/transaction/score?api_key=test-operator-api-key-32chars!!",
+        json={
+            "order_id": "ORD_TEST_QUERY_AUTH",
+            "buyer_id": "BUYER_000001",
+            "seller_id": "SELLER_000001",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+        },
+    )
+    assert response.status_code == 200
+
+
+
 # ==============================================================================
 # 2. Role-Based Access Control (RBAC) Tests
 # ==============================================================================
