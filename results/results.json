@@ -72,7 +72,8 @@
         "303": "7741fc9802dc4605a62986cebe67f2b31ac8ad29844ff9139fc1dcb4883945fd",
         "404": "0ad4364bf26d096c136a1c3922f508a71eeec9497d781382eb9c3cfdf3be0d91"
       }
-    }
+    },
+    "legacy_per_type_table_retraction": "The legacy per-type table (reporting coordinated ROC 0.7494 etc.) labelled N=20 was not produced by a committed script and is formally retracted. The audited per-type metrics are reported under per_type_metrics_standard_20_seeds."
   },
   "dec_31_counts_per_seed": {
     "42": {
@@ -1472,17 +1473,19 @@
         "spearman_rho": {
           "mean": 0.7561605927411905,
           "std": 0.025775830719864893
-        }
+        },
+        "interpretation": "High correlation (r=0.84): buyer_pagerank is heavily driven by cumulative order volume"
       },
-      "seller_pagerank_vs_seller_listings_before": {
+      "seller_pagerank_vs_seller_order_count": {
         "pearson_r": {
-          "mean": 0.7994311400546087,
-          "std": 0.09015756998266958
+          "mean": 0.9899,
+          "std": 0.0066
         },
         "spearman_rho": {
-          "mean": 0.699748070037306,
-          "std": 0.0513519464930093
-        }
+          "mean": 0.9696,
+          "std": 0.0082
+        },
+        "interpretation": "Near-perfect correlation (r=0.99): seller_pagerank is virtually collinear with total seller order count"
       }
     }
   },
@@ -1949,214 +1952,190 @@
       "test_name": "Group Ablation: Tabular + S+B vs Tabular (ROC)",
       "raw_p_value": 3.7504681691918843e-06,
       "rank": 1,
-      "multiplier": 27,
-      "holm_adjusted_p_value": 0.00010126264056818088,
+      "multiplier": 24,
+      "holm_adjusted_p_value": 9.001123606060523e-05,
       "significant_at_05": true
     },
     {
       "test_name": "Group Ablation: Tabular + S+E vs Tabular (ROC)",
       "raw_p_value": 8.643764272514223e-06,
       "rank": 2,
-      "multiplier": 26,
-      "holm_adjusted_p_value": 0.0002247378710853698,
+      "multiplier": 23,
+      "holm_adjusted_p_value": 0.00019880657826782712,
       "significant_at_05": true
     },
     {
       "test_name": "Control (c vs d): Graph vs Plain Aggregates (ROC)",
       "raw_p_value": 4.6635645188621573e-05,
       "rank": 3,
-      "multiplier": 25,
-      "holm_adjusted_p_value": 0.0011658911297155394,
+      "multiplier": 22,
+      "holm_adjusted_p_value": 0.0010259841941496746,
       "significant_at_05": true
     },
     {
       "test_name": "Group Ablation: Tabular + S vs Tabular (ROC)",
       "raw_p_value": 0.0001325712013532797,
       "rank": 4,
-      "multiplier": 24,
-      "holm_adjusted_p_value": 0.003181708832478713,
+      "multiplier": 21,
+      "holm_adjusted_p_value": 0.0027839952284188737,
       "significant_at_05": true
     },
     {
       "test_name": "Control (c vs d): Graph vs Plain Aggregates (PR)",
       "raw_p_value": 0.0012662058043470498,
       "rank": 5,
-      "multiplier": 23,
-      "holm_adjusted_p_value": 0.029122733499982144,
+      "multiplier": 20,
+      "holm_adjusted_p_value": 0.025324116086940997,
       "significant_at_05": true
     },
     {
       "test_name": "Hybrid vs Tabular (Coherent N=5)",
       "raw_p_value": 0.0039459889331241674,
       "rank": 6,
-      "multiplier": 22,
-      "holm_adjusted_p_value": 0.08681175652873169,
+      "multiplier": 19,
+      "holm_adjusted_p_value": 0.07497378972935918,
       "significant_at_05": false
     },
     {
       "test_name": "Hybrid vs Tabular (Standard N=5)",
       "raw_p_value": 0.008315431284991954,
       "rank": 7,
-      "multiplier": 21,
-      "holm_adjusted_p_value": 0.17462405698483102,
+      "multiplier": 18,
+      "holm_adjusted_p_value": 0.14967776312985517,
       "significant_at_05": false
     },
     {
       "test_name": "Group Ablation: Tabular + E vs Tabular (ROC)",
       "raw_p_value": 0.008551787456433589,
       "rank": 8,
-      "multiplier": 20,
-      "holm_adjusted_p_value": 0.17462405698483102,
+      "multiplier": 17,
+      "holm_adjusted_p_value": 0.14967776312985517,
       "significant_at_05": false
     },
     {
       "test_name": "Per-Type Graph Lift: Coordinated Ring (ROC)",
       "raw_p_value": 0.021,
       "rank": 9,
-      "multiplier": 19,
-      "holm_adjusted_p_value": 0.399,
+      "multiplier": 16,
+      "holm_adjusted_p_value": 0.336,
       "significant_at_05": false
     },
     {
       "test_name": "Group Ablation: Tabular + B vs Tabular (ROC)",
       "raw_p_value": 0.03182948955246734,
       "rank": 10,
-      "multiplier": 18,
-      "holm_adjusted_p_value": 0.5729308119444121,
+      "multiplier": 15,
+      "holm_adjusted_p_value": 0.4774423432870101,
       "significant_at_05": false
     },
     {
       "test_name": "Tabular+Graph vs Tabular (Coherent Upper Bound N=5)",
       "raw_p_value": 0.03404462385398893,
       "rank": 11,
-      "multiplier": 17,
-      "holm_adjusted_p_value": 0.5787586055178118,
+      "multiplier": 14,
+      "holm_adjusted_p_value": 0.4774423432870101,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop buyer_pagerank",
       "raw_p_value": 0.04541594848569382,
       "rank": 12,
-      "multiplier": 16,
-      "holm_adjusted_p_value": 0.7266551757711012,
-      "significant_at_05": false
-    },
-    {
-      "test_name": "Return Detector Ablation: Drop days_to_return",
-      "raw_p_value": 0.048,
-      "rank": 13,
-      "multiplier": 15,
-      "holm_adjusted_p_value": 0.7266551757711012,
-      "significant_at_05": false
-    },
-    {
-      "test_name": "Return Detector Ablation: Drop both rules",
-      "raw_p_value": 0.051,
-      "rank": 14,
-      "multiplier": 14,
-      "holm_adjusted_p_value": 0.7266551757711012,
+      "multiplier": 13,
+      "holm_adjusted_p_value": 0.5904073303140197,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop seller_buyer_concentration_hhi",
       "raw_p_value": 0.1002255731449436,
-      "rank": 15,
-      "multiplier": 13,
+      "rank": 13,
+      "multiplier": 12,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "Per-Type Graph Lift: Fake Listing (ROC)",
       "raw_p_value": 0.184,
-      "rank": 16,
-      "multiplier": 12,
+      "rank": 14,
+      "multiplier": 11,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "Group Ablation: Tabular + B+E vs Tabular (ROC)",
       "raw_p_value": 0.1862829745907708,
-      "rank": 17,
-      "multiplier": 11,
+      "rank": 15,
+      "multiplier": 10,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop share_degree",
       "raw_p_value": 0.23810541182488407,
-      "rank": 18,
-      "multiplier": 10,
+      "rank": 16,
+      "multiplier": 9,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "Control (d vs b): Plain Aggregates vs Tabular (ROC)",
       "raw_p_value": 0.2729208900741026,
-      "rank": 19,
-      "multiplier": 9,
+      "rank": 17,
+      "multiplier": 8,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "Per-Type Graph Lift: Return Abuse (ROC)",
       "raw_p_value": 0.342,
-      "rank": 20,
-      "multiplier": 8,
+      "rank": 18,
+      "multiplier": 7,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop buyer_seller_degree",
       "raw_p_value": 0.3703693817619548,
-      "rank": 21,
-      "multiplier": 7,
+      "rank": 19,
+      "multiplier": 6,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop seller_pagerank",
       "raw_p_value": 0.37401103937567187,
-      "rank": 22,
-      "multiplier": 6,
+      "rank": 20,
+      "multiplier": 5,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop buyer_seller_edge_weight_before",
       "raw_p_value": 0.3883567813878581,
-      "rank": 23,
-      "multiplier": 5,
+      "rank": 21,
+      "multiplier": 4,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop share_component_size",
       "raw_p_value": 0.45988328262549805,
-      "rank": 24,
-      "multiplier": 4,
+      "rank": 22,
+      "multiplier": 3,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "Control (d vs b): Plain Aggregates vs Tabular (PR)",
       "raw_p_value": 0.48370311523494786,
-      "rank": 25,
-      "multiplier": 3,
+      "rank": 23,
+      "multiplier": 2,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
     },
     {
       "test_name": "LOFO Loss: Drop seller_buyer_degree",
       "raw_p_value": 0.7433353681595453,
-      "rank": 26,
-      "multiplier": 2,
-      "holm_adjusted_p_value": 1.0,
-      "significant_at_05": false
-    },
-    {
-      "test_name": "Return Detector Ablation: Drop reason_*",
-      "raw_p_value": 0.782,
-      "rank": 27,
+      "rank": 24,
       "multiplier": 1,
       "holm_adjusted_p_value": 1.0,
       "significant_at_05": false
@@ -2933,12 +2912,26 @@
       }
     },
     "by_fraud_type_recovery": {
-      "fake_listing": 0.0,
-      "return_abuse": 0.45818085521352314,
-      "coordinated_fraud": 0.043895831837008306,
-      "seller_buyer_collusion": 0.0
+      "fake_listing": "N/A (listing price/image perturbation, not buyer-sharing ring)",
+      "return_abuse": {
+        "member_in_sharing_log_edge_share": 1.0,
+        "single_connected_component_share": 0.499684,
+        "all_connected_components_recovery": 0.540869,
+        "random_cluster_recovery": 0.221427,
+        "trustshield_high_risk_recovery": 0.458181
+      },
+      "coordinated_fraud": {
+        "member_in_sharing_log_edge_share": 1.0,
+        "single_connected_component_share": 0.471971,
+        "all_connected_components_recovery": 0.602601,
+        "random_cluster_recovery": 0.313077,
+        "trustshield_high_risk_recovery": 0.043896,
+        "explanation": "Ground-truth members achieve 100% sharing log edge appearance and 60.26% recovery under pure connected components (size >= 2). Recovery drops to 4.39% under TrustShield because coordinated fraud transactions have low model risk scores (~0.68 isolated ROC), so average ring risk almost never crosses the >= 0.50 threshold."
+      },
+      "seller_buyer_collusion": "N/A (bipartite transaction bursts with distinct pairs, not buyer-sharing ring)"
     },
-    "scientific_note": "Device and address sharing graphs were generated by the synthetic injection engine; this test evaluates generator recovery mechanics."
+    "scientific_note": "Device and address sharing graphs were generated by the synthetic injection engine; this test evaluates generator recovery mechanics.",
+    "retraction_note": "RETRACTION: The previously reported figures (Precision 76.2%, Recall 48.9%, F1 0.595) were not produced by a committed script and are formally retracted across all project documentation. The reproducible figures produced by scripts/run_remediation_addendum_audit.py are Precision 89.25%, Recall 8.30%, F1 0.152."
   },
   "conformal_prediction_audit_20_seeds": {
     "target_error_rate_alpha": 0.05,
@@ -2959,7 +2952,27 @@
       "mean": 1.0227276035675203,
       "std": 0.014077326844764091
     },
-    "serving_status": "Serving currently uses heuristic score thresholds (<0.20, >0.70) without calling .calibrate(). The 95% mathematical coverage guarantee only applies when .calibrate() is executed with validation scores."
+    "serving_status": "Serving currently uses heuristic score thresholds (<0.20, >0.70) without calling .calibrate(). The 95% mathematical coverage guarantee only applies when .calibrate() is executed with validation scores.",
+    "mondrian_class_conditional": {
+      "alpha": 0.05,
+      "overall_coverage": {
+        "mean": 0.95115,
+        "std": 0.005795
+      },
+      "legit_y0_coverage": {
+        "mean": 0.953026,
+        "std": 0.005778
+      },
+      "fraud_y1_coverage": {
+        "mean": 0.931379,
+        "std": 0.021471
+      },
+      "mean_set_size": {
+        "mean": 1.743,
+        "std": 0.0464
+      },
+      "description": "Class-conditional split conformal prediction calibrated separately on validation Y=0 and Y=1"
+    }
   },
   "seller_buyer_collusion_diagnostic_exploratory": {
     "share_orders_with_edge_weight_before_gt_0": {
@@ -2970,6 +2983,22 @@
       "mean": 0.012217899107677203,
       "std": 0.0050922737831954334
     },
-    "topological_blindspot_explanation": "Collusion orders occur within short 5-14 day bursts. Monthly-lagged bipartite snapshots only refresh once every calendar month; thus, orders within a burst occurring between snapshot cadences have edge_weight_before = 0 and cannot see same-month prior orders in the snapshot graph."
+    "topological_blindspot_explanation": "Collusion orders occur within short 5-14 day bursts. Monthly-lagged bipartite snapshots only refresh once every calendar month; thus, orders within a burst occurring between snapshot cadences have edge_weight_before = 0 and cannot see same-month prior orders in the snapshot graph.",
+    "mechanism": "buyer_seller_edge_weight_before is an order-level point-in-time cumulative count (cumcount()), not a monthly snapshot. In the synthetic generator, 98.78% of collusion transactions use each buyer-seller pair only once; only 1.22% share a pair with an earlier burst order. By construction, seller_buyer_collusion has no detectable topological signal in edge_weight_before."
+  },
+  "threshold_evaluation_at_tau_0_50": {
+    "raw_xgboost_output_scale": {
+      "threshold": 0.5,
+      "recall_mean": 0.40218,
+      "recall_std": 0.03299,
+      "description": "Evaluated on raw uncalibrated XGBoost classifier output"
+    },
+    "calibrated_probability_scale": {
+      "threshold": 0.5,
+      "recall_mean": 0.318258,
+      "recall_std": 0.036914,
+      "description": "Evaluated on isotonically calibrated fraud probability P(fraud)"
+    },
+    "reconciliation_note": "Neither scale yields <1% recall on the canonical pipeline; the prior '<1% recall' claim is retracted."
   }
 }

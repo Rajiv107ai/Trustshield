@@ -94,7 +94,7 @@ def _device_shared_buyer_count_asof(
     first_use = (
         orders_sub.groupby([device_col, buyer_col], as_index=False)[date_col]
         .min()
-        .sort_values(by=date_col, kind="mergesort")
+        .sort_values(kind="mergesort")
         .reset_index(drop=True)
     )
     # Running count of distinct buyers on device up to that first_use date
@@ -104,9 +104,9 @@ def _device_shared_buyer_count_asof(
     left["_orig_idx"] = left.index
     left_sorted = left.sort_values(by=date_col, kind="mergesort")
 
-    # Match datetime units for pandas merge_asof
-    dt_left = left_sorted[date_col].dt.as_unit("ns")
-    dt_right = first_use[date_col].dt.as_unit("ns")
+    # Match datetime units for pandas merge_asof (compatible with pandas < 2.0)
+    dt_left = left_sorted[date_col].astype("datetime64[ns]")
+    dt_right = first_use[date_col].astype("datetime64[ns]")
     left_sorted["_dt_key"] = dt_left
     first_use["_dt_key"] = dt_right
 

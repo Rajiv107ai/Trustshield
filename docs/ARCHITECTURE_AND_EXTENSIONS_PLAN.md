@@ -35,7 +35,7 @@ This document formalizes the production-grade extension of the TrustShield platf
   │                     │  │  Service   │ │ Trust Engine  │ │ Agent + RAG    │
   │ • 16D GNN Embeddings│  │            │ │               │ │                │
   │ • Feature Context   │  │ • 1-Hop    │ │ • XGBoost P5  │ │ • Zero-        │
-  │ • Ring Fast Lookup  │  │ • Collusion│ │ • Conformal   │ │   Hallucination│
+  │ • Ring Fast Lookup  │  │ • Collusion│ │ • Conformal   │ │   Verification │
   │ • Fallback to Disk  │  │ • Temporal │ │   Coverage    │ │ • Evidence-    │
   │                     │  │ • Parameter│ │ • Shannon H2  │ │   Grounded     │
   │                     │  │   Cypher   │ │               │ │   Dossier      │
@@ -91,7 +91,7 @@ This document formalizes the production-grade extension of the TrustShield platf
   2. Evaluate through `CanonicalTrustEngine` & active model.
   3. Extract multi-hop neighborhood via `Neo4jService`.
   4. Pass to `GenAIInvestigationAgent` with `ForensicRAGIndex`.
-  5. Run Automated Hallucination Guard to verify mathematical consistency.
+  5. Run Automated Grounding Verification Guard to verify mathematical consistency.
   6. Return structured dossier with separated OBSERVED EVIDENCE, MODEL INFERENCE, and ACTIONS.
 
 ### D. Server-Sent Events (SSE) Stream (`GET /stream/transactions`)
@@ -140,7 +140,7 @@ This document formalizes the production-grade extension of the TrustShield platf
 | Phase | Milestone | Acceptance Criteria |
 |---|---|---|
 | **Phase A** | Redis & Neo4j Services | Connection management, parameterized Cypher, 16D embedding cache, disk fallback, health/ready probes |
-| **Phase B** | Dossier API | `POST /investigation/generate-dossier` with structured schema, hallucination guard, 404/422 safety |
+| **Phase B** | Dossier API | `POST /investigation/generate-dossier` with structured schema, grounding verification guard, 404/422 safety |
 | **Phase C** | SSE Live Stream | `GET /stream/transactions`, keepalive, disconnect detection, live model scoring, Next.js UI integration |
 | **Phase D** | Prometheus & Grafana | `GET /metrics`, latency histograms, fallback counters, docker-compose orchestration, dashboard JSON |
 | **Phase E** | Full Integration & Tests | Zero regressions (174+ tests pass), new unit/integration/temporal tests, benchmarks, docs sync |

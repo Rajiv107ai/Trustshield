@@ -18,7 +18,39 @@ from io import StringIO
 _ROOT_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, _ROOT_DIR)
 
-from scripts.check_no_hardcoded_metrics import check_no_hardcoded_metrics
+from scripts.check_no_hardcoded_metrics import check_no_hardcoded_metrics, scan_text_for_metrics
+
+UNGOUNDED_EXACT_STRINGS = [
+    "roc-auc 0.912",
+    "| ROC-AUC | 0.912 |",
+    "AUC 0.912",
+    "PR-AUC 0.912",
+    "ROC-AUC (test) 0.912",
+    "precision 0.912",
+    "F1 0.91",
+    "recall: 0.85",
+    "94.2%",
+    "Recall 94.2%",
+    "| 94.2% |",
+    "<td>94.2%</td>",
+    "accuracy: 94.2%.",
+]
+
+GROUNDED_EXACT_STRINGS = [
+    "roc-auc 0.7410",
+    "| ROC-AUC | 0.7410 |",
+    "AUC 0.7410",
+    "PR-AUC 0.4461",
+    "ROC-AUC (test) 0.7410",
+    "precision 0.7410",
+    "F1 0.7410",
+    "recall: 0.7410",
+    "60.26%",
+    "Recall 60.26%",
+    "| 60.26% |",
+    "<td>60.26%</td>",
+    "accuracy: 60.26%.",
+]
 
 
 class TestCIGuardNegative:
@@ -119,3 +151,15 @@ class TestCIGuardNegative:
         with pytest.raises(SystemExit) as exc_info:
             check_no_hardcoded_metrics()
         assert exc_info.value.code == 1
+
+    @pytest.mark.parametrize("target_str", UNGOUNDED_EXACT_STRINGS)
+    def test_ci_guard_flags_ungrounded_exact_string(self, target_str):
+        """Item 7: Parametrized test asserting each ungrounded string must be flagged."""
+        errs = scan_text_for_metrics(target_str, source_name="param_negative_test")
+        assert len(errs) > 0, f"Expected ungrounded string '{target_str}' to be flagged by CI Guard, but got zero errors."
+
+    @pytest.mark.parametrize("target_str", GROUNDED_EXACT_STRINGS)
+    def test_ci_guard_passes_grounded_exact_string(self, target_str):
+        """Item 7: Parametrized test asserting each grounded string built from real results.json values must pass."""
+        errs = scan_text_for_metrics(target_str, source_name="param_positive_test")
+        assert len(errs) == 0, f"Expected grounded string '{target_str}' to pass CI Guard cleanly, but got errors: {errs}"

@@ -4,7 +4,7 @@
 
 The Forensic Investigation Dossier API (`POST /investigation/generate-dossier`) provides operations analysts and compliance officers with evidence-grounded investigation reports.
 
-Instead of outputting an unconstrained text string, the API produces a strictly structured schema that prevents GenAI hallucinations and provides transparent chain of evidence.
+Instead of outputting an unconstrained text string, the API produces a strictly structured schema that prevents speculative claims and provides transparent chain of evidence.
 
 ---
 
@@ -61,7 +61,7 @@ Request (entity_type, entity_id)
 6. GenAI / Deterministic Synthesis Agent
     │
     ▼
-7. Anti-Hallucination Verification Guard
+7. Evidence Grounding Verification Guard
     │
     ▼
 Structured Response (DossierResponse)
@@ -83,7 +83,7 @@ Per Rule #12, the response explicitly separates four epistemological tiers:
 
 ---
 
-## 5. Anti-Hallucination & GenAI Safety Rules
+## 5. Evidence Grounding & Verification Rules
 
 1. **Grounded Invariants:** The investigation agent cannot invent entity IDs, chargeback amounts, or nonexistent connections.
 2. **Deterministic Fallback:** When an external LLM is not configured, TrustShield uses its native deterministic rule-grounded synthesis agent (`GenAIInvestigationAgent` in `trustshield_project/investigation_agent.py`).

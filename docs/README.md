@@ -44,7 +44,7 @@ This directory serves as the centralized repository for all engineering audits, 
 - [**Infrastructure & Service Mesh (`INFRASTRUCTURE.md`)**](INFRASTRUCTURE.md)  
   Redis 16-dimensional GNN embedding store, Neo4j temporal Cypher property graph, Docker Compose 5-service orchestration, and zero-downtime offline fallbacks.
 - [**Forensic Investigation API Specification (`INVESTIGATION_API.md`)**](INVESTIGATION_API.md)  
-  API contract for `/investigation/generate-dossier`, combining entity telemetry, 2-hop graph topology, policy RAG guidelines, and automated anti-hallucination verification.
+  API contract for `/investigation/generate-dossier`, combining entity telemetry, 2-hop graph topology, policy RAG guidelines, and automated evidence grounding verification.
 - [**Phase 2: Final Advanced Research Report (`PHASE2_FINAL_REPORT.md`)**](PHASE2_FINAL_REPORT.md)  
   Comprehensive mathematical synthesis of Heterogeneous GNNs (`HeteroData`), $Time2Vec$ continuous-time edge learning, multimodal CLIP/FAISS vector retrieval, and Conformal Prediction uncertainty quantification.
 - [**Phase 2: Pre-Implementation Baseline (`PHASE2_BASELINE.md`)**](PHASE2_BASELINE.md)  

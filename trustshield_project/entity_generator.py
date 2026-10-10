@@ -69,7 +69,7 @@ def generate_sellers(n_sellers: int, addresses_df: pd.DataFrame, rng: np.random.
     return pd.DataFrame({
         "seller_id": [f"SELLER_{i:05d}" for i in range(n_sellers)],
         "signup_date": generate_onboarding_dates(n_sellers, rng=gen),
-        "address_id": gen.choice(seller_addr_pool, size=n_sellers, replace=False),
+        "address_id": gen.choice(np.asarray(seller_addr_pool), size=n_sellers, replace=False),
         "category_focus": gen.choice(categories, size=n_sellers),
         "trust_score_current": 70.0,
         "trust_score_history": [[] for _ in range(n_sellers)],
@@ -92,7 +92,7 @@ def generate_buyers(n_buyers: int, addresses_df: pd.DataFrame, rng: np.random.Ge
     return pd.DataFrame({
         "buyer_id": [f"BUYER_{i:05d}" for i in range(n_buyers)],
         "signup_date": generate_onboarding_dates(n_buyers, rng=gen),
-        "address_id": gen.choice(buyer_addr_pool, size=n_buyers, replace=False),
+        "address_id": gen.choice(np.asarray(buyer_addr_pool), size=n_buyers, replace=False),
         "trust_score_current": 70.0,
         "total_orders": 0,
         "total_returns": 0,

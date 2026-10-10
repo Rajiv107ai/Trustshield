@@ -147,7 +147,11 @@ class TransactionScoreResponse(BaseModel):
     model_version: str = "phase3"    # "phase3" | "phase5-hybrid"
     graph_features_source: str = Field(
         default="server",
-        description="Source of graph features: 'server', 'client_flagged_mismatch', or 'default_fallback_flagged'.",
+        description="Source of graph features: 'server', 'client', or 'default'.",
+    )
+    client_mismatch: bool = Field(
+        default=False,
+        description="True when client-supplied graph features differed from server snapshot.",
     )
     note: str = ""
     # Canonical Trust Engine real output fields (no fake defaults)

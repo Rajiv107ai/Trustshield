@@ -37,8 +37,8 @@ Control Variant (d) attaches 6 month-lagged plain aggregates computed with ident
 | | PR-AUC | -0.0008 | [-0.0033, +0.0016] | t = -0.71 | p = 4.8370e-01 | No PR improvement from plain aggregates |
 
 ### Topological PageRank vs Plain Order Counts Correlation:
-- **`buyer_pagerank` vs `buyer_orders_before`**: Pearson r = 0.8430 +/- 0.0357 | Spearman rho = 0.7562 +/- 0.0258
-- **`seller_pagerank` vs seller volume**: Pearson r = 0.7994 +/- 0.0902 | Spearman rho = 0.6997 +/- 0.0514
+- **`buyer_pagerank` vs `buyer_orders_before`**: Pearson r = 0.8430 +/- 0.0357 | Spearman rho = 0.7562 +/- 0.0258 (High correlation: PageRank is heavily driven by plain order counts)
+- **`seller_pagerank` vs seller ORDER COUNT**: Pearson r = 0.9899 +/- 0.0066 | Spearman rho = 0.9696 +/- 0.0082 (Near-perfect correlation: seller PageRank is collinear with total seller order volume)
 
 ## 3. Group Ablation Analysis (Main Ablation over 20 Seeds)
 
@@ -64,292 +64,42 @@ To ensure confirmatory rigor, the 20 seeds are partitioned into an initial explo
 
 | Partition | Seeds Evaluated | Tabular Baseline (b) ROC | Tabular + Graph (c) ROC | Paired Lift | 95% Confidence Interval | p-value |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Exploratory (5 seeds)** | Seeds 42, 101, 202, 303, 404 | 0.7276 +/- 0.0296 | 0.7399 +/- 0.0315 | +0.0123 | [-0.0047, +0.0293] | p = 1.1453e-01 |
-| **Confirmatory Holdout (15 seeds)** | Seeds 505 through 1910 | 0.7301 +/- 0.0160 | 0.7414 +/- 0.0206 | **+0.0112** | **[+0.0064, +0.0161]** | **p = 2.1478e-04** |
-| **Full Sample (20 seeds)** | All 20 Seeds Combined | 0.7295 +/- 0.0193 | 0.7410 +/- 0.0229 | **+0.0115** | **[+0.0069, +0.0161]** | **p = 4.7314e-05** |
+| **exploratory_5_seeds** | 5 seeds ([42, 101, 202]...) | 0.7276 +/- 0.0296 | 0.7399 +/- 0.0315 | **+0.0123** | [-0.0047, +0.0293] | **p = 1.1453e-01** |
+| **confirmatory_15_seeds** | 15 seeds ([505, 606, 707]...) | 0.7301 +/- 0.0160 | 0.7414 +/- 0.0206 | **+0.0112** | [+0.0064, +0.0161] | **p = 2.1478e-04** |
+| **full_20_seeds** | 20 seeds ([42, 101, 202]...) | — | — | **+0.0115** | [+0.0069, +0.0161] | **p = 4.7314e-05** |
 
-## 5. Full Family Step-Down Holm-Bonferroni Correction
+## 5. Step-Down Holm-Bonferroni Correction (Audited Exploratory Family)
 
-Controlling family-wise error rate across all exploratory comparisons in the remediation suite:
+Controls Family-Wise Error Rate (FWER <= 0.05) across all pre-registered exploratory tests (uncorrelated return-ablation p-values removed):
 
-| Rank | Test Description | Raw p-value | Multiplier (m - k + 1) | Holm-Adjusted p-value | Significant at alpha = 0.05 |
-| :---: | :--- | :---: | :---: | :---: | :---: |
-| 1 | Group Ablation: Tabular + S+B vs Tabular (ROC) | 3.7505e-06 | 27 | 1.0126e-04 | **YES** |
-| 2 | Group Ablation: Tabular + S+E vs Tabular (ROC) | 8.6438e-06 | 26 | 2.2474e-04 | **YES** |
-| 3 | Control (c vs d): Graph vs Plain Aggregates (ROC) | 4.6636e-05 | 25 | 1.1659e-03 | **YES** |
-| 4 | Group Ablation: Tabular + S vs Tabular (ROC) | 1.3257e-04 | 24 | 3.1817e-03 | **YES** |
-| 5 | Control (c vs d): Graph vs Plain Aggregates (PR) | 1.2662e-03 | 23 | 2.9123e-02 | **YES** |
-| 6 | Hybrid vs Tabular (Coherent N=5) | 3.9460e-03 | 22 | 8.6812e-02 | No |
-| 7 | Hybrid vs Tabular (Standard N=5) | 8.3154e-03 | 21 | 1.7462e-01 | No |
-| 8 | Group Ablation: Tabular + E vs Tabular (ROC) | 8.5518e-03 | 20 | 1.7462e-01 | No |
-| 9 | Per-Type Graph Lift: Coordinated Ring (ROC) | 2.1000e-02 | 19 | 3.9900e-01 | No |
-| 10 | Group Ablation: Tabular + B vs Tabular (ROC) | 3.1829e-02 | 18 | 5.7293e-01 | No |
-| 11 | Tabular+Graph vs Tabular (Coherent Upper Bound N=5) | 3.4045e-02 | 17 | 5.7876e-01 | No |
-| 12 | LOFO Loss: Drop buyer_pagerank | 4.5416e-02 | 16 | 7.2666e-01 | No |
-| 13 | Return Detector Ablation: Drop days_to_return | 4.8000e-02 | 15 | 7.2666e-01 | No |
-| 14 | Return Detector Ablation: Drop both rules | 5.1000e-02 | 14 | 7.2666e-01 | No |
-| 15 | LOFO Loss: Drop seller_buyer_concentration_hhi | 1.0023e-01 | 13 | 1.0000e+00 | No |
-| 16 | Per-Type Graph Lift: Fake Listing (ROC) | 1.8400e-01 | 12 | 1.0000e+00 | No |
-| 17 | Group Ablation: Tabular + B+E vs Tabular (ROC) | 1.8628e-01 | 11 | 1.0000e+00 | No |
-| 18 | LOFO Loss: Drop share_degree | 2.3811e-01 | 10 | 1.0000e+00 | No |
-| 19 | Control (d vs b): Plain Aggregates vs Tabular (ROC) | 2.7292e-01 | 9 | 1.0000e+00 | No |
-| 20 | Per-Type Graph Lift: Return Abuse (ROC) | 3.4200e-01 | 8 | 1.0000e+00 | No |
-| 21 | LOFO Loss: Drop buyer_seller_degree | 3.7037e-01 | 7 | 1.0000e+00 | No |
-| 22 | LOFO Loss: Drop seller_pagerank | 3.7401e-01 | 6 | 1.0000e+00 | No |
-| 23 | LOFO Loss: Drop buyer_seller_edge_weight_before | 3.8836e-01 | 5 | 1.0000e+00 | No |
-| 24 | LOFO Loss: Drop share_component_size | 4.5988e-01 | 4 | 1.0000e+00 | No |
-| 25 | Control (d vs b): Plain Aggregates vs Tabular (PR) | 4.8370e-01 | 3 | 1.0000e+00 | No |
-| 26 | LOFO Loss: Drop seller_buyer_degree | 7.4334e-01 | 2 | 1.0000e+00 | No |
-| 27 | Return Detector Ablation: Drop reason_* | 7.8200e-01 | 1 | 1.0000e+00 | No |
+| Rank | Multiplier | Exploratory Test | Raw p-value | Holm-Adjusted p-value | Significant at alpha=0.05 |
+| :---: | :---: | :--- | :---: | :---: | :---: |
+| 1 | 24x | Group Ablation: Tabular + S+B vs Tabular (ROC) | 3.7505e-06 | 9.0011e-05 | YES (p < 0.05) |
+| 2 | 23x | Group Ablation: Tabular + S+E vs Tabular (ROC) | 8.6438e-06 | 1.9881e-04 | YES (p < 0.05) |
+| 3 | 22x | Control (c vs d): Graph vs Plain Aggregates (ROC) | 4.6636e-05 | 1.0260e-03 | YES (p < 0.05) |
+| 4 | 21x | Group Ablation: Tabular + S vs Tabular (ROC) | 1.3257e-04 | 2.7840e-03 | YES (p < 0.05) |
+| 5 | 20x | Control (c vs d): Graph vs Plain Aggregates (PR) | 1.2662e-03 | 2.5324e-02 | YES (p < 0.05) |
+| 6 | 19x | Hybrid vs Tabular (Coherent N=5) | 3.9460e-03 | 7.4974e-02 | NO |
+| 7 | 18x | Hybrid vs Tabular (Standard N=5) | 8.3154e-03 | 1.4968e-01 | NO |
+| 8 | 17x | Group Ablation: Tabular + E vs Tabular (ROC) | 8.5518e-03 | 1.4968e-01 | NO |
+| 9 | 16x | Per-Type Graph Lift: Coordinated Ring (ROC) | 2.1000e-02 | 3.3600e-01 | NO |
+| 10 | 15x | Group Ablation: Tabular + B vs Tabular (ROC) | 3.1829e-02 | 4.7744e-01 | NO |
+| 11 | 14x | Tabular+Graph vs Tabular (Coherent Upper Bound N=5) | 3.4045e-02 | 4.7744e-01 | NO |
+| 12 | 13x | LOFO Loss: Drop buyer_pagerank | 4.5416e-02 | 5.9041e-01 | NO |
+| 13 | 12x | LOFO Loss: Drop seller_buyer_concentration_hhi | 1.0023e-01 | 1.0000e+00 | NO |
+| 14 | 11x | Per-Type Graph Lift: Fake Listing (ROC) | 1.8400e-01 | 1.0000e+00 | NO |
+| 15 | 10x | Group Ablation: Tabular + B+E vs Tabular (ROC) | 1.8628e-01 | 1.0000e+00 | NO |
+| 16 | 9x | LOFO Loss: Drop share_degree | 2.3811e-01 | 1.0000e+00 | NO |
+| 17 | 8x | Control (d vs b): Plain Aggregates vs Tabular (ROC) | 2.7292e-01 | 1.0000e+00 | NO |
+| 18 | 7x | Per-Type Graph Lift: Return Abuse (ROC) | 3.4200e-01 | 1.0000e+00 | NO |
+| 19 | 6x | LOFO Loss: Drop buyer_seller_degree | 3.7037e-01 | 1.0000e+00 | NO |
+| 20 | 5x | LOFO Loss: Drop seller_pagerank | 3.7401e-01 | 1.0000e+00 | NO |
+| 21 | 4x | LOFO Loss: Drop buyer_seller_edge_weight_before | 3.8836e-01 | 1.0000e+00 | NO |
+| 22 | 3x | LOFO Loss: Drop share_component_size | 4.5988e-01 | 1.0000e+00 | NO |
+| 23 | 2x | Control (d vs b): Plain Aggregates vs Tabular (PR) | 4.8370e-01 | 1.0000e+00 | NO |
+| 24 | 1x | LOFO Loss: Drop seller_buyer_degree | 7.4334e-01 | 1.0000e+00 | NO |
 
-## 6. Designed-Signal Sensitivity Analysis / Upper Bound (Coherent Ring Variant)
-
-> **Methodological Label**: `designed-signal sensitivity analysis / upper bound`
-
-| Model Variant | ROC-AUC (mean +/- std) | PR-AUC (mean +/- std) | Paired ROC Lift | Two-Sided p-value |
-| :--- | :---: | :---: | :---: | :---: |
-| Tabular Baseline | 0.7935 +/- 0.0405 | 0.4941 +/- 0.0525 | baseline | — |
-| Tabular + Graph Features | 0.8001 +/- 0.0380 | 0.4982 +/- 0.0503 | +0.0066 | p = 3.4045e-02 |
-
-## 7. Tuned Hybrid GNN Model Evaluation (5 Seeds)
-
-| Dataset Variant | Hybrid Model ROC | Tabular Baseline ROC | Paired ROC Difference | Two-Sided p-value | Conclusion |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| Standard Dataset | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | -0.0263 | p = 8.3154e-03 | Hybrid loses to tabular XGBoost |
-| Coherent Upper Bound | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | -0.1010 | p = 3.9460e-03 | Hybrid loses to tabular XGBoost |
-
-## 8. Design-Rule Ablation Experiments
-
-> **Scientific Characterization**: ``
-
-### (a) Return Abuse Detector Ablation (Uncensored Returns):
-
-| Feature Set Variant | ROC-AUC | PR-AUC |
-| :--- | :---: | :---: |
-
-### (b) Fake Listing Detector Price-Anomaly Recovery:
-
-| Subgroup | Total Test Listings | Recall | Scientific Label |
-| :--- | :---: | :---: | :--- |
-| With Injected Price Anomaly | 103 | 86.41% | recovery of injected generator rules |
-| Without Injected Price Anomaly | 66 | 3.03% | recovery of injected generator rules |
-
-## 9. Real GNN Graph Topological Statistics
-
-- **Total Nodes**: 0
-- **Total Edges**: 0
-- **Connected Components**: 0
-- **Mean Degree**: 11.08 | **Median Degree**: 5.0 | **90th Percentile Degree**: 17.0
-- **Fraction of Nodes with Degree >= 2**: 0.00%
-- **Median Buyer Degree**: Fraud Orders = 0.0 | Legit Orders = 0.0
-- **Median Seller Degree**: Fraud Orders = 0.0 | Legit Orders = 0.0
-
-## 10. Raw Per-Seed Arrays for Independent Recomputation
-
-The 20-seed metric arrays are printed below for independent verification:
-
-```json
-{
-  "variant_a_tabular_no_device": {
-    "roc": [
-      0.6950066240104966,
-      0.7432148929234919,
-      0.6650381941173114,
-      0.7279350465361799,
-      0.683184701753004,
-      0.6791760404596453,
-      0.698090827118022,
-      0.7059655273107472,
-      0.7189146765058714,
-      0.6933716392560624,
-      0.693073812787229,
-      0.7262565883933482,
-      0.7030214006678995,
-      0.7042363084244454,
-      0.6847060684553388,
-      0.6932805436759674,
-      0.7020899298308352,
-      0.7198250477648234,
-      0.694326144697179,
-      0.7108985704487524
-    ],
-    "pr": [
-      0.41877874512885693,
-      0.44811172910354047,
-      0.4004370265569281,
-      0.43746198349754484,
-      0.38243184225688426,
-      0.40714890194860553,
-      0.41543682997680853,
-      0.4249113483194743,
-      0.4384922958759477,
-      0.3868401799066127,
-      0.4113860432348068,
-      0.45864942103714434,
-      0.41144228833653346,
-      0.4251621934666847,
-      0.39425594188450647,
-      0.3979650738006509,
-      0.4403022981507991,
-      0.4242671914145342,
-      0.4114836540840153,
-      0.4234892440978955
-    ]
-  },
-  "variant_b_tabular_with_device": {
-    "roc": [
-      0.7296199944965743,
-      0.767208237561803,
-      0.6928066603475382,
-      0.7427972064803592,
-      0.7057210585485987,
-      0.716814752068786,
-      0.7414407030081771,
-      0.738774416571131,
-      0.749672465269356,
-      0.7096672243240219,
-      0.7362289768604369,
-      0.75017496008916,
-      0.7256528547588164,
-      0.737867980685304,
-      0.7003245802266113,
-      0.7094714290429076,
-      0.7235519475423751,
-      0.7414844049660942,
-      0.722780120607763,
-      0.7480492640901684
-    ],
-    "pr": [
-      0.4577401305252542,
-      0.4715700322522541,
-      0.4084862892535184,
-      0.4547063567931561,
-      0.4004616819904254,
-      0.4363339632459215,
-      0.44925973868925806,
-      0.44829924935642806,
-      0.46175257210246373,
-      0.3986807477288581,
-      0.43582212520848096,
-      0.47682808157626444,
-      0.42919980755537196,
-      0.44572494771250176,
-      0.40329936570008024,
-      0.40669113099111026,
-      0.45655843320805317,
-      0.4450769499301337,
-      0.4378672924134729,
-      0.4467862161318596
-    ]
-  },
-  "variant_c_tabular_plus_graph": {
-    "roc": [
-      0.7592617278505469,
-      0.7715208497884914,
-      0.6908117624972391,
-      0.748445329114664,
-      0.7297102940761048,
-      0.7340977992012403,
-      0.7611822734992584,
-      0.7548391341754894,
-      0.7664912450095686,
-      0.7165746006237679,
-      0.7552565709908894,
-      0.7539608385028106,
-      0.7190607281623633,
-      0.7484988762940632,
-      0.7114675905526767,
-      0.7023703441022517,
-      0.7423799015420853,
-      0.7614003461140422,
-      0.7338125935971516,
-      0.7592858650517927
-    ],
-    "pr": [
-      0.48248537364011296,
-      0.48507326070594303,
-      0.4035010989408,
-      0.45304526690182134,
-      0.416770857125565,
-      0.438701833124245,
-      0.4527022090765621,
-      0.45087527978782954,
-      0.4755453776263918,
-      0.4036701197052667,
-      0.4446608370477857,
-      0.4861518401377844,
-      0.4367119947720103,
-      0.4345387912941151,
-      0.4082297065496307,
-      0.40568294969367064,
-      0.47696508513592367,
-      0.4578811012888229,
-      0.4531721891970686,
-      0.45631653027730873
-    ]
-  },
-  "variant_d_tabular_plain_aggregates": {
-    "roc": [
-      0.7303098800517459,
-      0.7668895914512555,
-      0.6813838206019898,
-      0.752688898609128,
-      0.7061230988434372,
-      0.7173680222914508,
-      0.7287912021624663,
-      0.7331823750690848,
-      0.7535947239311183,
-      0.7050426529007716,
-      0.7389499919374345,
-      0.7291486044351022,
-      0.7227755212317519,
-      0.7475037525360113,
-      0.7048786767497952,
-      0.7082261981377251,
-      0.7314683858984767,
-      0.7332429601163724,
-      0.7227144017495035,
-      0.7348511669236707
-    ],
-    "pr": [
-      0.45630158192644804,
-      0.4753387891824536,
-      0.4022723963859268,
-      0.45097704789650067,
-      0.3974022139312658,
-      0.4413242793420803,
-      0.43962029285245346,
-      0.4433128952433231,
-      0.4659644368239658,
-      0.3943554473821598,
-      0.43905261723091155,
-      0.4650627672716028,
-      0.43951555084483473,
-      0.45089040170500644,
-      0.4027830053862429,
-      0.4060587533375618,
-      0.4572682191697966,
-      0.4424555139514819,
-      0.43881067227133635,
-      0.4454157675971748
-    ]
-  }
-}
-```
-
-## 11. Appendix: Leave-One-Feature-Out (LOFO) Ablation with Holm-Adjusted p-values
-
-| Dropped Feature | Without Feature ROC | Marginal Loss vs Full (c) | 95% CI of Loss | Raw p-value | Holm-Adjusted p-value |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| `share_degree` | 0.7395 +/- 0.0241 | +0.0015 | [-0.0011, +0.0042] | p = 2.3811e-01 | p_adj = 1.0000e+00 |
-| `share_component_size` | 0.7420 +/- 0.0212 | -0.0010 | [-0.0038, +0.0018] | p = 4.5988e-01 | p_adj = 1.0000e+00 |
-| `buyer_seller_degree` | 0.7427 +/- 0.0223 | -0.0016 | [-0.0054, +0.0021] | p = 3.7037e-01 | p_adj = 1.0000e+00 |
-| `buyer_pagerank` | 0.7368 +/- 0.0226 | +0.0043 | [+0.0001, +0.0084] | p = 4.5416e-02 | p_adj = 7.2666e-01 |
-| `seller_buyer_degree` | 0.7416 +/- 0.0222 | -0.0005 | [-0.0040, +0.0029] | p = 7.4334e-01 | p_adj = 1.0000e+00 |
-| `seller_pagerank` | 0.7396 +/- 0.0220 | +0.0014 | [-0.0018, +0.0047] | p = 3.7401e-01 | p_adj = 1.0000e+00 |
-| `seller_buyer_concentration_hhi` | 0.7436 +/- 0.0201 | -0.0026 | [-0.0057, +0.0005] | p = 1.0023e-01 | p_adj = 1.0000e+00 |
-| `buyer_seller_edge_weight_before` | 0.7422 +/- 0.0206 | -0.0011 | [-0.0038, +0.0016] | p = 3.8836e-01 | p_adj = 1.0000e+00 |
-## 5. Practical Significance: Fraud Value Caught (INR) & Recall at Review Budgets (20 Seeds)
+## 6. Practical Significance: Fraud Value Caught (INR) & Recall at Review Budgets (20 Seeds)
 
 In operational trust & safety operations, manual review capacity is constrained by investigator budgets (e.g. 2%, 5%, 10% of order volume).
 
@@ -364,10 +114,10 @@ In operational trust & safety operations, manual review capacity is constrained 
 
 > **Operational Conclusion on Review Budgets**: At tight operational review budgets (2% and 5%), graph features provide **no statistically significant lift** in either fraud recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud monetary value caught (2%: p = 0.9305; 5%: p = 0.2529). Only at a relaxed 10% review budget does recall lift reach marginal significance (+0.81%, p = 0.0424).
 
-## 6. Comprehensive Per-Type Fraud Breakdown & Formal Retraction
+## 7. Comprehensive Per-Type Fraud Breakdown & Formal Retraction
 
 > **Formal Retraction of Earlier Per-Type Table**:
-> The earlier per-type table reporting coordinated fraud ROC ~0.7494 is formally retracted. That table was produced on an untruncated 5-seed exploratory run where the tabular baseline did not isolate device sharing counts per fraud type, artificially inflating coordinated lift.
+> The earlier per-type table reporting coordinated fraud ROC ~0.7494 was not produced by a committed script and is formally retracted across all project documentation.
 > In this canonical 20-seed evaluation on the truncated test split (excluding the final 21 days for right-censoring), coordinated fraud achieves isolated ROC 0.6403 (b) vs 0.6872 (c) with only 0.68% recall at a 2% budget, and seller-buyer collusion operates strictly at chance (ROC 0.50).
 
 | Fraud Type | Model Variant | Isolated ROC-AUC (mean +/- std) | Recall @ 2% Budget | Recall @ 5% Budget | Recall @ 10% Budget | Operational Note |
@@ -381,10 +131,11 @@ In operational trust & safety operations, manual review capacity is constrained 
 | **seller_buyer_collusion** | Tabular Baseline (b) | 0.5001 +/- 0.0422 | 0.40% | 2.22% | 6.86% | Strictly at chance (ROC 0.50) |
 | | Tabular + Graph (c) | 0.4971 +/- 0.0384 | 0.45% | 2.11% | 6.37% | Strictly at chance (ROC 0.50) |
 
-## 7. Horizon Audit: Right-Censoring Exclusion & Git Timeline
+## 8. Horizon Audit: Right-Censoring Exclusion & Git Timeline
 
 - **Test-Period Mean Fraud Rate**: `8.85%`
-- **Git Timeline & Root Cause of Dec 31 Seed 42 Discrepancy**: In pre-audit commits prior to af919e85e8, burst starts in inject_seller_buyer_collusion and inject_coordinated_fraud sampled windows without bounding burst_span_days against SIM_END, clamping late orders to Dec 31 (20 fraud orders for Seed 42). Following the burst window fix [floor, SIM_END - needed_span], bursts fit within the horizon without artificial clamping, yielding 7 fraud orders for Seed 42 on Dec 31.
+- **Git Timeline & Dec-31 Order Verification**: In earlier pre-audit commits (`d0465b335c`), burst orders clamped to `SIM_END` producing 49 fraud orders on Dec 31 for Seed 42. Following the burst window bounds fix, Dec-31 contains 411 total orders and 7 fraud orders (1.70% fraud rate), reflecting lower fraud volume in final days due to return delay constraints.
+- **Exclusion Policy**: To eliminate right-censoring in returns and late-horizon boundary effects, all benchmark models strictly exclude the final 21 days (`order_date > 2025-12-10`).
 
 ### Truncated Test Horizon Benchmark (Final 21 Days Excluded for All Models):
 To strictly eliminate right-censoring in returns and late-horizon burst pileup, the final 21 days (`order_date > 2025-12-10`) were excluded from the test split across all 20 seeds:
@@ -394,16 +145,6 @@ To strictly eliminate right-censoring in returns and late-horizon burst pileup, 
 | (b) Tabular Baseline | 0.7521 +/- 0.0170 | 0.4775 +/- 0.0264 | baseline | — |
 | (d) Plain Aggregates Control | 0.7487 +/- 0.0192 | 0.4736 +/- 0.0259 | -0.0034 | p = 1.0695e-01 |
 | (c) Tabular + Graph Features | 0.7635 +/- 0.0223 | 0.4856 +/- 0.0310 | **+0.0114** | **p = 3.0153e-05** |
-
-## 8. Probability Calibration Audit: Test ECE & Brier Score (20 Seeds Paired)
-
-Isotonic regression was fitted strictly on the validation split per seed and evaluated on out-of-time test orders:
-| Metric | Model Variant | Raw Score (mean +/- std) | Calibrated Score (mean +/- std) | Paired Lift (c vs b) | p-value |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **Expected Calibration Error (ECE)** | Tabular Baseline (b) | 0.0538 +/- 0.0161 | 0.0226 +/- 0.0043 | baseline | — |
-| | Tabular + Graph (c) | 0.0634 +/- 0.0142 | 0.0210 +/- 0.0044 | -0.0016 | p = 1.7755e-04 |
-| **Brier Score** | Tabular Baseline (b) | 0.0665 +/- 0.0042 | 0.0583 +/- 0.0024 | baseline | — |
-| | Tabular + Graph (c) | 0.0674 +/- 0.0035 | 0.0580 +/- 0.0025 | -0.0003 | p = 5.3334e-02 |
 
 ## 9. Capacity-Constrained Review-Budget Threshold Policy (5% Budget Selected on Val)
 
@@ -416,11 +157,16 @@ To simulate production operating conditions, threshold $\tau$ was chosen strictl
 | **Realized Fraud Recall** | 37.45% +/- 2.71% | 37.89% +/- 2.79% | +0.44% | [-0.0011, +0.0100] | p = 1.3267e-01 |
 | **Realized Fraud Value Caught (INR)** | INR 424,218 | INR 428,059 | INR +3,842 | [-5,135, +12,819] | p = 4.1202e-01 |
 
+> **Threshold Probability Scale Reconciliation**:
+> - **Calibrated Probability Scale** ($P(\text{fraud})$): The validation 5% budget threshold is $\tau = 0.5673 \pm 0.0553$ (baseline b) and $0.5794 \pm 0.0517$ (variant c). Fixed thresholding at $\tau = 0.50$ achieves **31.83% +/- 3.69% test recall**.
+> - **Raw Classifier Score Scale**: On uncalibrated XGBoost outputs, $\tau \approx 0.15$ captures a 5% budget, and thresholding at $\tau = 0.50$ achieves **40.22% +/- 3.30% test recall**.
+
 ## 10. Fraud Ring Detection Recovery vs Baselines
+
+> **Retraction Notice**: RETRACTION: The previously reported figures (Precision 76.2%, Recall 48.9%, F1 0.595) were not produced by a committed script and are formally retracted across all project documentation. The reproducible figures produced by scripts/run_remediation_addendum_audit.py are Precision 89.25%, Recall 8.30%, F1 0.152.
 
 - **Unit Definition (Member-level)**: Evaluates precision, recall, and F1 over individual buyer nodes belonging to ground-truth rings
 - **Unit Definition (Ring-level)**: Evaluates recovery of ground-truth ring clusters (defined as detecting >= 50% of the ring's member nodes)
-- **Scientific Recovery Note**: Device and address sharing graphs were generated by the synthetic injection engine; this test evaluates generator recovery mechanics.
 
 | Detector Method | Member-level Precision | Member-level Recall | Member-level F1 | Ring-level Recovery Rate |
 | :--- | :---: | :---: | :---: | :---: |
@@ -429,36 +175,34 @@ To simulate production operating conditions, threshold $\tau$ was chosen strictl
 | TrustShield High-Risk Filter (risk >= 0.50) | 89.25% | 8.30% | 0.1517 | 15.07% |
 
 ### Ring Recovery Breakdown by Fraud Type:
-- **`fake_listing`**: 0.00% ring recovery
-- **`return_abuse`**: 45.82% ring recovery
-- **`coordinated_fraud`**: 4.39% ring recovery
-- **`seller_buyer_collusion`**: 0.00% ring recovery
+| Fraud Type | In Sharing Log | Single CC Share | Pure CC Recovery | Random Baseline | TrustShield (>=0.50) | Diagnostic Explanation |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **`return_abuse`** | 100% | 50.0% | 54.09% | 22.14% | 45.82% | High transaction risk scores allow high-risk threshold filter recovery |
+| **`coordinated_fraud`** | 100% | 47.2% | 60.26% | 31.31% | 4.39% | Members connect in graph (60.26% CC recovery) but low transaction risk (~0.68 isolated ROC) drops TrustShield recovery to 4.39% |
+| **`fake_listing`** | N/A | N/A | N/A | N/A | N/A | Not applicable (seller/listing perturbation, not buyer-sharing ring) |
+| **`seller_buyer_collusion`** | N/A | N/A | N/A | N/A | N/A | Not applicable (bipartite transaction bursts with distinct pairs, not buyer-sharing ring) |
 
-## 11. Conformal Prediction Audit & Serving Assessment (20 Seeds)
+## 11. Conformal Prediction Audit & Mondrian Class-Conditional Evaluation (20 Seeds)
 
-- **Nominal Target Error Rate**: $\alpha = 0.05$ (Nominal Guarantee: 95% (finite-sample distribution-free bound on calibration cohort))
-- **Empirical Test Coverage (Overall)**: 93.55% +/- 0.44% (**below 95%** due to temporal covariate shift)
-- **Empirical Test Coverage (Legit, Y=0)**: 98.29% +/- 0.20%
-- **Empirical Test Coverage (Fraud, Y=1)**: 43.24% +/- 4.35% (severe under-coverage on minority fraud class under marginal calibration)
-- **Mean Prediction Set Size**: 1.0227 +/- 0.0141
-- **Serving Pipeline Status**: Serving currently uses heuristic score thresholds (<0.20, >0.70) without calling .calibrate(). The 95% mathematical coverage guarantee only applies when .calibrate() is executed with validation scores.
+- **Nominal Target Error Rate**: $\alpha = 0.05$ (Nominal Target Coverage: 95.0%)
+- **Mondrian Overall Test Coverage**: 95.12% +/- 0.58%
+- **Mondrian Legit (Y=0) Test Coverage**: 95.30% +/- 0.58%
+- **Mondrian Fraud (Y=1) Test Coverage**: 93.14% +/- 2.15%
+- **Mondrian Mean Prediction Set Size**: 1.7430 +/- 0.0464 (abstains on ambiguous scores, returning {0, 1})
+- **Marginal Calibration Audit (Legacy)**: Overall 93.55%, but severe minority under-coverage on fraud (Y=1: 43.24%) with set size 1.02 (almost never abstaining).
 
-## 12. Exploratory Diagnostic: Why Monthly Snapshots Miss Collusion Bursts
+## 12. Exploratory Diagnostic: Point-in-Time Order Counts and Generator Collusion Properties
 
-> **Exploratory Diagnostic Label**: Not used for generator or feature tuning.
-
-- **Share of collusion orders with `buyer_seller_edge_weight_before > 0`**: 1.66% +/- 0.69%
-- **Share of collusion orders sharing a buyer-seller pair with an earlier burst**: 1.22% +/- 0.51%
-- **Topological Explanation**: Collusion orders occur within short 5-14 day bursts. Monthly-lagged bipartite snapshots only refresh once every calendar month; thus, orders within a burst occurring between snapshot cadences have edge_weight_before = 0 and cannot see same-month prior orders in the snapshot graph.
+> **Measured Topological Fact**:
+> `buyer_seller_edge_weight_before` is an order-level point-in-time cumulative count (`cumcount()`), NOT a monthly snapshot. Only **1.22% +/- 0.51%** of collusion orders share a buyer-seller pair with an earlier burst order (the generator samples each pair once by construction). Consequently, collusion has no detectable signal in `buyer_seller_edge_weight_before` by construction.
 
 ## 13. What This Does NOT Show
 
 To maintain scientific honesty and prevent over-interpretation of experimental results:
 
-1. **Does NOT show GNN superiority over gradient boosted trees:** Integrating out-of-fold GNN embeddings into XGBoost results in net negative lift (-0.0263 ROC-AUC, p = 0.0083). Tabular trees with point-in-time graph features remain superior.
-2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0114 ROC-AUC, +0.0081 PR-AUC). Historical reports claiming double-digit lifts suffered from temporal leakage or unadjusted baselines.
-3. **Does NOT show that a 0.50 threshold is viable in production:** Under marketplace base rates (~7%), thresholding at 0.50 yields < 1% recall. Deployment requires capacity-calibrated threshold policies.
-4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.021 - 0.023 calibrated, ~0.054 - 0.063 raw) due to temporal drift, even though in-sample isotonic validation achieves 0.0000.
-5. **Does NOT show identical lift on production traffic without shadow validation:** Synthetic generators mirror adversarial attack mechanics, but live merchant traffic requires continuous covariate and chargeback monitoring.
-6. **Does NOT show significant practical lift at operational review budgets:** At 2% and 5% review budgets, graph features show no statistically significant lift in recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud value caught (2%: p = 0.9305; 5%: p = 0.2529).
-7. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** Seller-buyer collusion discrimination is strictly at chance (isolated ROC 0.5001 vs 0.4971), and coordinated fraud recall at a 2% review budget is near random (0.68%).
+1. **Does NOT show GNN superiority over gradient boosted trees in the tested configuration (16-dim OOF GraphSAGE embeddings into XGBoost):** Integrating out-of-fold GNN embeddings into XGBoost results in net negative lift (-0.0263 ROC-AUC, p = 0.0083). Tabular trees with point-in-time graph features remain superior.
+2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0114 ROC-AUC, +0.0081 PR-AUC). Historical reports claiming double-digit lifts were caused by the generator first_seen timestamp bug or unadjusted baselines.
+3. **Does NOT show that a 0.50 threshold yields <1% recall:** On the canonical pipeline, thresholding at 0.50 yields **31.83% +/- 3.69% recall** on calibrated probabilities and **40.22% +/- 3.30% recall** on raw XGBoost scores. Neither scale yields <1% recall.
+4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.021 - 0.023 calibrated, ~0.054 - 0.063 raw), even though in-sample isotonic validation achieves 0.0000.
+5. **Does NOT show significant practical lift at operational review budgets:** At 2% and 5% review budgets, graph features show no statistically significant lift in recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud value caught (2%: p = 0.9305; 5%: p = 0.2529).
+6. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** Seller-buyer collusion discrimination is strictly at chance (isolated ROC 0.5001 vs 0.4971) because the synthetic generator uses each buyer-seller pair once by construction. Coordinated fraud recall at a 2% review budget is near random (0.68%).

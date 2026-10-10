@@ -191,7 +191,7 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
         row["device_shared_buyer_count"] = 1.0
 
     # Incorporate resolved graph features (server / client / default)
-    graph_resolved, _, _ = _resolve_graph_features(req)
+    graph_resolved, _, _, _ = _resolve_graph_features(req)
     row.update(graph_resolved)
 
     # Build the final feature vector using only the columns the model expects
@@ -212,13 +212,14 @@ GRAPH_FEATURE_KEYS = [
 
 def _resolve_graph_features(
     req: TransactionScoreRequest,
-) -> Tuple[dict, str, str]:
+) -> Tuple[dict, str, str, bool]:
     """
     Computes share_degree, share_component_size, pagerank and edge-weight features
     server-side from stored snapshot; flags client-supplied values that differ;
-    returns (graph_dict, graph_features_source, flag_notes).
+    returns (graph_dict, graph_features_source, flag_notes, client_mismatch).
     Source is strictly one of 'server', 'client', or 'default'.
-    Never defaults silently to 0.0 without flagging it.
+    When server snapshot and client values differ, the server value must be used
+    and the response must set graph_features_source = 'server' with client_mismatch = True.
     """
     fields_set: set = getattr(req, "model_fields_set", set())
     client_supplied = [k for k in GRAPH_FEATURE_KEYS if k in fields_set]
@@ -245,10 +246,12 @@ def _resolve_graph_features(
 
     resolved = {}
     flag_notes = ""
+    client_mismatch = False
 
-    if client_supplied:
+    if server_computed:
+        # Server snapshot is available
         mismatches = []
-        if server_computed:
+        if client_supplied:
             for k in client_supplied:
                 if k in server_computed:
                     c_val = getattr(req, k, 0.0) or 0.0
@@ -256,18 +259,11 @@ def _resolve_graph_features(
                     if abs(float(c_val) - float(s_val)) > 1e-4:
                         mismatches.append(f"{k}: client={c_val} vs server={s_val}")
         if mismatches:
-            flag_notes = f"Flagged client-supplied graph feature mismatch ({', '.join(mismatches)})"
+            client_mismatch = True
+            flag_notes = f"Flagged client-supplied graph feature mismatch ({', '.join(mismatches)}). Server snapshot value enforced."
             logger.warning("Graph feature mismatch for order %s: %s", req.order_id, flag_notes)
-        for k in GRAPH_FEATURE_KEYS:
-            if k in client_supplied:
-                resolved[k] = float(getattr(req, k, 0.0) or 0.0)
-            elif k in server_computed:
-                resolved[k] = float(server_computed[k])
-            else:
-                resolved[k] = 1.0 if k == "share_component_size" else 0.0
-        graph_source = "client"
 
-    elif server_computed:
+        # When server snapshot is available, ALWAYS use server values
         for k in GRAPH_FEATURE_KEYS:
             if k in server_computed:
                 resolved[k] = float(server_computed[k])
@@ -275,13 +271,23 @@ def _resolve_graph_features(
                 resolved[k] = 1.0 if k == "share_component_size" else 0.0
         graph_source = "server"
 
+    elif client_supplied:
+        # Client-only (no server snapshot for entity)
+        for k in GRAPH_FEATURE_KEYS:
+            if k in client_supplied:
+                resolved[k] = float(getattr(req, k, 0.0) or 0.0)
+            else:
+                resolved[k] = 1.0 if k == "share_component_size" else 0.0
+        graph_source = "client"
+
     else:
+        # Default fallback
         for k in GRAPH_FEATURE_KEYS:
             resolved[k] = 1.0 if k == "share_component_size" else 0.0
         graph_source = "default"
         flag_notes = "Flagged: Graph features defaulted to 0.0 (entity not in snapshot and no client values provided)"
 
-    return resolved, graph_source, flag_notes
+    return resolved, graph_source, flag_notes, client_mismatch
 
 
 def _build_hybrid_feature_row(
@@ -291,14 +297,14 @@ def _build_hybrid_feature_row(
     buyer_embs: dict,
     seller_embs: dict,
     emb_dim: int = 16,
-) -> Tuple[dict, Dict[str, str], str, str]:
+) -> Tuple[dict, Dict[str, str], str, str, bool]:
     """
     Build a feature dict for Phase 5 hybrid scoring by combining tabular+graph
     features with pre-computed GNN buyer/seller embeddings retrieved via RedisService
     (falling back to disk joblib artifacts when Redis is offline).
     """
     row = _build_feature_row(req, p3_cols)
-    _, g_source, g_notes = _resolve_graph_features(req)
+    _, g_source, g_notes, g_mismatch = _resolve_graph_features(req)
     zero = [0.0] * emb_dim
 
     b_source = "unavailable"
@@ -332,7 +338,7 @@ def _build_hybrid_feature_row(
         "buyer_embedding": b_source,
         "seller_embedding": s_source,
     }
-    return {col: row.get(col, 0.0) for col in hybrid_cols}, sources, g_source, g_notes
+    return {col: row.get(col, 0.0) for col in hybrid_cols}, sources, g_source, g_notes, g_mismatch
 
 
 @asynccontextmanager
@@ -539,7 +545,7 @@ def score_transaction(req: TransactionScoreRequest):
         hybrid_cols = p5_meta["hybrid_feature_cols"]
         p3_cols = p5_meta["phase3_feature_cols"]
         emb_dim = p5_meta.get("emb_dim", 16)
-        row, emb_sources, graph_source, graph_notes = _build_hybrid_feature_row(
+        row, emb_sources, graph_source, graph_notes, client_mismatch = _build_hybrid_feature_row(
             req, hybrid_cols, p3_cols,
             store.buyer_embeddings, store.seller_embeddings, emb_dim
         )
@@ -629,6 +635,7 @@ def score_transaction(req: TransactionScoreRequest):
             model_used=f"Hybrid GNN + {clf_name} (Phase 5, tabular+graph+GNN embeddings)",
             model_version="phase5-hybrid",
             graph_features_source=graph_source,
+            client_mismatch=client_mismatch,
             cold_start=is_cold_start,
             model_disagreement=model_disagreement,
             reason_codes=reason_codes,
@@ -666,7 +673,7 @@ def score_transaction(req: TransactionScoreRequest):
     all_cols = meta["all_feature_cols"]
 
     feature_row = _build_feature_row(req, all_cols)
-    _, graph_source, graph_notes = _resolve_graph_features(req)
+    _, graph_source, graph_notes, client_mismatch = _resolve_graph_features(req)
     t_infer0 = time.perf_counter()
     X = pd.DataFrame([feature_row])[all_cols].fillna(0.0)
 
@@ -742,6 +749,7 @@ def score_transaction(req: TransactionScoreRequest):
         model_used=f"tabular+graph {clf_name} (Phase 3)",
         model_version="phase3",
         graph_features_source=graph_source,
+        client_mismatch=client_mismatch,
         cold_start=is_cold_start,
         model_disagreement=model_disagreement,
         reason_codes=reason_codes,
@@ -816,7 +824,7 @@ def explain_transaction(req: TransactionExplainRequest):
         hybrid_cols = p5_meta.get("hybrid_feature_cols", [])
         p3_cols = p5_meta.get("phase3_feature_cols", [])
         emb_dim = p5_meta.get("emb_dim", 16)
-        row, _, _, _ = _build_hybrid_feature_row(
+        row, _, _, _, _ = _build_hybrid_feature_row(
             score_req, hybrid_cols, p3_cols,
             store.buyer_embeddings, store.seller_embeddings, emb_dim
         )
@@ -1139,7 +1147,7 @@ def generate_forensic_dossier(req: DossierRequest):
     2. Model inference via Unified Trust Engine & Conformal Coverage bounds
     3. Multi-hop Neo4j graph traversal with strict temporal cutoff (event_time < decision_time)
     4. Deterministic policy guideline retrieval via Forensic RAG
-    5. Anti-hallucination verification guard
+    5. Evidence grounding verification guard
     """
     if not store.is_loaded:
         try:
