@@ -128,13 +128,13 @@ def benchmark_scale_tier(
     snapshots, months = build_monthly_snapshots(orders_with_dt, SIM_START)
     t_graph = time.perf_counter() - t0
 
-    # 7. Simulated Inference Throughput Benchmark
+    # 7. Real Model Inference Throughput Benchmark (Real XGBoost Classifier)
+    from xgboost import XGBClassifier
+    clf = XGBClassifier(n_estimators=100, max_depth=6, n_jobs=-1, random_state=42)
+    y_sample = injected["orders"]["is_fraudulent"].iloc[:n_sample].astype(int).to_numpy()
+    clf.fit(sample_features, y_sample)
     t0 = time.perf_counter()
-    n_sample = min(5000, len(features_df))
-    sample_features = features_df[feature_cols].iloc[:n_sample].fillna(0.0).to_numpy()
-    # Matrix multiply dot product as inference proxy for fast tabular scoring
-    weights = np.ones((sample_features.shape[1], 1))
-    _ = np.dot(sample_features, weights)
+    _ = clf.predict_proba(sample_features)
     t_inf = time.perf_counter() - t0
     inf_throughput = round(n_sample / max(t_inf, 1e-6), 1)
 

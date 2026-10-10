@@ -69,10 +69,27 @@ def main():
     products_df = pd.read_csv(os.path.join(_PROJECT_DIR, "synthetic_data_export", "products.csv"))
 
     from trustshield_project.baseline_model import build_features, VAL_END
+    from trustshield_project.graph_features import (
+        attach_relationship_snapshot_features,
+        build_monthly_snapshots,
+        attach_snapshot_features,
+        add_edge_weight_before,
+        SIM_START,
+    )
 
     df, feature_cols = build_features(
         orders_df, listings_df, returns_df, buyers_df, sellers_df, products_df
     )
+    address_log_path = os.path.join(_PROJECT_DIR, "synthetic_data_export", "address_sharing_log.csv")
+    device_log_path = os.path.join(_PROJECT_DIR, "synthetic_data_export", "device_sharing_log.csv")
+    if os.path.exists(address_log_path) and os.path.exists(device_log_path):
+        addr_df = pd.read_csv(address_log_path)
+        dev_df = pd.read_csv(device_log_path)
+        df = attach_relationship_snapshot_features(df, addr_df, dev_df)
+    snapshots, months = build_monthly_snapshots(orders_df, SIM_START)
+    df = attach_snapshot_features(df, snapshots, months)
+    df = add_edge_weight_before(df)
+
     df["order_date"] = pd.to_datetime(df["order_date"])
     test_df = df[df["order_date"] > VAL_END].copy()
     y_test = test_df["is_fraudulent"].astype(int).to_numpy()
