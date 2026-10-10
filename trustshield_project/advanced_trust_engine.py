@@ -197,11 +197,12 @@ class AdvancedTrustEngine:
         self.meta_learner = meta_learner
         self.conformal = conformal_predictor or ConformalPredictor(alpha=0.05)
         self.weights = weights or {
-            "tabular_risk": 0.30,
+            "tabular_risk": 0.40,
+            "graph_risk_heuristic": 0.25,
+            "ring_risk_heuristic": 0.15,
+            "multimodal_risk": 0.20,
             "graph_risk": 0.25,
-            "hetero_gnn_risk": 0.20,
-            "multimodal_risk": 0.15,
-            "ring_risk": 0.10,
+            "ring_risk": 0.15,
         }
         total_w = sum(self.weights.values())
         self.norm_weights = {k: v / total_w for k, v in self.weights.items()}

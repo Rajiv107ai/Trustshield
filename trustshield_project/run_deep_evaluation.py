@@ -203,7 +203,7 @@ def compute_graph_topology_stats(orders_df, base_dict):
 
 
 def run_gnn_convergence_experiment(seed42_ctx):
-    """Runs lr sweep {0.002, 0.005, 0.01} with early stopping on validation link AUC."""
+    """Runs lr sweep {0.002, 0.005, 0.01} with early stopping on validation order-level fraud AUC."""
     print("\n" + "=" * 80)
     print("RUNNING GNN CONVERGENCE & LEARNING RATE SWEEP (DATA SEED 42)")
     print("=" * 80)
@@ -270,11 +270,11 @@ def run_gnn_convergence_experiment(seed42_ctx):
 
                 current_loss = float(loss.item())
                 loss_curve.append({"epoch": epoch, "loss": current_loss})
-                train_auc_curve.append({"epoch": epoch, "train_link_auc": tr_auc})
-                val_auc_curve.append({"epoch": epoch, "val_link_auc": val_auc})
+                train_auc_curve.append({"epoch": epoch, "train_order_level_fraud_auc": tr_auc})
+                val_auc_curve.append({"epoch": epoch, "val_order_level_fraud_auc": val_auc})
 
                 if epoch <= 100 or epoch % 50 == 0:
-                    print(f"  Epoch {epoch:3d}: Loss = {current_loss:.4f} | Train Link AUC = {tr_auc:.4f} | Val Link AUC = {val_auc:.4f}")
+                    print(f"  Epoch {epoch:3d}: Loss = {current_loss:.4f} | Train Order-Level Fraud AUC = {tr_auc:.4f} | Val Order-Level Fraud AUC = {val_auc:.4f}")
 
                 if val_auc > best_val_auc + 1e-4:
                     best_val_auc = val_auc
@@ -289,7 +289,7 @@ def run_gnn_convergence_experiment(seed42_ctx):
 
         sweep_results[str(lr)] = {
             "learning_rate": lr,
-            "best_val_link_auc": best_val_auc,
+            "best_val_order_level_fraud_auc": best_val_auc,
             "best_epoch": best_epoch,
             "loss_curve": loss_curve,
             "train_auc_curve": train_auc_curve,

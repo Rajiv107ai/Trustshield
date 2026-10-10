@@ -42,7 +42,11 @@ from trustshield_project.advanced_ring_intelligence import (
 )
 from trustshield_project.neo4j_investigator import Neo4jInvestigator
 from trustshield_project.investigation_rag import ForensicRAGIndex
-from trustshield_project.investigation_agent import GenAIInvestigationAgent
+from trustshield_project.investigation_agent import (
+    GenAIInvestigationAgent,
+    RuleBasedInvestigationAgent,
+    verify_dossier_grounding,
+)
 from trustshield_project.mlops_pipeline import ExperimentTracker
 
 
@@ -319,6 +323,42 @@ class TestGenAIInvestigationAgent:
         assert dossier.grounding_verification_passed is True
         assert len(dossier.structured_evidence) >= 3
         assert len(dossier.retrieved_policy_guidelines) > 0
+
+    def test_hallucination_guard_detects_corruption(self):
+        import dataclasses
+        agent = RuleBasedInvestigationAgent()
+        txn = {
+            "order_id": "ORD_12345",
+            "amount": 250.0,
+            "buyer_return_rate_before": 0.65,
+            "cold_start": True,
+            "price_vs_base_price_ratio": 0.45,
+            "share_degree": 3,
+            "share_component_size": 5,
+        }
+
+        class MockTrustResult:
+            calibrated_risk = 0.88
+            decision = OperationalDecision.BLOCK
+            confidence = 0.92
+            detector_disagreement = 0.12
+            conformal_prediction_set = {1}
+            reason_codes = ["HIGH_RETURN_VELOCITY"]
+
+        valid_dossier = agent.generate_dossier(txn, MockTrustResult())
+        assert valid_dossier.grounding_verification_passed is True
+
+        # 1. Corrupted risk score
+        corrupted_risk = dataclasses.replace(valid_dossier, fraud_risk_score=0.42)
+        assert verify_dossier_grounding(corrupted_risk, txn, MockTrustResult()) is False
+
+        # 2. Corrupted decision
+        corrupted_decision = dataclasses.replace(valid_dossier, operational_decision="ALLOW")
+        assert verify_dossier_grounding(corrupted_decision, txn, MockTrustResult()) is False
+
+        # 3. Corrupted evidence amount
+        corrupted_evidence = dataclasses.replace(valid_dossier, structured_evidence=["Transaction Amount: INR 99999.00"])
+        assert verify_dossier_grounding(corrupted_evidence, txn, MockTrustResult()) is False
 
 
 # ===========================================================================
