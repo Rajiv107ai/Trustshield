@@ -491,7 +491,8 @@ class TestModelUsedField:
         assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
     def test_transaction_scoring_with_client_supplied_graph_features(self, client):
-        """Test POST /transaction/score accepts client-supplied graph topology features."""
+        """Test POST /transaction/score accepts client-supplied graph topology features,
+        verifies server snapshot lookup, and flags mismatches and defaults."""
         # 1. Calling with client-supplied graph features
         graph_payload = {
             "order_id": "ORD_GRAPH_CLIENT_001",
@@ -512,19 +513,51 @@ class TestModelUsedField:
         d = r.json()
         assert d["order_id"] == "ORD_GRAPH_CLIENT_001"
         assert 0.0 <= d["overall_fraud_probability"] <= 1.0
+        assert d["graph_features_source"] == "client"
 
-        # 2. Calling with graph features omitted defaults gracefully to 0.0 / 1.0
-        no_graph_payload = {
-            "order_id": "ORD_GRAPH_CLIENT_002",
-            "buyer_id": "BUYER_000002",
-            "seller_id": "SELLER_000002",
+        # 2. Calling with entity in snapshot and no client graph features -> computes server-side
+        server_payload = {
+            "order_id": "ORD_GRAPH_SERVER_002",
+            "buyer_id": "BUYER_00001",
+            "seller_id": "SELLER_00189",
             "amount": 250.0,
             "base_price": 250.0,
             "category_median_price": 250.0,
         }
-        r2 = client.post("/transaction/score", json=no_graph_payload)
+        r2 = client.post("/transaction/score", json=server_payload)
         assert r2.status_code == 200
         d2 = r2.json()
-        assert d2["order_id"] == "ORD_GRAPH_CLIENT_002"
-        assert 0.0 <= d2["overall_fraud_probability"] <= 1.0
+        assert d2["order_id"] == "ORD_GRAPH_SERVER_002"
+        assert d2["graph_features_source"] == "server"
+
+        # 3. Calling with unknown entity and no graph features -> flagged default (never silent 0.0)
+        default_payload = {
+            "order_id": "ORD_GRAPH_UNKNOWN_003",
+            "buyer_id": "BUYER_UNKNOWN_XYZ_999",
+            "seller_id": "SELLER_UNKNOWN_XYZ_999",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+        }
+        r3 = client.post("/transaction/score", json=default_payload)
+        assert r3.status_code == 200
+        d3 = r3.json()
+        assert d3["graph_features_source"] == "default"
+        assert "Flagged: Graph features defaulted to 0.0" in d3["note"]
+
+        # 4. Calling with client mismatch vs server snapshot -> flags client mismatch
+        mismatch_payload = {
+            "order_id": "ORD_GRAPH_MISMATCH_004",
+            "buyer_id": "BUYER_00001",
+            "seller_id": "SELLER_00189",
+            "amount": 250.0,
+            "base_price": 250.0,
+            "category_median_price": 250.0,
+            "share_degree": 999.0,  # Deliberately divergent from server snapshot
+        }
+        r4 = client.post("/transaction/score", json=mismatch_payload)
+        assert r4.status_code == 200
+        d4 = r4.json()
+        assert d4["graph_features_source"] == "client"
+        assert "Flagged client-supplied graph feature mismatch" in d4["note"]
 

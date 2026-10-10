@@ -145,6 +145,10 @@ class TransactionScoreResponse(BaseModel):
     risk_label: str                  # "low" | "medium" | "high"
     model_used: str
     model_version: str = "phase3"    # "phase3" | "phase5-hybrid"
+    graph_features_source: str = Field(
+        default="server",
+        description="Source of graph features: 'server', 'client_flagged_mismatch', or 'default_fallback_flagged'.",
+    )
     note: str = ""
     # Canonical Trust Engine real output fields (no fake defaults)
     decision: str = Field(

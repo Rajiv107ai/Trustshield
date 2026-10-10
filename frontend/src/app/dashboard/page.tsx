@@ -417,7 +417,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <span className="text-xs font-mono font-bold text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded border border-purple-500/20 self-start md:self-auto">
-              AUC-ROC: 0.978 · PR-AUC: 0.912
+              Audited Benchmark · results.json
             </span>
           </div>
 

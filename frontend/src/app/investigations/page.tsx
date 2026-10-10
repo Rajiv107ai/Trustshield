@@ -56,7 +56,7 @@ const CASES_DATA: CaseItem[] = [
       { time: "18:44:19", event: "DEV_FARM_99 fingerprint detected on BUYER_RING_MEMBER_02 login", type: "DEVICE" },
       { time: "19:15:33", event: "BUYER_RING_MEMBER_02 placed ORD_78904 (₹910.00)", type: "ORDER" },
       { time: "20:02:11", event: "Graph edge weight exceeded threshold (HHI: 0.88)", type: "GRAPH" },
-      { time: "22:45:00", event: "Automated Trust Engine flagged cluster with 94.2% fraud risk", type: "GRAPH" },
+      { time: "22:45:00", event: "Automated Trust Engine flagged cluster with high fraud risk", type: "GRAPH" },
     ],
     evidence: {
       transaction: "Cumulative cluster order volume: ₹14,240.00. 100% of transactions exceed 90th percentile basket size.",

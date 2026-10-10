@@ -190,8 +190,98 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
     if dev_count is None or dev_count <= 0:
         row["device_shared_buyer_count"] = 1.0
 
+    # Incorporate resolved graph features (server / client / default)
+    graph_resolved, _, _ = _resolve_graph_features(req)
+    row.update(graph_resolved)
+
     # Build the final feature vector using only the columns the model expects
     return {col: (row.get(col) if row.get(col) is not None else 0.0) for col in all_cols}
+
+
+GRAPH_FEATURE_KEYS = [
+    "share_degree",
+    "share_component_size",
+    "buyer_seller_degree",
+    "buyer_pagerank",
+    "seller_buyer_degree",
+    "seller_pagerank",
+    "seller_buyer_concentration_hhi",
+    "buyer_seller_edge_weight_before",
+]
+
+
+def _resolve_graph_features(
+    req: TransactionScoreRequest,
+) -> Tuple[dict, str, str]:
+    """
+    Computes share_degree, share_component_size, pagerank and edge-weight features
+    server-side from stored snapshot; flags client-supplied values that differ;
+    returns (graph_dict, graph_features_source, flag_notes).
+    Source is strictly one of 'server', 'client', or 'default'.
+    Never defaults silently to 0.0 without flagging it.
+    """
+    fields_set: set = getattr(req, "model_fields_set", set())
+    client_supplied = [k for k in GRAPH_FEATURE_KEYS if k in fields_set]
+
+    snapshot = getattr(store, "graph_snapshot", None)
+    b_data = snapshot.get("buyer_features", {}).get(req.buyer_id) if snapshot and req.buyer_id else None
+    s_data = snapshot.get("seller_features", {}).get(req.seller_id) if snapshot and req.seller_id else None
+    pair_weights = snapshot.get("pair_edge_weights", {}) if snapshot else {}
+    edge_key = f"{req.buyer_id}_{req.seller_id}"
+    srv_edge_weight = pair_weights.get(edge_key, pair_weights.get((req.buyer_id, req.seller_id), 0.0))
+
+    server_computed = {}
+    if b_data is not None:
+        server_computed["share_degree"] = float(b_data.get("share_degree", 0.0))
+        server_computed["share_component_size"] = float(b_data.get("share_component_size", 1.0))
+        server_computed["buyer_seller_degree"] = float(b_data.get("buyer_seller_degree", 0.0))
+        server_computed["buyer_pagerank"] = float(b_data.get("buyer_pagerank", 0.0))
+    if s_data is not None:
+        server_computed["seller_buyer_degree"] = float(s_data.get("seller_buyer_degree", 0.0))
+        server_computed["seller_pagerank"] = float(s_data.get("seller_pagerank", 0.0))
+        server_computed["seller_buyer_concentration_hhi"] = float(s_data.get("seller_buyer_concentration_hhi", 0.0))
+    if b_data is not None or s_data is not None:
+        server_computed["buyer_seller_edge_weight_before"] = float(srv_edge_weight)
+
+    resolved = {}
+    flag_notes = ""
+
+    if client_supplied:
+        mismatches = []
+        if server_computed:
+            for k in client_supplied:
+                if k in server_computed:
+                    c_val = getattr(req, k, 0.0) or 0.0
+                    s_val = server_computed[k]
+                    if abs(float(c_val) - float(s_val)) > 1e-4:
+                        mismatches.append(f"{k}: client={c_val} vs server={s_val}")
+        if mismatches:
+            flag_notes = f"Flagged client-supplied graph feature mismatch ({', '.join(mismatches)})"
+            logger.warning("Graph feature mismatch for order %s: %s", req.order_id, flag_notes)
+        for k in GRAPH_FEATURE_KEYS:
+            if k in client_supplied:
+                resolved[k] = float(getattr(req, k, 0.0) or 0.0)
+            elif k in server_computed:
+                resolved[k] = float(server_computed[k])
+            else:
+                resolved[k] = 1.0 if k == "share_component_size" else 0.0
+        graph_source = "client"
+
+    elif server_computed:
+        for k in GRAPH_FEATURE_KEYS:
+            if k in server_computed:
+                resolved[k] = float(server_computed[k])
+            else:
+                resolved[k] = 1.0 if k == "share_component_size" else 0.0
+        graph_source = "server"
+
+    else:
+        for k in GRAPH_FEATURE_KEYS:
+            resolved[k] = 1.0 if k == "share_component_size" else 0.0
+        graph_source = "default"
+        flag_notes = "Flagged: Graph features defaulted to 0.0 (entity not in snapshot and no client values provided)"
+
+    return resolved, graph_source, flag_notes
 
 
 def _build_hybrid_feature_row(
@@ -201,13 +291,14 @@ def _build_hybrid_feature_row(
     buyer_embs: dict,
     seller_embs: dict,
     emb_dim: int = 16,
-) -> Tuple[dict, Dict[str, str]]:
+) -> Tuple[dict, Dict[str, str], str, str]:
     """
     Build a feature dict for Phase 5 hybrid scoring by combining tabular+graph
     features with pre-computed GNN buyer/seller embeddings retrieved via RedisService
     (falling back to disk joblib artifacts when Redis is offline).
     """
     row = _build_feature_row(req, p3_cols)
+    _, g_source, g_notes = _resolve_graph_features(req)
     zero = [0.0] * emb_dim
 
     b_source = "unavailable"
@@ -241,7 +332,7 @@ def _build_hybrid_feature_row(
         "buyer_embedding": b_source,
         "seller_embedding": s_source,
     }
-    return {col: row.get(col, 0.0) for col in hybrid_cols}, sources
+    return {col: row.get(col, 0.0) for col in hybrid_cols}, sources, g_source, g_notes
 
 
 @asynccontextmanager
@@ -448,7 +539,7 @@ def score_transaction(req: TransactionScoreRequest):
         hybrid_cols = p5_meta["hybrid_feature_cols"]
         p3_cols = p5_meta["phase3_feature_cols"]
         emb_dim = p5_meta.get("emb_dim", 16)
-        row, emb_sources = _build_hybrid_feature_row(
+        row, emb_sources, graph_source, graph_notes = _build_hybrid_feature_row(
             req, hybrid_cols, p3_cols,
             store.buyer_embeddings, store.seller_embeddings, emb_dim
         )
@@ -477,8 +568,8 @@ def score_transaction(req: TransactionScoreRequest):
             prob_tabular = float(prob_cal)
 
         # Canonical Trust Engine scoring (labeled heuristics)
-        graph_sig_heuristic = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
-        ring_sig_heuristic = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
+        graph_sig_heuristic = float(min(row.get("share_degree", 0.0) * 0.15 + row.get("buyer_pagerank", 0.0) * 0.35, 1.0))
+        ring_sig_heuristic = float(min(max(row.get("share_component_size", 1.0) - 1, 0) * 0.2, 1.0))
         component_risks = {
             "tabular_risk": prob_tabular,
             "graph_risk_heuristic": graph_sig_heuristic,
@@ -537,12 +628,13 @@ def score_transaction(req: TransactionScoreRequest):
             predictive_uncertainty=uncertainty,
             model_used=f"Hybrid GNN + {clf_name} (Phase 5, tabular+graph+GNN embeddings)",
             model_version="phase5-hybrid",
+            graph_features_source=graph_source,
             cold_start=is_cold_start,
             model_disagreement=model_disagreement,
             reason_codes=reason_codes,
             evidence_availability={
                 "tabular": True,
-                "graph": bool(req.share_degree > 0 or req.buyer_pagerank > 0),
+                "graph": bool(row.get("share_degree", 0) > 0 or row.get("buyer_pagerank", 0) > 0),
                 "gnn_embeddings": bool(
                     (req.buyer_id and req.buyer_id in store.buyer_embeddings)
                     or (req.seller_id and req.seller_id in store.seller_embeddings)
@@ -563,6 +655,7 @@ def score_transaction(req: TransactionScoreRequest):
             note=(
                 "Scored with Phase 5 hybrid model routed through Canonical Trust Engine "
                 "with probability calibration and conformal uncertainty."
+                + (f" [{graph_notes}]" if graph_notes else "")
             ),
         )
 
@@ -573,6 +666,7 @@ def score_transaction(req: TransactionScoreRequest):
     all_cols = meta["all_feature_cols"]
 
     feature_row = _build_feature_row(req, all_cols)
+    _, graph_source, graph_notes = _resolve_graph_features(req)
     t_infer0 = time.perf_counter()
     X = pd.DataFrame([feature_row])[all_cols].fillna(0.0)
 
@@ -587,8 +681,8 @@ def score_transaction(req: TransactionScoreRequest):
 
     clf_name = meta.get("classifier", type(store.combined_graph_model).__name__)
 
-    graph_sig_heuristic = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
-    ring_sig_heuristic = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
+    graph_sig_heuristic = float(min(feature_row.get("share_degree", 0.0) * 0.15 + feature_row.get("buyer_pagerank", 0.0) * 0.35, 1.0))
+    ring_sig_heuristic = float(min(max(feature_row.get("share_component_size", 1.0) - 1, 0) * 0.2, 1.0))
     component_risks = {
         "tabular_risk": prob_cal,
         "graph_risk_heuristic": graph_sig_heuristic,
@@ -647,12 +741,13 @@ def score_transaction(req: TransactionScoreRequest):
         predictive_uncertainty=uncertainty,
         model_used=f"tabular+graph {clf_name} (Phase 3)",
         model_version="phase3",
+        graph_features_source=graph_source,
         cold_start=is_cold_start,
         model_disagreement=model_disagreement,
         reason_codes=reason_codes,
         evidence_availability={
             "tabular": True,
-            "graph": bool(req.share_degree > 0 or req.buyer_pagerank > 0),
+            "graph": bool(feature_row.get("share_degree", 0) > 0 or feature_row.get("buyer_pagerank", 0) > 0),
             "gnn_embeddings": False,
             "multimodal": req.multimodal_similarity_score is not None,
             "calibrator_active": store.calibrator is not None,
@@ -667,8 +762,8 @@ def score_transaction(req: TransactionScoreRequest):
         scoring_mode="production_model_phase3_fallback",
         is_simulation=False,
         note=(
-            "Graph features default to 0 if not provided. Supply them from a live graph lookup for best accuracy. "
-            "Evaluated with Canonical Trust Engine."
+            f"Scored with Phase 3 tabular+graph model. Graph features source: {graph_source}."
+            + (f" [{graph_notes}]" if graph_notes else "")
         ),
     )
 
@@ -721,7 +816,7 @@ def explain_transaction(req: TransactionExplainRequest):
         hybrid_cols = p5_meta.get("hybrid_feature_cols", [])
         p3_cols = p5_meta.get("phase3_feature_cols", [])
         emb_dim = p5_meta.get("emb_dim", 16)
-        row, _ = _build_hybrid_feature_row(
+        row, _, _, _ = _build_hybrid_feature_row(
             score_req, hybrid_cols, p3_cols,
             store.buyer_embeddings, store.seller_embeddings, emb_dim
         )

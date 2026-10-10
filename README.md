@@ -142,16 +142,34 @@ frontend/src/app/
 | **Coherent Variant (Upper Bound)** | 10 Tabular + 8 Graph Features | 0.8001 ± 0.0380 | 0.4982 ± 0.0503 | +0.0066 [+0.0008, +0.0124] | $p = 0.034$ |
 | **Tuned Hybrid (OOF GNN + XGB)** | Tabular + Graph + GraphSAGE | 0.7014 ± 0.0387 | 0.4006 ± 0.0464 | -0.0263 (Loses to Tabular) | $p = 0.008$ |
 
-### Design Bracket: Standard vs. Coherent Sensitivity
+### Sensitivity Analysis: Standard vs. Coherent Variants
 
-Graph lift is framed as a rigorous sensitivity bracket between two temporal relationship regimes:
+Graph lift is framed as a sensitivity analysis between two temporal relationship generation regimes:
 
 | Regime | Definition | Tabular Baseline (b) | Tabular + Graph (c) | Paired Lift [95% CI] | $p$-value |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **Standard Dataset** | `first_seen` independent of order timing | $0.7295 \pm 0.0193$ | $\mathbf{0.7410 \pm 0.0229}$ | $\mathbf{+0.0115}$ [$+0.0069, +0.0161$] | $p = 2.45 \times 10^{-5}$ |
+| **Standard Dataset** | `first_seen` independent of order timing | $0.7295 \pm 0.0193$ | $\mathbf{0.7410 \pm 0.0229}$ | $\mathbf{+0.0115}$ [$+0.0069, +0.0161$] | $p = 4.73 \times 10^{-5}$ |
 | **Coherent Variant** | `first_seen` tied to first order using device | $0.7935 \pm 0.0405$ | $\mathbf{0.8001 \pm 0.0380}$ | $\mathbf{+0.0066}$ [$+0.0008, +0.0124$] | $p = 0.0340$ |
 
-*Why the real world lies between them:* In production e-commerce platforms, device fingerprinting logs capture shared hardware through both background app heartbeat/login sessions (independent of immediate transactions, matching the Standard regime) and transaction checkout events (coinciding with order timing, matching the Coherent regime). Real-world fraud operations therefore exhibit graph lift strictly bounded between the conservative Standard baseline ($+0.0115$ ROC lift) and the synchronized Coherent upper bound ($+0.0066$ ROC lift above device tabular, $+0.0204$ above device-free tabular).
+*Sensitivity Context:* Under the Standard generator, entity relationships are generated independently of transaction bursts, yielding a conservative paired lift of $+0.0115$ ROC-AUC ($p = 4.73 \times 10^{-5}$). When relationship timestamps are tightly synchronized with transaction bursts (Coherent variant), baseline tabular performance rises to $0.7935$, and marginal graph lift is $+0.0066$ ($p = 0.0340$).
+
+### Operational Conclusions & Review Budgets
+
+While the global ROC lift of graph features is $\sim +0.011$, operational trust & safety deployments face investigator capacity constraints:
+- **No Significant Lift at Tight Review Budgets**: At 2% and 5% review budgets, graph features show **no statistically significant lift** in either fraud recall (2% budget: $-0.06\%$ lift, $p = 0.3648$; 5% budget: $+0.09\%$ lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
+- **Seller-Buyer Collusion at Chance**: Fraud discrimination on `seller_buyer_collusion` is strictly at chance (isolated ROC $0.5001$ baseline vs $0.4971$ graph).
+- **Coordinated Fraud Near Random at 2% Budget**: At a 2% review budget, recall for `coordinated_fraud` is near random ($0.67\%$ baseline vs $0.68\%$ graph), catching fewer than 1% of coordinated fraud orders.
+- **Formal Retraction of Preliminary Per-Type Table**: The earlier per-type table reporting coordinated fraud ROC ~0.7494 is formally retracted. It was produced on an untruncated 5-seed run without isolated device sharing counts, artificially inflating coordinated lift. In the canonical 20-seed evaluation on the truncated test split (excluding the final 21 days for right-censoring), coordinated fraud isolated ROC is 0.6403 (b) vs 0.6872 (c).
+
+### What This Does NOT Show
+
+1. **Does NOT show GNN superiority over tree models:** Incorporating out-of-fold GNN graph embeddings into gradient boosted trees resulted in negative lift ($-0.0263$ ROC-AUC, $p = 0.0083$). Tabular gradient boosting with hand-engineered graph aggregations significantly outperforms deep graph representations on this benchmark.
+2. **Does NOT show double-digit graph lift:** Graph features provide a modest, statistically significant ROC-AUC lift of $\sim +0.011$ ($+0.0114$ on truncated test, $p = 3.02 \times 10^{-5}$; $+0.0115$ on full test, $p = 4.73 \times 10^{-5}$) and $+0.0081$ PR-AUC ($p = 0.0022$) over tabular models that already include device sharing counts. Claims of massive double-digit graph gains in prior reports were artifacts of data leakage or unadjusted baselines.
+3. **Does NOT show significant practical lift at operational review budgets:** At realistic manual review budgets of 2% and 5% of transaction volume, graph features show **no statistically significant lift** over the tabular baseline in either fraud recall (2% budget: $-0.06\%$ lift, $p = 0.3648$; 5% budget: $+0.09\%$ lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
+4. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** Model discrimination on `seller_buyer_collusion` is strictly at chance (isolated ROC $0.5001$ baseline vs $0.4971$ graph). Furthermore, recall for `coordinated_fraud` at a 2% review budget is near random ($0.67\%$ baseline vs $0.68\%$ graph), detecting fewer than 1% of coordinated fraud orders.
+5. **Does NOT show that a default 0.50 decision threshold is viable:** Under real marketplace fraud prevalence ($\sim 7\%$), thresholding at 0.50 causes severe policy collapse ($< 1\%$ recall). Operational deployment strictly requires capacity-constrained threshold policies calibrated to reviewer bandwidth ($t \approx 0.15$ for a 5% review budget).
+6. **Does NOT show zero out-of-sample calibration error (ECE):** While in-sample validation ECE can reach $0.0000$ via isotonic regression, test-set ECE is strictly non-zero ($\sim 0.021 - 0.023$ calibrated, $\sim 0.054 - 0.063$ raw) due to temporal distribution drift.
+7. **Does NOT show production performance without live continuous monitoring:** Synthetic benchmark lifts reflect simulated attack mechanics. Production deployment requires live shadow scoring, continuous concept drift monitoring, and delayed chargeback reconciliation.
 
 *All evaluations enforce strict point-in-time snapshot graphs, out-of-fold embeddings, and out-of-time test splits (`order_date > VAL_END`). See [results/RESULTS.md](results/RESULTS.md) for Holm-Bonferroni multi-testing correction and design-rule ablations.*
 
