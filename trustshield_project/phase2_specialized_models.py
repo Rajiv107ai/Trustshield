@@ -105,26 +105,53 @@ def build_listing_features(listings_df, sellers_df, products_df):
 
     sorted_listings = df.sort_values("listing_date", kind="mergesort")
     df["seller_listings_before"] = _strict_prior_cumcount(sorted_listings, "seller_id", "listing_date").reindex(df.index)
-    df["multimodal_similarity_score"] = compute_multimodal_similarity(listings_df, products_df).to_numpy()
+    surrogate_score = compute_multimodal_similarity(listings_df, products_df).to_numpy()
+    df["synthetic_mismatch_score"] = surrogate_score
+    df["multimodal_similarity_score"] = surrogate_score  # Backwards compatibility alias
 
     feature_cols = [
         "price_vs_base_price_ratio", "price_vs_category_median_ratio",
         "seller_age_days_at_listing", "seller_listings_before",
-        "multimodal_similarity_score",
+        "synthetic_mismatch_score",
     ]
     df["y"] = df["is_fraudulent"].astype(int)
     return df, feature_cols
 
 
 def run_fake_listing_detector(listings_df, sellers_df, products_df):
-    """Executes fake listing detection pipeline."""
+    """Executes fake listing detection pipeline reporting three rows for multimodal honesty:
+    
+    1. Without surrogate feature (Headline tabular model)
+    2. With surrogate feature (Diagnostic model)
+    3. Surrogate feature alone (Synthetic canary model)
+    """
     df, feature_cols = build_listing_features(listings_df, sellers_df, products_df)
     train = df[df["listing_date"] <= TRAIN_END]
     val = df[(df["listing_date"] > TRAIN_END) & (df["listing_date"] <= VAL_END)]
     test = df[df["listing_date"] > VAL_END]
 
+    headline_cols = [
+        "price_vs_base_price_ratio", "price_vs_category_median_ratio",
+        "seller_age_days_at_listing", "seller_listings_before",
+    ]
+    with_surrogate_cols = headline_cols + ["synthetic_mismatch_score"]
+    surrogate_only_cols = ["synthetic_mismatch_score"]
+
     print(f"\nFake Listing Detector — Train: {len(train)} ({train['y'].mean():.2%}), Val: {len(val)}, Test: {len(test)}")
-    return train_eval(train, val, test, feature_cols, "Fake Listing Detector", amount_col="price", fp_cost=50)
+    print("\n>>> 1. HEADLINE: Without Multimodal/Surrogate Feature")
+    res_headline = train_eval(train, val, test, headline_cols, "Fake Listing (Headline: Tabular Only)", amount_col="price", fp_cost=50)
+
+    print("\n>>> 2. DIAGNOSTIC: With Synthetic Mismatch Feature")
+    res_with = train_eval(train, val, test, with_surrogate_cols, "Fake Listing (With Surrogate)", amount_col="price", fp_cost=50)
+
+    print("\n>>> 3. CANARY: Synthetic Mismatch Feature Alone")
+    res_alone = train_eval(train, val, test, surrogate_only_cols, "Fake Listing (Surrogate Alone)", amount_col="price", fp_cost=50)
+
+    return {
+        "headline_without_surrogate": res_headline,
+        "with_surrogate": res_with,
+        "surrogate_alone": res_alone,
+    }
 
 
 def build_return_features(returns_df, orders_df, buyers_df, sellers_df):
