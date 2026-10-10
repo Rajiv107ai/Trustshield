@@ -67,6 +67,59 @@ def _asof_cumulative_from_events(orders_df: pd.DataFrame, events_df: pd.DataFram
     return pd.Series(merged.set_index("_orig_index")["running_count"].reindex(orders_df.index).fillna(0))
 
 
+def _device_shared_buyer_count_asof(
+    orders_df: pd.DataFrame,
+    device_col: str = "device_id",
+    buyer_col: str = "buyer_id",
+    date_col: str = "order_date",
+) -> pd.Series:
+    """Distinct buyers seen on device strictly before the current order's timestamp.
+
+    Eliminates temporal leakage where future orders on the same device would
+    statically inflate device sharing degree for earlier transactions.
+    Uses merge_asof with allow_exact_matches=False so that only distinct buyers
+    observed at timestamps strictly before current order date are counted.
+    """
+    if orders_df.empty or device_col not in orders_df.columns or buyer_col not in orders_df.columns:
+        return pd.Series(0.0, index=orders_df.index)
+
+    orders_sub = orders_df[[device_col, buyer_col, date_col]].copy()
+    orders_sub[date_col] = pd.to_datetime(orders_sub[date_col])
+
+    # Earliest order date for each (device_id, buyer_id) pair
+    first_use = (
+        orders_sub.groupby([device_col, buyer_col], as_index=False)[date_col]
+        .min()
+        .sort_values(by=date_col, kind="mergesort")
+        .reset_index(drop=True)
+    )
+    # Running count of distinct buyers on device up to that first_use date
+    first_use["_distinct_buyers"] = first_use.groupby(device_col).cumcount() + 1
+
+    left = orders_sub[[device_col, date_col]].copy()
+    left["_orig_idx"] = left.index
+    left_sorted = left.sort_values(by=date_col, kind="mergesort")
+
+    # Match datetime units for pandas merge_asof
+    dt_left = left_sorted[date_col].dt.as_unit("ns")
+    dt_right = first_use[date_col].dt.as_unit("ns")
+    left_sorted["_dt_key"] = dt_left
+    first_use["_dt_key"] = dt_right
+
+    merged = pd.merge_asof(
+        left_sorted,
+        first_use[[device_col, "_dt_key", "_distinct_buyers"]],
+        on="_dt_key",
+        by=device_col,
+        direction="backward",
+        allow_exact_matches=False,
+    )
+    return pd.Series(
+        merged.set_index("_orig_idx")["_distinct_buyers"].reindex(orders_df.index).fillna(0.0),
+        name="device_shared_buyer_count",
+    )
+
+
 def build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, products_df):
     """Engineers temporal-safe features for fraud detection."""
     df = orders_df.merge(
@@ -78,6 +131,10 @@ def build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, pr
                   on="seller_id", how="left")
     df = df.merge(buyers_df[["buyer_id", "signup_date"]].rename(columns={"signup_date": "buyer_signup_date"}),
                   on="buyer_id", how="left")
+
+    df["order_date"] = pd.to_datetime(df["order_date"])
+    df["seller_signup_date"] = pd.to_datetime(df["seller_signup_date"])
+    df["buyer_signup_date"] = pd.to_datetime(df["buyer_signup_date"])
 
     df["price_vs_base_price_ratio"] = (
         df["amount"] / df["base_price"].replace(0, np.nan)
@@ -97,8 +154,8 @@ def build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, pr
     df["buyer_returns_before"] = _asof_cumulative_from_events(df, returns_df, "buyer_id", "return_date")
     df["buyer_return_rate_before"] = df["buyer_returns_before"] / df["buyer_orders_before"].clip(lower=1)
 
-    device_buyer_counts = df.loc[train_mask].groupby("device_id")["buyer_id"].nunique()
-    df["device_shared_buyer_count"] = df["device_id"].map(device_buyer_counts).fillna(1)
+    # Point-in-time device sharing count (strictly prior unique buyers on device)
+    df["device_shared_buyer_count"] = _device_shared_buyer_count_asof(df)
 
     feature_cols = [
         "price_vs_base_price_ratio", "price_vs_category_median_ratio",

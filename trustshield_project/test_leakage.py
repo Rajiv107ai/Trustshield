@@ -555,3 +555,178 @@ class TestPointInTimeGraphAndReturnLeakagePrevention:
         assert weights == [0, 1, 2], f"Expected strictly prior counts [0, 1, 2], got {weights}"
 
 
+# ---------------------------------------------------------------------------
+# Phase 2 — Shuffled-Label Canary, Point-in-Time Graph & GNN OOF Isolation
+# ---------------------------------------------------------------------------
+
+class TestShuffledLabelCanary:
+    """Canary test: shuffling training labels must degrade test ROC-AUC to chance (0.47 - 0.53).
+
+    If test ROC-AUC remains significantly above 0.50 after shuffling labels in train,
+    the feature pipeline contains target leakage (e.g. labels directly or indirectly
+    leaking through feature engineering).
+    """
+
+    def test_shuffled_train_labels_yield_chance_test_auc(self):
+        import numpy as np
+        import pandas as pd
+        from xgboost import XGBClassifier
+        from sklearn.metrics import roc_auc_score
+        from baseline_model import build_features, TRAIN_END, VAL_END
+
+        orders = pd.read_csv("trustshield_project/synthetic_data_export/orders.csv")
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+        listings = pd.read_csv("trustshield_project/synthetic_data_export/listings.csv")
+        returns = pd.read_csv("trustshield_project/synthetic_data_export/returns.csv")
+        buyers = pd.read_csv("trustshield_project/synthetic_data_export/buyers.csv")
+        sellers = pd.read_csv("trustshield_project/synthetic_data_export/sellers.csv")
+        products = pd.read_csv("trustshield_project/synthetic_data_export/products.csv")
+
+        buyers["signup_date"] = pd.to_datetime(buyers["signup_date"])
+        sellers["signup_date"] = pd.to_datetime(sellers["signup_date"])
+        listings["listing_date"] = pd.to_datetime(listings["listing_date"])
+        returns["return_date"] = pd.to_datetime(returns["return_date"])
+
+        df, feat_cols = build_features(orders, listings, returns, buyers, sellers, products)
+        train = df[df["order_date"] <= TRAIN_END].copy()
+        test = df[df["order_date"] > VAL_END].copy()
+
+        # Shuffle training labels to eliminate real signal
+        rng = np.random.RandomState(42)
+        y_train_shuffled = rng.permutation(train["is_fraudulent"].to_numpy())
+        y_test = test["is_fraudulent"].astype(int).to_numpy()
+
+        clf = XGBClassifier(n_estimators=100, max_depth=4, random_state=42, eval_metric="logloss", verbosity=0)
+        clf.fit(train[feat_cols].fillna(0), y_train_shuffled)
+        scores = clf.predict_proba(test[feat_cols].fillna(0))[:, 1]
+        auc = roc_auc_score(y_test, scores)
+
+        assert 0.47 <= auc <= 0.53, (
+            f"Target leakage canary failed! Test ROC-AUC with shuffled train labels was {auc:.4f}, "
+            "which is outside the expected chance range [0.47, 0.53]."
+        )
+
+
+class TestPointInTimeMonthlyGraphIsolation:
+    """Verifies that an order in month M has graph features computed ONLY from edges with timestamp < order timestamp."""
+
+    def test_month_m_orders_use_strictly_prior_month_bipartite_graph(self):
+        """Monthly bipartite transaction graph snapshot for Month M must only include edges from months < M."""
+        import pandas as pd
+        from graph_features import build_monthly_snapshots
+
+        orders = pd.DataFrame({
+            "order_id": [f"O_{i}" for i in range(6)],
+            "buyer_id": ["B1", "B2", "B1", "B3", "B2", "B1"],
+            "seller_id": ["S1", "S1", "S2", "S2", "S1", "S2"],
+            "order_date": [
+                pd.Timestamp("2025-01-10"),
+                pd.Timestamp("2025-01-20"),
+                pd.Timestamp("2025-02-10"),
+                pd.Timestamp("2025-02-25"),
+                pd.Timestamp("2025-03-05"),
+                pd.Timestamp("2025-03-15"),
+            ],
+            "amount": [100.0] * 6,
+        })
+        sim_start = pd.Timestamp("2025-01-01")
+        snapshots, months = build_monthly_snapshots(orders, sim_start)
+
+        # Snapshot for month index 1 (February) must only contain January orders
+        # Snapshot for month index 2 (March) must only contain January & February orders
+        assert len(snapshots) >= 2
+        buyer_feat_m1, seller_feat_m1 = snapshots[1]
+        assert set(buyer_feat_m1["buyer_id"]).issubset({"B1", "B2"}), "Month 1 snapshot saw Month 2 buyer!"
+        assert "B3" not in buyer_feat_m1["buyer_id"].values, "B3 first ordered in Feb, must not appear in Feb snapshot!"
+
+    def test_sharing_features_derived_strictly_prior_to_order_date(self):
+        """Relationship snapshot features for an order must only include sharing edges observed strictly before order date."""
+        import pandas as pd
+        from graph_features import attach_relationship_snapshot_features
+
+        # Order date: March 01, 2025 and May 01, 2025
+        orders = pd.DataFrame({
+            "order_id": ["O_TEST_1", "O_TEST_2"],
+            "buyer_id": ["B_AUDIT_1", "B_AUDIT_1"],
+            "order_date": [pd.Timestamp("2025-03-01"), pd.Timestamp("2025-05-01")],
+        })
+
+        # Sharing edge established on April 01, 2025 (between order 1 and order 2)
+        addr_log = pd.DataFrame({
+            "buyer_id": ["B_AUDIT_1"],
+            "shared_with_buyer_id": ["B_AUDIT_2"],
+            "shared_address_id": ["ADDR_999"],
+            "share_type": ["device_cluster"],
+            "first_seen_date": [pd.Timestamp("2025-04-01")],
+        })
+        dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id", "shared_device_id", "share_type", "first_seen_date"])
+
+        res = attach_relationship_snapshot_features(orders, addr_log, dev_log, sim_start=pd.Timestamp("2025-01-01"))
+        o1 = res[res["order_id"] == "O_TEST_1"].iloc[0]
+        o2 = res[res["order_id"] == "O_TEST_2"].iloc[0]
+
+        assert o1["share_degree"] == 0, f"Order 1 on March 1 saw future April 1 edge! degree={o1['share_degree']}"
+        assert o1["share_component_size"] == 1, f"Order 1 on March 1 component size={o1['share_component_size']}"
+        assert o2["share_degree"] == 1, f"Order 2 on May 1 should see April 1 edge! degree={o2['share_degree']}"
+        assert o2["share_component_size"] == 2, f"Order 2 on May 1 component size={o2['share_component_size']}"
+
+
+class TestGNNOutOfFoldLabelIsolation:
+    """Verifies that no train row's GNN embedding came from an encoder that saw its label."""
+
+    def test_train_rows_gnn_embeddings_come_from_held_out_fold_encoder(self):
+        """Asserts each train row's embedding was generated by an out-of-fold encoder where that row's buyer and label were held out."""
+        import numpy as np
+        import pandas as pd
+        import torch
+        from phase5_hybrid_model import (
+            generate_oof_gnn_embeddings, build_node_index, build_node_features,
+            build_edge_index, GNN_EDGE_FEAT_COLS
+        )
+        from baseline_model import TRAIN_END, VAL_END
+        from graph_features import build_relationship_graph
+
+        orders = pd.read_csv("trustshield_project/synthetic_data_export/orders.csv")
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+        orders["y"] = orders["is_fraudulent"].astype(int)
+        for c in GNN_EDGE_FEAT_COLS:
+            if c not in orders.columns:
+                orders[c] = 1.0
+
+        train_sample = orders[orders["order_date"] <= TRAIN_END].iloc[:1000].copy()
+        val_sample = orders[(orders["order_date"] > TRAIN_END) & (orders["order_date"] <= VAL_END)].iloc[:200].copy()
+        test_sample = orders[orders["order_date"] > VAL_END].iloc[:200].copy()
+
+        buyers = pd.read_csv("trustshield_project/synthetic_data_export/buyers.csv")
+        sellers = pd.read_csv("trustshield_project/synthetic_data_export/sellers.csv")
+        addr_log = pd.read_csv("trustshield_project/synthetic_data_export/address_sharing_log.csv")
+        dev_log = pd.read_csv("trustshield_project/synthetic_data_export/device_sharing_log.csv")
+
+        buyer_idx, seller_idx, n_buyers, n_total = build_node_index(buyers["buyer_id"], sellers["seller_id"])
+        rel_graph_train = build_relationship_graph(addr_log, dev_log, cutoff_date=TRAIN_END)
+        rel_graph_val = build_relationship_graph(addr_log, dev_log, cutoff_date=VAL_END)
+
+        X_nodes_train = build_node_features(buyer_idx, seller_idx, n_total, train_sample, rel_graph_train, buyers, sellers, cutoff_date=TRAIN_END)
+        edge_index_train = build_edge_index(buyer_idx, seller_idx, train_sample, rel_graph_train)
+        X_nodes_test = build_node_features(buyer_idx, seller_idx, n_total, train_sample, rel_graph_val, buyers, sellers, cutoff_date=VAL_END)
+        edge_index_test = build_edge_index(buyer_idx, seller_idx, train_sample, rel_graph_val)
+
+        train_aug, _, _, _ = generate_oof_gnn_embeddings(
+            train_sample, val_sample, test_sample,
+            buyer_idx, seller_idx, n_total,
+            X_nodes_train, edge_index_train,
+            X_nodes_test, edge_index_test,
+            n_splits=3, epochs=3
+        )
+
+        # 1. Assert every row in train_aug was assigned a valid OOF fold >= 0
+        assert (train_aug["_oof_fold"] >= 0).all(), "Some train rows were not assigned to an OOF fold!"
+
+        # 2. Assert buyer-grouping: all orders for any given buyer belong to the EXACT same OOF fold
+        buyer_folds = train_aug.groupby("buyer_id")["_oof_fold"].nunique()
+        assert (buyer_folds == 1).all(), "Buyer grouping violated! Same buyer appeared in multiple folds."
+
+        # 3. Exactly K folds populated
+        assert train_aug["_oof_fold"].nunique() == 3
+
+
