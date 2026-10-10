@@ -514,6 +514,7 @@ class TestModelUsedField:
         assert d["order_id"] == "ORD_GRAPH_CLIENT_001"
         assert 0.0 <= d["overall_fraud_probability"] <= 1.0
         assert d["graph_features_source"] == "client"
+        assert d["client_mismatch"] is False
 
         # 2. Calling with entity in snapshot and no client graph features -> computes server-side
         server_payload = {
@@ -529,6 +530,7 @@ class TestModelUsedField:
         d2 = r2.json()
         assert d2["order_id"] == "ORD_GRAPH_SERVER_002"
         assert d2["graph_features_source"] == "server"
+        assert d2["client_mismatch"] is False
 
         # 3. Calling with unknown entity and no graph features -> flagged default (never silent 0.0)
         default_payload = {
@@ -543,9 +545,10 @@ class TestModelUsedField:
         assert r3.status_code == 200
         d3 = r3.json()
         assert d3["graph_features_source"] == "default"
+        assert d3["client_mismatch"] is False
         assert "Flagged: Graph features defaulted to 0.0" in d3["note"]
 
-        # 4. Calling with client mismatch vs server snapshot -> flags client mismatch
+        # 4. Calling with client mismatch vs server snapshot -> enforces server value and sets client_mismatch=True
         mismatch_payload = {
             "order_id": "ORD_GRAPH_MISMATCH_004",
             "buyer_id": "BUYER_00001",
@@ -558,6 +561,8 @@ class TestModelUsedField:
         r4 = client.post("/transaction/score", json=mismatch_payload)
         assert r4.status_code == 200
         d4 = r4.json()
-        assert d4["graph_features_source"] == "client"
+        assert d4["graph_features_source"] == "server"
+        assert d4["client_mismatch"] is True
         assert "Flagged client-supplied graph feature mismatch" in d4["note"]
+        assert "Server snapshot value enforced" in d4["note"]
 

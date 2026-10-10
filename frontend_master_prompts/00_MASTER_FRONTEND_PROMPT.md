@@ -194,7 +194,7 @@ lib/
 - Chronological Evidence Timeline: Orders, shared logins, return claims.
 - Evidence Dossier Breakdown:
   - Transaction Evidence, Graph Evidence, Behavioral Evidence, Multimodal Evidence, Return Evidence.
-- System-Generated Evidence Summary: Formatted strictly from deterministic backend outputs with anti-hallucination indicators.
+- System-Generated Evidence Summary: Formatted strictly from deterministic backend outputs with evidence grounding indicators.
 
 ### 9. Model Registry & Calibration Observatory (`/models`)
 - Model Status Cards: Phase 5 Hybrid XGBoost, Phase 3 Fallback, Isotonic Calibrators, CLIP Cache.

@@ -33,7 +33,7 @@ class ForensicInvestigationDossier:
     graph_topology_analysis: str         # Subgraph & device sharing summary
     retrieved_policy_guidelines: List[str] # Retrieved via RAG
     recommended_ops_action: str          # Analyst protocol
-    grounding_verification_passed: bool  # Proves 0 hallucination
+    grounding_verification_passed: bool  # Verifies strict grounding against telemetry
 
 
 def verify_dossier_grounding(

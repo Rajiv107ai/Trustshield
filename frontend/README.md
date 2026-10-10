@@ -37,7 +37,7 @@ The frontend connects by default to the FastAPI backend running at `http://local
 | **`/trust-graph`** | **Trust Graph** | Multi-entity relational graph canvas (Buyers, Sellers, Devices, Addresses) with historical timeline controls. |
 | **`/listings`** | **Listing Intelligence** | CLIP visual-semantic embeddings and FAISS nearest-neighbor indexing detecting stolen catalog photos. |
 | **`/returns`** | **Return Abuse** | Serial return abuse detector evaluating return velocity and wardrobing risk. |
-| **`/investigations`** | **Evidence Dossiers** | Formal investigation incident dossiers with TreeSHAP risk breakdowns, graph topology, and anti-hallucination indicators. |
+| **`/investigations`** | **Evidence Dossiers** | Formal investigation incident dossiers with TreeSHAP risk breakdowns, graph topology, and evidence grounding indicators. |
 | **`/models`** | **Model Registry** | Model provenance, Isotonic probability calibration ECE reliability curve, and Brier metrics. |
 | **`/evaluation`** | **Evaluation Studio** | Algorithmic ablation ladders, test ROC/PR benchmarks, and dynamic decision threshold matrix. |
 | **`/monitoring`** | **Mesh Telemetry** | Kubernetes Liveness (`/health`) vs. Readiness (`/ready`), live Prometheus metrics, latency percentiles, and Docker mesh status. |

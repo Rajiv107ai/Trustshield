@@ -147,7 +147,7 @@ export default function InvestigationsPage() {
             <span>Case Management & Grounded Evidence Dossiers</span>
           </h1>
           <p className="text-xs text-[#8995A3] mt-1">
-            Forensic case files with verifiable multi-channel evidence timelines, live Neo4j graph findings, and deterministic anti-hallucination bounds.
+            Forensic case files with verifiable multi-channel evidence timelines, live Neo4j graph findings, and deterministic telemetry grounding bounds.
           </p>
         </div>
 
@@ -276,7 +276,7 @@ export default function InvestigationsPage() {
                 </div>
                 <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
-                  Hallucination Guard Verified
+                  Evidence Verification Guard Passed
                 </span>
               </div>
 

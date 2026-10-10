@@ -1,5 +1,7 @@
 """Tests verifying absence of data leakage and temporal consistency."""
 
+from typing import Any
+
 import pandas as pd
 from baseline_model import TRAIN_END, VAL_END
 
@@ -538,8 +540,8 @@ class TestPointInTimeGraphAndReturnLeakagePrevention:
             "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi"
         ]
         for col in check_cols:
-            v1_vals = df_v1.loc[:9, col].to_numpy()
-            v2_vals = df_v2.loc[:9, col].to_numpy()
+            v1_vals: np.typing.NDArray[np.float64] = np.array(df_v1.loc[:9, col], dtype=np.float64)
+            v2_vals: np.typing.NDArray[np.float64] = np.array(df_v2.loc[:9, col], dtype=np.float64)
             np.testing.assert_allclose(
                 v1_vals, v2_vals, rtol=1e-5, atol=1e-5,
                 err_msg=f"Temporal leakage detected: Month 3 future orders changed '{col}' for earlier orders!"

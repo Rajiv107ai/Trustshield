@@ -156,7 +156,7 @@ curl -X POST http://localhost:8000/transaction/explain \
 - **`POST /investigation/generate-dossier`**  
   **Purpose:** Generates comprehensive, evidence-grounded forensic investigation packages combining entity facts, model inference, graph topology, TreeSHAP attributions, and policy RAG guidelines.  
   **Key Features:**
-  - Automated anti-hallucination verification cross-checking generated assertions against recorded telemetry.
+  - Automated evidence-grounding verification cross-checking generated assertions against recorded telemetry.
   - Reconstructed graph topology context (shared device collisions, multi-account clusters).
   - Verifiable hypothesis synthesis and concrete investigator next steps.
 
@@ -222,7 +222,7 @@ The backend encapsulates auxiliary infrastructure and domain logic into modular 
 4. **`InvestigationService` (`backend/services/investigation_service.py`)**:
    - Orchestrates multi-source evidence extraction (scoring, graph, TreeSHAP).
    - Generates verified facts, executive summaries, and investigator action items.
-   - Enforces strict anti-hallucination guard preventing speculative assertions.
+   - Enforces strict evidence grounding guard preventing unverified assertions.
 
 ---
 

@@ -5,7 +5,7 @@ Orchestrates:
 1. Entity validation & feature context resolution (Redis, Disk, or explicit payload)
 2. Unified Trust Engine scoring & Conformal Prediction evaluation
 3. Neo4j parameterized graph traversal (with strict temporal isolation)
-4. Grounded GenAI Investigation Agent synthesis with automated Hallucination Guard
+4. Grounded GenAI Investigation Agent synthesis with automated Grounding Verification Guard
 5. Structured Dossier separation: Observed Evidence vs Model Inference vs Action
 """
 
@@ -106,7 +106,7 @@ class InvestigationService:
     def resolve_entity_context(self, req: DossierRequest, store_instance: Any) -> Dict[str, Any]:
         """
         Resolve entity feature context from request payload, Redis cache,
-        pre-computed fraud rings, or preset catalogs without hallucination.
+        pre-computed fraud rings, or preset catalogs with deterministic evidence verification.
         """
         entity_type = req.entity_type.strip().lower()
         entity_id = req.entity_id.strip()

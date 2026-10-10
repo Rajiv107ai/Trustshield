@@ -553,9 +553,7 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
     if ring_coherent and new_sharing_rows and device_sharing_log is not None:
         device_sharing_log = pd.concat([device_sharing_log, pd.DataFrame(new_sharing_rows)], ignore_index=True)
 
-    if device_sharing_log is not None:
-        return orders_df, returns_df, fraud_order_ids, pd.DataFrame(ledger_rows), device_sharing_log
-    return orders_df, returns_df, fraud_order_ids, pd.DataFrame(ledger_rows)
+    return orders_df, returns_df, fraud_order_ids, pd.DataFrame(ledger_rows), device_sharing_log
 
 
 # ---------------------------------------------------------------------------

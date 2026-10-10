@@ -48,7 +48,7 @@ This directory contains the core machine learning models, relational graph neura
 - **`multimodal_clip_faiss.py`**:  
   CLIP vision-language feature extraction combined with FAISS sub-millisecond similarity index. Features strict self-match exclusion by listing identity and detects cross-seller image reuse and title-image semantic divergence.
 - **`investigation_agent.py`**:  
-  Autonomous fraud ops agent generating human-readable forensic dossiers. Features an automated hallucination guard that cross-references all claims against extracted graph evidence.
+  Autonomous fraud ops agent generating human-readable forensic dossiers. Features an automated evidence grounding verification guard that cross-references all claims against extracted graph evidence.
 - **`investigation_rag.py`**:  
   Dense vector retrieval-augmented generation (RAG) indexing fraud typology playbooks and past incident resolutions.
 - **`neo4j_investigator.py`**:  
