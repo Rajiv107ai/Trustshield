@@ -81,6 +81,10 @@ jobs:
         run: |
           pytest backend/test_backend.py backend/test_new_extensions.py backend/test_services.py -v --tb=short
 
+      - name: Verify Metric Grounding & Absence of Hard-Coded Metrics
+        run: |
+          python scripts/check_no_hardcoded_metrics.py
+
   # ============================================================================
   # 3. Next.js Enterprise Frontend Build & Typecheck Verification
   # ============================================================================

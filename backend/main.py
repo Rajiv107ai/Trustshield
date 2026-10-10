@@ -398,6 +398,22 @@ def ready(response: Response):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/results & /results - Audited Benchmark Metrics Provider
+# ---------------------------------------------------------------------------
+
+@app.get("/api/results", tags=["system"])
+@app.get("/results", tags=["system"])
+def get_canonical_results():
+    """Returns canonical audited benchmark metrics payload directly from results/results.json."""
+    import json
+    results_path = os.path.join(_ROOT_DIR, "results", "results.json")
+    if not os.path.exists(results_path):
+        raise HTTPException(status_code=404, detail="results.json not found on disk")
+    with open(results_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+# ---------------------------------------------------------------------------
 # POST /transaction/score
 # ---------------------------------------------------------------------------
 
@@ -460,14 +476,13 @@ def score_transaction(req: TransactionScoreRequest):
         else:
             prob_tabular = float(prob_cal)
 
-        # Canonical Trust Engine scoring
-        graph_sig = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
-        ring_sig = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
+        # Canonical Trust Engine scoring (labeled heuristics)
+        graph_sig_heuristic = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
+        ring_sig_heuristic = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
         component_risks = {
             "tabular_risk": prob_tabular,
-            "graph_risk": graph_sig,
-            "hetero_gnn_risk": prob_cal,
-            "ring_risk": ring_sig,
+            "graph_risk_heuristic": graph_sig_heuristic,
+            "ring_risk_heuristic": ring_sig_heuristic,
         }
         if req.multimodal_similarity_score is not None:
             component_risks["multimodal_risk"] = float(
@@ -572,12 +587,12 @@ def score_transaction(req: TransactionScoreRequest):
 
     clf_name = meta.get("classifier", type(store.combined_graph_model).__name__)
 
-    graph_sig = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
-    ring_sig = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
+    graph_sig_heuristic = float(min(req.share_degree * 0.15 + req.buyer_pagerank * 0.35, 1.0))
+    ring_sig_heuristic = float(min(max(req.share_component_size - 1, 0) * 0.2, 1.0))
     component_risks = {
         "tabular_risk": prob_cal,
-        "graph_risk": graph_sig,
-        "ring_risk": ring_sig,
+        "graph_risk_heuristic": graph_sig_heuristic,
+        "ring_risk_heuristic": ring_sig_heuristic,
     }
     if req.multimodal_similarity_score is not None:
         component_risks["multimodal_risk"] = float(

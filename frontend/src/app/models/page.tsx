@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Cpu,
   Layers,
@@ -14,59 +14,58 @@ import {
 } from "lucide-react";
 
 export default function ModelRegistryPage() {
-  const [selectedModel, setSelectedModel] = useState("phase5");
+  const [selectedModel, setSelectedModel] = useState("tabular_graph");
+  const [resultsData, setResultsData] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/results.json")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load results.json");
+        return res.json();
+      })
+      .then((data) => setResultsData(data))
+      .catch((err) => console.error("Could not fetch results.json:", err));
+  }, []);
+
+  const primaryAnalysis = resultsData?.pre_registered_primary_analysis_20_seeds;
+  const graphFree = resultsData?.graph_free_baseline_comparisons_20_seeds;
+  const hybridModel = resultsData?.tuned_hybrid_model_5_seeds?.standard_dataset;
+  const ablations = resultsData?.design_rule_ablations;
 
   const modelsList = [
     {
-      id: "phase5",
-      name: "Phase 5 Hybrid XGBoost + GNN",
-      file: "models/hybrid_model.joblib",
-      calibrator: "models/phase5_calibrator.joblib (Isotonic)",
-      valAuc: "0.857",
-      testAuc: "0.775",
-      testPrAuc: "0.448",
-      brierScore: "0.039",
-      latencyP95: "48.6 ms",
-      status: "PRIMARY PRODUCTION",
-    },
-    {
-      id: "phase3",
-      name: "Phase 3 Tabular + Graph Random Forest",
+      id: "tabular_graph",
+      name: "Tabular + Graph XGBoost (Primary)",
       file: "models/combined_graph_model.joblib",
-      calibrator: "models/calibrator.joblib (Isotonic)",
-      valAuc: "0.785",
-      testAuc: "0.678",
-      testPrAuc: "0.426",
-      brierScore: "0.041",
-      latencyP95: "8.6 ms",
-      status: "STANDBY FALLBACK",
+      calibrator: "Isotonic Regression",
+      testAuc: primaryAnalysis ? primaryAnalysis.tabular_plus_graph.roc_mean.toFixed(3) : "—",
+      testPrAuc: primaryAnalysis ? primaryAnalysis.tabular_plus_graph.pr_mean.toFixed(3) : "—",
+      lift: primaryAnalysis ? `+${primaryAnalysis.primary_roc_lift_paired.mean_diff.toFixed(3)} ROC (p=${primaryAnalysis.primary_roc_lift_paired.p_value.toFixed(4)})` : "—",
+      status: "PRIMARY AUDITED CHAMPION",
+      badgeColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
     },
     {
-      id: "baseline",
-      name: "Phase 1 Tabular Random Forest Baseline",
+      id: "tabular_with_dev",
+      name: "Tabular Baseline (With Device Count)",
       file: "models/baseline_rf.joblib",
-      calibrator: "None",
-      valAuc: "0.742",
-      testAuc: "0.678",
-      testPrAuc: "0.418",
-      brierScore: "0.058",
-      latencyP95: "4.2 ms",
-      status: "HISTORICAL BENCHMARK",
+      calibrator: "Platt Scaling",
+      testAuc: primaryAnalysis ? primaryAnalysis.tabular_with_device.roc_mean.toFixed(3) : "—",
+      testPrAuc: primaryAnalysis ? primaryAnalysis.tabular_with_device.pr_mean.toFixed(3) : "—",
+      lift: graphFree ? `+${graphFree.device_lift_b_vs_a_paired.roc.mean_diff.toFixed(3)} vs No-Device` : "Baseline",
+      status: "CURRENT BASELINE (10 Feats)",
+      badgeColor: "text-blue-400 bg-blue-500/10 border-blue-500/20",
     },
-  ];
-
-  // ECE Reliability curve bins (Observed Accuracy vs Mean Predicted Probability)
-  const reliabilityBins = [
-    { bin: "0.0 - 0.1", pred: 0.04, rawAcc: 0.12, calAcc: 0.041, count: 1820 },
-    { bin: "0.1 - 0.2", pred: 0.15, rawAcc: 0.24, calAcc: 0.152, count: 840 },
-    { bin: "0.2 - 0.3", pred: 0.25, rawAcc: 0.36, calAcc: 0.249, count: 410 },
-    { bin: "0.3 - 0.4", pred: 0.35, rawAcc: 0.49, calAcc: 0.351, count: 320 },
-    { bin: "0.4 - 0.5", pred: 0.45, rawAcc: 0.58, calAcc: 0.448, count: 210 },
-    { bin: "0.5 - 0.6", pred: 0.55, rawAcc: 0.69, calAcc: 0.553, count: 180 },
-    { bin: "0.6 - 0.7", pred: 0.65, rawAcc: 0.76, calAcc: 0.651, count: 140 },
-    { bin: "0.7 - 0.8", pred: 0.75, rawAcc: 0.84, calAcc: 0.749, count: 110 },
-    { bin: "0.8 - 0.9", pred: 0.85, rawAcc: 0.91, calAcc: 0.852, count: 95 },
-    { bin: "0.9 - 1.0", pred: 0.95, rawAcc: 0.98, calAcc: 0.950, count: 70 },
+    {
+      id: "hybrid",
+      name: "Tuned Hybrid (OOF GraphSAGE + XGB)",
+      file: "models/hybrid_model.joblib",
+      calibrator: "Isotonic Regression",
+      testAuc: hybridModel ? hybridModel.roc_mean.toFixed(3) : "—",
+      testPrAuc: hybridModel ? hybridModel.pr_mean.toFixed(3) : "—",
+      lift: hybridModel ? `${hybridModel.paired_diff_vs_tabular.roc.mean_diff.toFixed(3)} ROC vs Tabular` : "Underperforms",
+      status: "EXPLORATORY HYBRID",
+      badgeColor: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    },
   ];
 
   return (
@@ -76,16 +75,16 @@ export default function ModelRegistryPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[#E8EDF3] flex items-center gap-2">
             <Cpu className="w-5 h-5 text-indigo-400" />
-            <span>Model Registry & Calibration Observatory</span>
+            <span>Model Registry & Audited Performance</span>
           </h1>
           <p className="text-xs text-[#8995A3] mt-1">
-            Production artifact provenance, Isotonic probability calibration reliability diagrams, and Brier metrics.
+            Dynamic registry rendering audited metrics loaded from <code className="text-indigo-400">results/results.json</code>.
           </p>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111821] border border-[#202A35] text-xs font-mono">
-          <span className="text-[#8995A3]">Active Calibrator:</span>
-          <span className="text-emerald-400 font-semibold">Isotonic Regression (Strict Non-negative Slope)</span>
+          <span className="text-[#8995A3]">Registry Sync:</span>
+          <span className="text-emerald-400 font-semibold">Live from results/results.json</span>
         </div>
       </div>
 
@@ -99,93 +98,105 @@ export default function ModelRegistryPage() {
               onClick={() => setSelectedModel(m.id)}
               className={`p-4 rounded-xl border cursor-pointer transition-all ${
                 isSelected
-                  ? "bg-[#151D27] border-indigo-500 shadow-lg ring-1 ring-indigo-500/30"
-                  : "bg-[#111821] border-[#202A35] hover:bg-[#151D27]"
+                  ? "bg-[#151D27] border-blue-500/50 shadow-lg shadow-blue-500/5"
+                  : "bg-[#111821] border-[#202A35] hover:border-[#2D3A4B]"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${m.badgeColor}`}>
                   {m.status}
                 </span>
-                <span className="text-xs font-mono text-emerald-400 font-bold">{m.testAuc} AUC</span>
+                <span className="text-xs font-mono text-[#596574]">{m.calibrator}</span>
               </div>
 
-              <h3 className="text-xs font-bold text-[#E8EDF3] mt-2 font-mono">{m.name}</h3>
-              <div className="text-[11px] font-mono text-[#8995A3] mt-0.5 truncate">{m.file}</div>
+              <div className="mt-3">
+                <h3 className="text-sm font-bold text-[#E8EDF3]">{m.name}</h3>
+                <div className="text-[11px] font-mono text-[#596574] mt-0.5">{m.file}</div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-[#202A35] text-[11px] font-mono">
+              <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-[#202A35]/60 text-xs font-mono">
                 <div>
-                  <span className="text-[#596574]">Val ROC-AUC:</span>
-                  <div className="text-[#E8EDF3] font-semibold">{m.valAuc}</div>
+                  <span className="text-[10px] text-[#596574] block">Test ROC-AUC</span>
+                  <span className="text-base font-bold text-blue-400">{m.testAuc}</span>
                 </div>
                 <div>
-                  <span className="text-[#596574]">Test PR-AUC:</span>
-                  <div className="text-[#E8EDF3] font-semibold">{m.testPrAuc}</div>
+                  <span className="text-[10px] text-[#596574] block">Test PR-AUC</span>
+                  <span className="text-base font-bold text-purple-400">{m.testPrAuc}</span>
                 </div>
-                <div>
-                  <span className="text-[#596574]">Brier Score:</span>
-                  <div className="text-emerald-400 font-semibold">{m.brierScore}</div>
-                </div>
-                <div>
-                  <span className="text-[#596574]">p95 Latency:</span>
-                  <div className="text-cyan-400 font-semibold">{m.latencyP95}</div>
-                </div>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-[#202A35]/40 flex items-center justify-between text-[11px] font-mono">
+                <span className="text-[#596574]">Paired Difference</span>
+                <span className="text-[#E8EDF3] font-semibold">{m.lift}</span>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Calibration Observatory: ECE Reliability Diagram */}
-      <div className="p-6 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3] flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-400" />
-              <span>ECE Reliability Diagram & Probability Calibration</span>
-            </h3>
-            <p className="text-[11px] text-[#8995A3] mt-0.5">
-              Comparison of raw uncalibrated probabilities vs. isotonically calibrated probabilities against ideal diagonal.
-            </p>
+      {/* Design-Rule Ablation Summary Cards */}
+      {ablations && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-3 font-mono text-xs">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[#E8EDF3] uppercase tracking-wider text-[11px]">
+                Return Fraud Detector Ablations (Uncensored Test N=1,100)
+              </h3>
+              <span className="text-[10px] text-amber-400">Generator Rule Recovery</span>
+            </div>
+            <div className="space-y-1.5 text-[#8995A3]">
+              <div className="flex justify-between p-2 rounded bg-[#0E131A] border border-[#202A35]">
+                <span>Full Model (Days + Reasons + Tabular)</span>
+                <span className="text-emerald-400 font-bold">ROC: {ablations.return_fraud_ablations.full_model.roc_auc.toFixed(3)} · PR: {ablations.return_fraud_ablations.full_model.pr_auc.toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between p-2 rounded bg-[#0E131A] border border-[#202A35]">
+                <span>Without days_to_return</span>
+                <span className="text-amber-400 font-bold">ROC: {ablations.return_fraud_ablations.without_days_to_return.roc_auc.toFixed(3)} · PR: {ablations.return_fraud_ablations.without_days_to_return.pr_auc.toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between p-2 rounded bg-[#0E131A] border border-[#202A35]">
+                <span>Without reason_* features</span>
+                <span className="text-blue-400 font-bold">ROC: {ablations.return_fraud_ablations.without_reasons.roc_auc.toFixed(3)} · PR: {ablations.return_fraud_ablations.without_reasons.pr_auc.toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between p-2 rounded bg-[#0E131A] border border-[#202A35]">
+                <span>Without Both (Delay & Reasons)</span>
+                <span className="text-rose-400 font-bold">ROC: {ablations.return_fraud_ablations.without_both.roc_auc.toFixed(3)} · PR: {ablations.return_fraud_ablations.without_both.pr_auc.toFixed(3)}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-mono">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-dashed border-t border-dashed border-slate-500" /> Ideal Diagonal</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-rose-500 rounded-sm" /> Raw ECE (0.064)</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" /> Calibrated ECE (0.000)</span>
+          <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-3 font-mono text-xs">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[#E8EDF3] uppercase tracking-wider text-[11px]">
+                Fake Listing Subgroup Recall (Price Anomaly Split)
+              </h3>
+              <span className="text-[10px] text-amber-400">Generator Rule Recovery</span>
+            </div>
+            <div className="space-y-3 text-[#8995A3] pt-2">
+              <div className="p-3 rounded bg-[#0E131A] border border-[#202A35] flex items-center justify-between">
+                <div>
+                  <div className="text-[#E8EDF3] font-semibold">With Injected Price Anomaly (N={ablations.fake_listing_price_anomaly_subgroups.test_fake_with_price_anomaly})</div>
+                  <div className="text-[10px] text-[#596574] mt-0.5">Price &lt; 0.60 catalog base price</div>
+                </div>
+                <div className="text-lg font-bold text-emerald-400">
+                  {(ablations.fake_listing_price_anomaly_subgroups.recall_with_price_anomaly * 100).toFixed(1)}% Recall
+                </div>
+              </div>
+              <div className="p-3 rounded bg-[#0E131A] border border-[#202A35] flex items-center justify-between">
+                <div>
+                  <div className="text-[#E8EDF3] font-semibold">Without Injected Price Anomaly (N={ablations.fake_listing_price_anomaly_subgroups.test_fake_without_price_anomaly})</div>
+                  <div className="text-[10px] text-[#596574] mt-0.5">Non-anomalous price listings</div>
+                </div>
+                <div className="text-lg font-bold text-rose-400">
+                  {(ablations.fake_listing_price_anomaly_subgroups.recall_without_price_anomaly * 100).toFixed(1)}% Recall
+                </div>
+              </div>
+              <div className="text-[11px] text-[#596574] italic">
+                * Note: Demonstrates that the tabular listing detector primarily recovers the generator's explicit price anomaly rule rather than general counterfeit semantics.
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Dense Table Representation */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs font-mono">
-            <thead>
-              <tr className="border-b border-[#202A35] text-[10px] uppercase text-[#596574]">
-                <th className="py-2 px-3">Probability Bin</th>
-                <th className="py-2 px-3">Predicted Mean</th>
-                <th className="py-2 px-3">Raw Observed (Uncalibrated)</th>
-                <th className="py-2 px-3">Calibrated Observed (Isotonic)</th>
-                <th className="py-2 px-3">Sample Count</th>
-                <th className="py-2 px-3 text-right">Error &Delta;</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#151D27]">
-              {reliabilityBins.map((bin, i) => (
-                <tr key={i} className="hover:bg-[#151D27]/50">
-                  <td className="py-2.5 px-3 text-[#E8EDF3] font-semibold">{bin.bin}</td>
-                  <td className="py-2.5 px-3 text-[#8995A3]">{(bin.pred * 100).toFixed(0)}%</td>
-                  <td className="py-2.5 px-3 text-rose-400">{(bin.rawAcc * 100).toFixed(1)}%</td>
-                  <td className="py-2.5 px-3 text-emerald-400 font-bold">{(bin.calAcc * 100).toFixed(1)}%</td>
-                  <td suppressHydrationWarning className="py-2.5 px-3 text-[#8995A3]">{bin.count.toLocaleString("en-US")}</td>
-                  <td className="py-2.5 px-3 text-right text-emerald-400 font-semibold">
-                    {Math.abs(bin.pred - bin.calAcc).toFixed(3)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

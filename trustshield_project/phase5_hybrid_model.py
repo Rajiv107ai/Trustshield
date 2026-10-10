@@ -120,16 +120,20 @@ class EdgeClassifier(nn.Module):
         return self.mlp(torch.cat([buyer_emb, seller_emb, edge_feats], dim=1)).squeeze(-1)
 
 
-def train_sage_encoder(X, edge_index, train_b, train_s, train_feats, train_y, val_b, val_s, val_feats, val_y, epochs=50):
-    """Trains GraphSAGE encoder and checkpoint selects highest validation AUC."""
+def train_sage_encoder(
+    X, edge_index, train_b, train_s, train_feats, train_y,
+    val_b, val_s, val_feats, val_y, epochs=50, lr=0.01, patience=20
+):
+    """Trains GraphSAGE encoder and checkpoint selects highest validation order-level fraud AUC."""
     encoder = GraphSAGEEncoder()
     head = EdgeClassifier()
-    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(head.parameters()), lr=0.002)
+    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(head.parameters()), lr=lr)
     pos_weight = torch.tensor([(train_y == 0).sum().item() / max((train_y == 1).sum().item(), 1)])
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     best_val_auc = 0.0
     best_enc_state = None
+    epochs_no_improve = 0
 
     for epoch in range(1, epochs + 1):
         encoder.train()
@@ -142,16 +146,22 @@ def train_sage_encoder(X, edge_index, train_b, train_s, train_feats, train_y, va
         torch.nn.utils.clip_grad_norm_(list(encoder.parameters()) + list(head.parameters()), 1.0)
         optimizer.step()
 
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             encoder.eval()
             head.eval()
             with torch.no_grad():
                 emb_eval = encoder(X, edge_index)
                 val_probs = torch.sigmoid(head(emb_eval[val_b], emb_eval[val_s], val_feats)).numpy()
-                val_auc = roc_auc_score(val_y.numpy(), val_probs)
-            if val_auc > best_val_auc:
+                val_auc = float(roc_auc_score(val_y.numpy(), val_probs))
+            if val_auc > best_val_auc + 1e-4:
                 best_val_auc = val_auc
                 best_enc_state = {k: v.clone() for k, v in encoder.state_dict().items()}
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 5
+
+            if epochs_no_improve >= patience:
+                break
 
     if best_enc_state is not None:
         encoder.load_state_dict(best_enc_state)
@@ -233,6 +243,7 @@ def generate_oof_gnn_embeddings(
     epochs: int = 40,
     random_state: int = 42,
     fold_strategy: str = "time_aware",
+    lr: float = 0.01,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
     """Generates K=5 buyer-grouped out-of-fold GNN embeddings for train, and train-fit embeddings for val/test.
 
@@ -285,7 +296,7 @@ def generate_oof_gnn_embeddings(
         train_aug[col] = 0.0
     train_aug["_oof_fold"] = -1
 
-    print(f"Generating K={n_splits} buyer-grouped out-of-fold GNN embeddings ({fold_strategy}) for training set...")
+    print(f"Generating K={n_splits} buyer-grouped out-of-fold GNN embeddings ({fold_strategy}, lr={lr}) for training set...")
     for fold, (fit_buyer_set, val_b_set) in enumerate(folds):
         fold_train_mask = train_df["buyer_id"].isin(fit_buyer_set)
         fold_val_mask = train_df["buyer_id"].isin(val_b_set)
@@ -299,6 +310,7 @@ def generate_oof_gnn_embeddings(
             f_tr_b, f_tr_s, f_tr_f, f_tr_y,
             f_val_b, f_val_s, f_val_f, f_val_y,
             epochs=epochs,
+            lr=lr,
         )
 
         # Extract embeddings for the held-out fold
@@ -316,7 +328,7 @@ def generate_oof_gnn_embeddings(
         train_aug.loc[fold_val_indices, "_oof_fold"] = fold
 
     # Train full encoder on train split only for val and test embeddings
-    print("Training full-train GNN encoder for validation and test embeddings...")
+    print(f"Training full-train GNN encoder (lr={lr}) for validation and test embeddings...")
     rng = np.random.RandomState(random_state)
     all_b_unique = unique_buyers.copy()
     rng.shuffle(all_b_unique)
@@ -334,6 +346,7 @@ def generate_oof_gnn_embeddings(
         full_fit_b, full_fit_s, full_fit_f, full_fit_y,
         full_es_b, full_es_s, full_es_f, full_es_y,
         epochs=epochs,
+        lr=lr,
     )
 
     # Validation embeddings: extracted from training graph state

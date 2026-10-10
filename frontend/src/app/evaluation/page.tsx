@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -13,21 +13,72 @@ import {
 
 export default function EvaluationStudioPage() {
   const [threshold, setThreshold] = useState<number>(0.45);
+  const [resultsData, setResultsData] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/results.json")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load results.json");
+        return res.json();
+      })
+      .then((data) => setResultsData(data))
+      .catch((err) => console.error("Could not fetch results.json:", err));
+  }, []);
+
+  // Dynamically constructed ablation ladder from results.json
+  const primaryAnalysis = resultsData?.pre_registered_primary_analysis_20_seeds;
+  const graphFree = resultsData?.graph_free_baseline_comparisons_20_seeds;
+  const coherentAnalysis = resultsData?.coherent_variant_sensitivity_analysis_5_seeds;
+  const hybridModel = resultsData?.tuned_hybrid_model_5_seeds?.standard_dataset;
+  const perTypeStandard = resultsData?.per_type_metrics_standard_20_seeds;
 
   const ablationData = [
-    { component: "1. Tabular Only Baseline", roc: "0.651", pr: "0.265", lift: "Baseline" },
-    { component: "2. Graph-Degraded Fallback (Zero Graph Topology)", roc: "0.603", pr: "0.242", lift: "-0.048 (Cold-Start)" },
-    { component: "3. Tabular + NetworkX Graph Snapshots (Phase 3)", roc: "0.789", pr: "0.442", lift: "+0.138 ROC" },
-    { component: "4. Hybrid GNN Embeddings + XGBoost (Phase 5)", roc: "0.765", pr: "0.419", lift: "+0.114 ROC" },
-    { component: "5. Canonical Trust Engine (Stacking Ensemble)", roc: "0.792", pr: "0.465", lift: "+0.141 ROC" },
+    {
+      component: "(a) Tabular (No Device)",
+      roc: graphFree ? graphFree.tabular_without_device.roc_mean.toFixed(3) : "—",
+      pr: graphFree ? graphFree.tabular_without_device.pr_mean.toFixed(3) : "—",
+      lift: "Baseline (9 feats)",
+    },
+    {
+      component: "(b) Tabular (With Device)",
+      roc: primaryAnalysis ? primaryAnalysis.tabular_with_device.roc_mean.toFixed(3) : "—",
+      pr: primaryAnalysis ? primaryAnalysis.tabular_with_device.pr_mean.toFixed(3) : "—",
+      lift: graphFree ? `${graphFree.device_lift_b_vs_a_paired.roc.mean_diff > 0 ? "+" : ""}${graphFree.device_lift_b_vs_a_paired.roc.mean_diff.toFixed(3)} ROC (p=${graphFree.device_lift_b_vs_a_paired.roc.p_value.toFixed(3)})` : "Current Baseline",
+    },
+    {
+      component: "(c) Tabular + Graph (Primary)",
+      roc: primaryAnalysis ? primaryAnalysis.tabular_plus_graph.roc_mean.toFixed(3) : "—",
+      pr: primaryAnalysis ? primaryAnalysis.tabular_plus_graph.pr_mean.toFixed(3) : "—",
+      lift: primaryAnalysis ? `${primaryAnalysis.primary_roc_lift_paired.mean_diff > 0 ? "+" : ""}${primaryAnalysis.primary_roc_lift_paired.mean_diff.toFixed(3)} ROC (p=${primaryAnalysis.primary_roc_lift_paired.p_value.toFixed(4)})` : "+0.012 ROC",
+    },
+    {
+      component: "Coherent Variant (Upper Bound)",
+      roc: coherentAnalysis ? coherentAnalysis.tabular_plus_graph.roc_mean.toFixed(3) : "—",
+      pr: coherentAnalysis ? coherentAnalysis.tabular_plus_graph.pr_mean.toFixed(3) : "—",
+      lift: coherentAnalysis ? `${coherentAnalysis.graph_lift_paired.roc.mean_diff > 0 ? "+" : ""}${coherentAnalysis.graph_lift_paired.roc.mean_diff.toFixed(3)} ROC (p=${coherentAnalysis.graph_lift_paired.roc.p_value.toFixed(3)})` : "Sensitivity Bound",
+    },
+    {
+      component: "Tuned Hybrid (OOF GNN + XGB)",
+      roc: hybridModel ? hybridModel.roc_mean.toFixed(3) : "—",
+      pr: hybridModel ? hybridModel.pr_mean.toFixed(3) : "—",
+      lift: hybridModel ? `${hybridModel.paired_diff_vs_tabular.roc.mean_diff.toFixed(3)} ROC (p=${hybridModel.paired_diff_vs_tabular.roc.p_value.toFixed(3)})` : "Loses to Tabular",
+    },
   ];
 
-  const fraudTypeBreakdown = [
-    { type: "Collusion Rings & Device Farms", precision: "94.2%", recall: "91.8%", f1: "0.930", count: 420 },
-    { type: "Counterfeit & Stolen Photos", precision: "96.4%", recall: "88.5%", f1: "0.923", count: 310 },
-    { type: "Serial Return & Wardrobing Abuse", precision: "89.5%", recall: "84.2%", f1: "0.868", count: 240 },
-    { type: "Price Arbitrage / Wash Trading", precision: "92.1%", recall: "87.0%", f1: "0.895", count: 180 },
-  ];
+  const fraudTypeRows = perTypeStandard
+    ? Object.keys(perTypeStandard).map((ft) => {
+        const item = perTypeStandard[ft];
+        return {
+          type: ft.replace(/_/g, " ").toUpperCase(),
+          isolatedRocTab: item.isolated_roc_tabular_mean.toFixed(3),
+          isolatedRocGraph: item.isolated_roc_graph_mean.toFixed(3),
+          lift: `${item.isolated_roc_paired.mean_diff > 0 ? "+" : ""}${item.isolated_roc_paired.mean_diff.toFixed(3)} (p=${item.isolated_roc_paired.p_value.toFixed(3)})`,
+          recall2: `${(item.recall_2pct_tabular_mean * 100).toFixed(1)}% / ${(item.recall_2pct_graph_mean * 100).toFixed(1)}%`,
+          recall5: `${(item.recall_5pct_tabular_mean * 100).toFixed(1)}% / ${(item.recall_5pct_graph_mean * 100).toFixed(1)}%`,
+          recall10: `${(item.recall_10pct_tabular_mean * 100).toFixed(1)}% / ${(item.recall_10pct_graph_mean * 100).toFixed(1)}%`,
+        };
+      })
+    : [];
 
   // Dynamic confusion matrix based on threshold
   const totalPositives = 1000;
@@ -47,13 +98,13 @@ export default function EvaluationStudioPage() {
             <span>Research & Model Evaluation Studio</span>
           </h1>
           <p className="text-xs text-[#8995A3] mt-1">
-            Strict chronological out-of-time test benchmarks, ablation studies, and dynamic confusion matrix modeling.
+            Audited scientific benchmarks loaded directly from <code className="text-emerald-400">results/results.json</code> across 20 pre-registered seeds.
           </p>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111821] border border-[#202A35] text-xs font-mono">
-          <span className="text-[#8995A3]">Test Split:</span>
-          <span className="text-blue-400 font-semibold">order_date &gt; VAL_END (Unseen Future)</span>
+          <span className="text-[#8995A3]">Source:</span>
+          <span className="text-blue-400 font-semibold">results/results.json (Dynamic)</span>
         </div>
       </div>
 
@@ -63,7 +114,7 @@ export default function EvaluationStudioPage() {
         <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
-              Algorithmic Ablation Study
+              Canonical Benchmark & Ablation Ladder (N=20 Seeds)
             </h3>
             <span className="text-[10px] font-mono text-emerald-400">Strict Temporal Safety</span>
           </div>
@@ -76,7 +127,7 @@ export default function EvaluationStudioPage() {
               >
                 <div>
                   <div className="text-[#E8EDF3] font-semibold">{item.component}</div>
-                  <div className="text-[10px] text-[#596574] mt-0.5">Incremental value add</div>
+                  <div className="text-[10px] text-[#596574] mt-0.5">Mean ± std over seeds</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[#E8EDF3] font-bold">
@@ -148,29 +199,36 @@ export default function EvaluationStudioPage() {
 
       {/* Fraud Typology Breakdown */}
       <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
-          Per-Typology Performance Breakdown
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
+            Per-Typology Performance Breakdown (Standard Dataset, N=20 Seeds)
+          </h3>
+          <span className="text-[10px] font-mono text-[#8995A3]">Isolated ROC-AUC vs Legit & Recall@Budgets</span>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs font-mono">
             <thead>
               <tr className="border-b border-[#202A35] text-[10px] uppercase text-[#596574]">
-                <th className="py-2 px-3">Fraud Typology</th>
-                <th className="py-2 px-3">Precision</th>
-                <th className="py-2 px-3">Recall</th>
-                <th className="py-2 px-3">F1 Score</th>
-                <th className="py-2 px-3 text-right">Validated Incidents</th>
+                <th className="py-2 px-3">Fraud Scenario</th>
+                <th className="py-2 px-3">Isolated ROC (Tabular)</th>
+                <th className="py-2 px-3">Isolated ROC (Graph)</th>
+                <th className="py-2 px-3">Lift (p-val)</th>
+                <th className="py-2 px-3">Recall@2% (Tab / Graph)</th>
+                <th className="py-2 px-3">Recall@5% (Tab / Graph)</th>
+                <th className="py-2 px-3">Recall@10% (Tab / Graph)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#151D27]">
-              {fraudTypeBreakdown.map((row, i) => (
+              {fraudTypeRows.map((row, i) => (
                 <tr key={i} className="hover:bg-[#151D27]/50">
                   <td className="py-3 px-3 text-[#E8EDF3] font-semibold">{row.type}</td>
-                  <td className="py-3 px-3 text-emerald-400 font-bold">{row.precision}</td>
-                  <td className="py-3 px-3 text-blue-400">{row.recall}</td>
-                  <td className="py-3 px-3 text-purple-400 font-bold">{row.f1}</td>
-                  <td className="py-3 px-3 text-right text-[#8995A3]">{row.count} cases</td>
+                  <td className="py-3 px-3 text-blue-400">{row.isolatedRocTab}</td>
+                  <td className="py-3 px-3 text-purple-400 font-bold">{row.isolatedRocGraph}</td>
+                  <td className="py-3 px-3 text-emerald-400 font-bold">{row.lift}</td>
+                  <td className="py-3 px-3 text-[#8995A3]">{row.recall2}</td>
+                  <td className="py-3 px-3 text-[#8995A3]">{row.recall5}</td>
+                  <td className="py-3 px-3 text-[#8995A3]">{row.recall10}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,22 +1,23 @@
-"""GenAI Forensic Investigation Agent for TrustShield.
+"""Rule-Based Forensic Investigation Dossier Generator for TrustShield.
 
 Produces deterministic, evidence-grounded forensic dossiers for human fraud ops.
 
 MANDATORY ARCHITECTURAL CONSTRAINTS:
-1. The Agent NEVER computes or overrides the fraud probability.
+1. The generator NEVER computes or overrides the fraud probability.
 2. The ML models and Unified Trust Engine determine numerical risk.
 3. Every sentence in the report is strictly grounded in structured numerical evidence
    and pre-indexed RAG policy documentation.
-4. An automated Hallucination Guard verifies that reported metrics exactly match model outputs.
+4. An automated Regex Grounding Guard verifies that reported metrics and entities exactly
+   match ground-truth model outputs and transaction attributes.
 """
 
 from __future__ import annotations
+import re
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from trustshield_project.investigation_rag import ForensicRAGIndex
-
 
 
 @dataclass(frozen=True)
@@ -35,7 +36,74 @@ class ForensicInvestigationDossier:
     grounding_verification_passed: bool  # Proves 0 hallucination
 
 
-class GenAIInvestigationAgent:
+def verify_dossier_grounding(
+    dossier: ForensicInvestigationDossier,
+    transaction_data: Dict[str, Any],
+    trust_engine_result: Any,
+    ring_report: Optional[Any] = None,
+) -> bool:
+    """Verifies that every entity, amount, and metric in the dossier matches ground-truth inputs."""
+    # 1. Numerical risk score check
+    true_risk = float(getattr(trust_engine_result, "calibrated_risk", getattr(trust_engine_result, "risk_score", 0.0)))
+    if abs(dossier.fraud_risk_score - true_risk) > 1e-4:
+        return False
+
+    # 2. Decision and confidence checks
+    raw_decision: Any = getattr(trust_engine_result, "decision", "REVIEW")
+    true_decision = str(getattr(raw_decision, "value", raw_decision)).replace("OperationalDecision.", "").replace("Decision.", "")
+    if dossier.operational_decision != true_decision or true_decision not in ("ALLOW", "REVIEW", "HOLD", "BLOCK"):
+        return False
+
+    true_confidence = float(getattr(trust_engine_result, "confidence", 0.5))
+    if abs(dossier.confidence_level - true_confidence) > 1e-4:
+        return False
+
+    # 3. Case ID grounding
+    order_id = str(transaction_data.get("order_id", "UNKNOWN"))
+    if order_id != "UNKNOWN" and order_id not in dossier.case_id:
+        return False
+
+    # 4. Transaction amount regex check
+    amt = float(transaction_data.get("amount", transaction_data.get("order_amount", 0.0)))
+    amt_matches = [line for line in dossier.structured_evidence if "Transaction Amount: INR" in line]
+    if amt_matches:
+        match = re.search(r"INR\s+([0-9]+\.[0-9]+)", amt_matches[0])
+        if match:
+            parsed_amt = float(match.group(1))
+            if abs(parsed_amt - amt) > 0.01:
+                return False
+
+    # 5. Return rate regex check
+    ret_rate = float(transaction_data.get("buyer_return_rate_before", 0.0))
+    ret_matches = [line for line in dossier.structured_evidence if "Return Rate:" in line]
+    if ret_matches:
+        match = re.search(r"Return Rate:\s+([0-9]+\.[0-9]+)%", ret_matches[0])
+        if match:
+            parsed_ret = float(match.group(1)) / 100.0
+            if abs(parsed_ret - ret_rate) > 0.01:
+                return False
+
+    # 6. Graph topology regex check
+    if ring_report is not None:
+        if str(ring_report.cluster_id) not in dossier.graph_topology_analysis:
+            return False
+        m_count_match = re.search(r"([0-9]+)\s+nodes", dossier.graph_topology_analysis)
+        if m_count_match and int(m_count_match.group(1)) != ring_report.member_count:
+            return False
+    else:
+        comp_size = int(float(transaction_data.get("share_component_size", 1.0)))
+        deg = int(float(transaction_data.get("share_degree", 0.0)))
+        c_match = re.search(r"size\s+([0-9]+)", dossier.graph_topology_analysis)
+        d_match = re.search(r"degree\s+([0-9]+)", dossier.graph_topology_analysis)
+        if c_match and int(c_match.group(1)) != comp_size:
+            return False
+        if d_match and int(d_match.group(1)) != deg:
+            return False
+
+    return True
+
+
+class RuleBasedInvestigationAgent:
     """Forensic dossier synthesizer strictly grounded in model predictions and RAG knowledge."""
 
     def __init__(self, rag_index: Optional[ForensicRAGIndex] = None):
@@ -114,10 +182,24 @@ class GenAIInvestigationAgent:
         else:
             action = "Clear order for automated fulfillment."
 
-        # 5. Hallucination Guard: Ensure no deviation from ground-truth inputs
-        verification_passed = (
-            abs(risk - float(getattr(trust_engine_result, "calibrated_risk", getattr(trust_engine_result, "risk_score", 0.0)))) < 1e-5
-            and decision in ("ALLOW", "REVIEW", "HOLD", "BLOCK")
+        initial_dossier = ForensicInvestigationDossier(
+            case_id=case_id,
+            generated_at=now,
+            fraud_risk_score=risk,
+            operational_decision=decision,
+            confidence_level=confidence,
+            detector_disagreement=disagreement,
+            conformal_prediction_set=c_set_str,
+            structured_evidence=evidence,
+            graph_topology_analysis=graph_analysis,
+            retrieved_policy_guidelines=policy_summaries,
+            recommended_ops_action=action,
+            grounding_verification_passed=True,
+        )
+
+        # 5. Real Grounding Guard: Ensure strict alignment with all ground-truth inputs
+        verification_passed = verify_dossier_grounding(
+            initial_dossier, transaction_data, trust_engine_result, ring_report
         )
 
         return ForensicInvestigationDossier(
@@ -134,3 +216,7 @@ class GenAIInvestigationAgent:
             recommended_ops_action=action,
             grounding_verification_passed=verification_passed,
         )
+
+
+# Backward-compatible alias
+GenAIInvestigationAgent = RuleBasedInvestigationAgent

@@ -131,17 +131,18 @@ frontend/src/app/
 
 ## 📊 Scientific Performance & Benchmarks
 
-All models were evaluated under strict **temporal isolation** (Months 1–8 training, Months 9–10 validation, Months 11–12 out-of-time test). Future data is rigorously blocked from historical feature states.
+> [!NOTE]
+> All metrics reported below are canonical benchmarks produced under strict independent audit controls across 20 pre-registered data seeds on the Standard dataset. Raw and calibrated metrics are serialized in [results/results.json](results/results.json) and [results/RESULTS.md](results/RESULTS.md).
 
-| Model / Architecture | Out-of-Time ROC-AUC | Out-of-Time PR-AUC | ECE (Calibration Error) | Inference Latency (p95) |
-| :--- | :---: | :---: | :---: | :---: |
-| **Tabular Baseline (Random Forest / XGBoost)** | 0.651 | 0.265 | 0.082 → 0.021 | 4.2 ms |
-| **Graph-Degraded Fallback (Zero Graph Topology)** | 0.603 | 0.242 | 0.078 → 0.026 | 5.1 ms |
-| **Tabular + NetworkX Graph Features (Phase 3)** | 0.789 | 0.442 | 0.066 → 0.026 | 8.6 ms |
-| **Hybrid (Tabular + Graph + GraphSAGE GNN, Phase 5)** | **0.765** | **0.419** | **0.065 → 0.033** | **14.2 ms** |
-| **Stacking Trust Engine (Final Ensemble)** | **0.792** | **0.465** | **0.021 (Calibrated)** | **14.8 ms** |
+| Model / Variant | Feature Set | Test ROC-AUC (mean ± std) | Test PR-AUC (mean ± std) | Paired Lift vs Tabular Baseline [95% CI] | $p$-value |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **(a) Tabular (No Device)** | 9 Tabular (no device count) | 0.7021 ± 0.0186 | 0.4179 ± 0.0202 | — | — |
+| **(b) Tabular (With Device)** | 10 Tabular (current baseline) | 0.7295 ± 0.0193 | 0.4386 ± 0.0238 | Baseline | Baseline |
+| **(c) Tabular + Graph (Primary)** | 10 Tabular + 8 Graph Features | **0.7410 ± 0.0229** | **0.4461 ± 0.0276** | **+0.0115** [+0.0069, +0.0161] | **$p < 10^{-4}$** |
+| **Coherent Variant (Upper Bound)** | 10 Tabular + 8 Graph Features | 0.8001 ± 0.0380 | 0.4982 ± 0.0503 | +0.0066 [+0.0008, +0.0124] | $p = 0.034$ |
+| **Tuned Hybrid (OOF GNN + XGB)** | Tabular + Graph + GraphSAGE | 0.7014 ± 0.0387 | 0.4006 ± 0.0464 | -0.0263 (Loses to Tabular) | $p = 0.008$ |
 
-*Note: All models employ isotonic calibration fitted strictly on validation split predictions to ensure output probabilities represent true empirical frequencies.*
+*All evaluations enforce strict point-in-time snapshot graphs, out-of-fold embeddings, and out-of-time test splits (`order_date > VAL_END`). See [results/RESULTS.md](results/RESULTS.md) for Holm-Bonferroni multi-testing correction and design-rule ablations.*
 
 ---
 

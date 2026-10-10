@@ -48,7 +48,7 @@ All investigations and implementations were conducted on a dedicated Git branch:
 ### A. Model Evaluation Metric Discrepancies
 * **Root Cause 1 (`0.841` vs `0.792` vs `0.6029`):**
   * `0.8419` was the **training set ROC-AUC** of the Phase 3 tabular Random Forest model, mistakenly quoted in certain sections as test set performance.
-  * `0.7890` (~0.792) is the true **out-of-time test ROC-AUC** of the Phase 3 model when populated with all 8 historical graph snapshot features.
+  * The value of `0.792` **cannot be traced to any printed output** (the reproducible out-of-time test ROC-AUC produced by `scripts/evaluate_models_reproducible.py` for Phase 3 on pre-audit data is `0.7890`).
   * `0.6029` occurred in `scripts/run_robustness_experiments.py` because `build_features` was invoked in isolation without calling `build_relationship_graph` or `attach_snapshot_features`. The 8 graph features were defaulted to `0.0`, measuring the model in a *degraded cold-start / zero-graph state*.
 * **Root Cause 2 (`0.765` vs `0.696` for Phase 5):**
   * The production artifact `models/hybrid_model.joblib` is an XGBoost classifier with 16-dimensional GNN embeddings. On the frozen out-of-time test set, it achieves **0.7652 test ROC-AUC** (0.7652 calibrated, 0.7656 uncalibrated) and **0.8484 validation ROC-AUC**.
