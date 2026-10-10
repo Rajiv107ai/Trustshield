@@ -62,6 +62,33 @@ class TestSharingMechanics:
         if len(sharing) > 0:
             assert (sharing["buyer_id"] != sharing["shared_with_buyer_id"]).all()
 
+    def test_sharing_logs_timestamps_in_valid_range_after_signups(self, pipeline):
+        """Regression test for Phase 1: every sharing relationship first_seen_date
+        must be >= max(signup_a, signup_b), <= SIM_END, and strictly >= SIM_START.
+        """
+        buyers_df = pipeline["txn"]["buyers"].set_index("buyer_id")
+        for log_key in ["address_sharing_log", "device_sharing_log"]:
+            sharing = pipeline["base"][log_key]
+            assert len(sharing) > 0, f"Expected non-empty {log_key}"
+            first_seen = pd.to_datetime(sharing["first_seen_date"])
+            signup_a = pd.to_datetime(buyers_df.loc[sharing["buyer_id"], "signup_date"].values)
+            signup_b = pd.to_datetime(buyers_df.loc[sharing["shared_with_buyer_id"], "signup_date"].values)
+            latest_signup = np.maximum(signup_a.values, signup_b.values)
+
+            # Assert no 1970-era dates and strictly within simulation horizon
+            assert (first_seen >= SIM_START).all(), f"Found dates before SIM_START in {log_key}"
+            assert (first_seen <= SIM_END).all(), f"Found dates after SIM_END in {log_key}"
+            assert (first_seen.values >= latest_signup).all(), f"Found first_seen earlier than account signups in {log_key}"
+
+    def test_buyer_address_sharing_collision_consistency(self, pipeline):
+        """Regression test for Phase 1: only logged sharing pairs share addresses in buyers table."""
+        buyers_df = pipeline["txn"]["buyers"]
+        addr_counts = buyers_df["address_id"].value_counts()
+        shared_addresses = set(addr_counts[addr_counts > 1].index)
+        logged_shared = set(pipeline["base"]["address_sharing_log"]["shared_address_id"])
+        # All shared addresses in buyers table must come from the logged sharing relationships
+        assert shared_addresses.issubset(logged_shared), "Found unlogged random address collisions among buyers"
+
 
 class TestOrderIntegrity:
     def test_orders_reference_valid_buyers(self, pipeline):
@@ -75,6 +102,34 @@ class TestOrderIntegrity:
 
     def test_order_amounts_positive(self, pipeline):
         assert (pipeline["result"]["orders"]["amount"] > 0).all()
+
+    def test_order_and_return_dates_chronology(self, pipeline):
+        """Regression test for Phase 1: orders occur after buyer/seller/listing onboarding and returns occur after orders."""
+        orders = pipeline["result"]["orders"]
+        returns = pipeline["result"]["returns"]
+        buyers = pipeline["txn"]["buyers"].set_index("buyer_id")
+        sellers = pipeline["catalog"]["sellers"].set_index("seller_id")
+        listings = pipeline["result"]["listings"].set_index("listing_id")
+
+        order_dates = pd.to_datetime(orders["order_date"])
+        buyer_signups = pd.to_datetime(buyers.loc[orders["buyer_id"], "signup_date"].values)
+        seller_signups = pd.to_datetime(sellers.loc[orders["seller_id"], "signup_date"].values)
+        listing_dates = pd.to_datetime(listings.loc[orders["listing_id"], "listing_date"].values)
+
+        assert (order_dates.values >= buyer_signups.values).all(), "Order placed before buyer signup"
+        assert (order_dates.values >= seller_signups.values).all(), "Order placed before seller signup"
+        assert (order_dates.values >= listing_dates.values).all(), "Order placed before listing date"
+        assert (order_dates <= SIM_END).all()
+        assert (order_dates >= SIM_START).all()
+
+        if len(returns) > 0:
+            orders_idx = orders.set_index("order_id")
+            return_dates = pd.to_datetime(returns["return_date"])
+            ref_order_dates = pd.to_datetime(orders_idx.loc[returns["order_id"], "order_date"].values)
+            assert (return_dates.values >= ref_order_dates.values).all(), "Return occurred before order"
+            assert (return_dates <= SIM_END).all()
+            assert (return_dates >= SIM_START).all()
+
 
 
 class TestPipelineDeterminism:

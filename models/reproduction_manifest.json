@@ -56,5 +56,56 @@
       "sha256": "3dbf3eea135ce1c2b85d181ef5ca3d841f7ce6710287d92595b953eca6e863a6",
       "size_bytes": 64178
     }
+  },
+  "dataset_hash": "38148afa684c4499cd4e597bb3ebaacee09e5e040d3e0d2a3a87fa9dbeefd3c1",
+  "dataset_tables": {
+    "address_sharing_log.csv": {
+      "sha256": "ce02dd5d8d1bcd482ed8a8adbddc4e7f91fb240bb8c31d0d4cc9cb6a53f1e332",
+      "size_bytes": 47196
+    },
+    "addresses.csv": {
+      "sha256": "2525cf84a9df4ae515f25792a3291c1678a754024927d0e1bbaf124592947af2",
+      "size_bytes": 187043
+    },
+    "buyers.csv": {
+      "sha256": "ea7bd29fa61385e0e216a35241755169fc21aba695a25a52d191b85aa3d21b09",
+      "size_bytes": 227010
+    },
+    "device_mapping.csv": {
+      "sha256": "3cd2ecebe40cb4c63920e982a9b649ba832694df0af8107f1984332aa4acd166",
+      "size_bytes": 157031
+    },
+    "device_sharing_log.csv": {
+      "sha256": "27e06fe99181a3801050dd8033f3661b1d5c3148580f332266d3b6425a2f03cd",
+      "size_bytes": 31329
+    },
+    "devices.csv": {
+      "sha256": "608417420a1bf3b1d03bc53a2eb263b8fc67c9cbfca964c7cbc8bdc3fb4e91de",
+      "size_bytes": 185046
+    },
+    "fraud_ground_truth.csv": {
+      "sha256": "7e8b46a9e88396f74d3763955a68bd587bea5d285678de00949ccd38dc78ea3e",
+      "size_bytes": 98405
+    },
+    "listings.csv": {
+      "sha256": "0293e59dbd3f55420008bdbe8b9ae66f167498981a5f56e7e5a3e1592045f488",
+      "size_bytes": 2087024
+    },
+    "orders.csv": {
+      "sha256": "ccde51e7b58a1c2e318c71a507a0a9be6ffb250acb396ad9e4a871eb5ffa99cb",
+      "size_bytes": 5615655
+    },
+    "products.csv": {
+      "sha256": "5b1f78a35bb922097364bc8f7b21d1f1f48d571606cf629fa6cf6c2ea0e58a3b",
+      "size_bytes": 527827
+    },
+    "returns.csv": {
+      "sha256": "a8dea9cf35b3d3afc38e353dda2fefff1176a2d82ecb1da276a87abdcfaf65c4",
+      "size_bytes": 475410
+    },
+    "sellers.csv": {
+      "sha256": "1a55ce9946f72a630769bab004b3db0fca0995f24b8722fe35bc9d8d9aa40c0a",
+      "size_bytes": 33591
+    }
   }
 }

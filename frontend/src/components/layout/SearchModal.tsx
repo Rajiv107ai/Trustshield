@@ -15,10 +15,10 @@ interface SearchResult {
 
 const SEARCH_DATABASE: SearchResult[] = [
   // Presets & Transactions
-  { id: "ORD_SIM_SAFE_01", type: "TRANSACTION", title: "ORD_SIM_SAFE_01", subtitle: "Verified Repeat Buyer ($65.50) · ALLOW", link: "/transactions?preset=preset_normal_buyer" },
-  { id: "ORD_SIM_ANOMALY_02", type: "TRANSACTION", title: "ORD_SIM_ANOMALY_02", subtitle: "New Account Price Anomaly ($450.00) · REVIEW", link: "/transactions?preset=preset_price_arbitrage" },
-  { id: "ORD_SIM_FARM_03", type: "TRANSACTION", title: "ORD_SIM_FARM_03", subtitle: "Device Farm Collusion Ring ($890.00) · BLOCK", link: "/transactions?preset=preset_device_farm" },
-  { id: "ORD_SIM_RETURN_04", type: "TRANSACTION", title: "ORD_SIM_RETURN_04", subtitle: "Serial Return Abuse ($320.00) · HOLD", link: "/transactions?preset=preset_serial_returner" },
+  { id: "ORD_SIM_SAFE_01", type: "TRANSACTION", title: "ORD_SIM_SAFE_01", subtitle: "Verified Repeat Buyer (₹65.50) · ALLOW", link: "/transactions?preset=preset_normal_buyer" },
+  { id: "ORD_SIM_ANOMALY_02", type: "TRANSACTION", title: "ORD_SIM_ANOMALY_02", subtitle: "New Account Price Anomaly (₹450.00) · REVIEW", link: "/transactions?preset=preset_price_arbitrage" },
+  { id: "ORD_SIM_FARM_03", type: "TRANSACTION", title: "ORD_SIM_FARM_03", subtitle: "Device Farm Collusion Ring (₹890.00) · BLOCK", link: "/transactions?preset=preset_device_farm" },
+  { id: "ORD_SIM_RETURN_04", type: "TRANSACTION", title: "ORD_SIM_RETURN_04", subtitle: "Serial Return Abuse (₹320.00) · HOLD", link: "/transactions?preset=preset_serial_returner" },
   // Entities
   { id: "BUYER_VERIFIED_77", type: "BUYER", title: "BUYER_VERIFIED_77", subtitle: "180 days active, 15 orders, 0 returns", link: "/trust-graph?search=BUYER_VERIFIED_77" },
   { id: "BUYER_RING_MEMBER_04", type: "BUYER", title: "BUYER_RING_MEMBER_04", subtitle: "Collusion Cluster Member · Risk: 0.95", link: "/trust-graph?search=BUYER_RING_MEMBER_04" },
