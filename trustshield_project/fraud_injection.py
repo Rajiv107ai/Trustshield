@@ -228,7 +228,7 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
                     "order_id": order["order_id"],
                     "buyer_id": order["buyer_id"],
                     "seller_id": order["seller_id"],
-                    "return_date": order["order_date"] + timedelta(days=delay),
+                    "return_date": min(order["order_date"] + timedelta(days=delay), SIM_END),
                     "reason": reason,
                     "status": "approved",
                 })
@@ -338,7 +338,7 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
 
         for order_id in taken["order_id"]:
             offset = int(gen.integers(0, burst_span_days))
-            reschedule_map[order_id] = burst_start + timedelta(days=offset)
+            reschedule_map[order_id] = min(burst_start + timedelta(days=offset), SIM_END)
             fraud_order_ids.add(order_id)
             running_total += 1
 
@@ -431,7 +431,7 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
 
         for order_id in taken["order_id"]:
             offset = int(gen.integers(0, burst_span_days))
-            reschedule_map[order_id] = burst_start + timedelta(days=offset)
+            reschedule_map[order_id] = min(burst_start + timedelta(days=offset), SIM_END)
 
         for _, order in taken.iterrows():
             fraud_order_ids.add(order["order_id"])
@@ -446,7 +446,7 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
                     "order_id": order["order_id"],
                     "buyer_id": order["buyer_id"],
                     "seller_id": order["seller_id"],
-                    "return_date": new_order_date + timedelta(days=delay),
+                    "return_date": min(new_order_date + timedelta(days=delay), SIM_END),
                     "reason": reason,
                     "status": "approved",
                 })

@@ -30,14 +30,14 @@ export default function DashboardPage() {
     reviewQueue: 1840,
     blockRate: "2.95%",
     p95Latency: "14.8 ms",
-    savingsPrevented: "$1,842,500",
+    savingsPrevented: "₹1,842,500",
   });
 
   const [recentTransactions, setRecentTransactions] = useState([
     {
       id: "ORD_78910",
       buyer: "BUYER_RING_MEMBER_04",
-      amount: "$890.00",
+      amount: "₹890.00",
       risk: 0.942,
       decision: "BLOCK",
       reason: "Shared hardware across 9 buyer accounts in 24h",
@@ -46,7 +46,7 @@ export default function DashboardPage() {
     {
       id: "ORD_78909",
       buyer: "BUYER_REFUND_ABUSER",
-      amount: "$320.00",
+      amount: "₹320.00",
       risk: 0.785,
       decision: "HOLD",
       reason: "Historical return rate exceeds 80%",
@@ -55,7 +55,7 @@ export default function DashboardPage() {
     {
       id: "ORD_78908",
       buyer: "BUYER_NEWBIE_99",
-      amount: "$450.00",
+      amount: "₹450.00",
       risk: 0.380,
       decision: "REVIEW",
       reason: "Account created 1 day ago ordering at 3.5x category median",
@@ -64,7 +64,7 @@ export default function DashboardPage() {
     {
       id: "ORD_78907",
       buyer: "BUYER_VERIFIED_77",
-      amount: "$65.50",
+      amount: "₹65.50",
       risk: 0.042,
       decision: "ALLOW",
       reason: "180 days active, 15 prior successful orders, zero returns",
@@ -80,7 +80,7 @@ export default function DashboardPage() {
           const newTx = {
             id: event.order_id,
             buyer: event.buyer_id,
-            amount: `$${event.amount.toFixed(2)}`,
+            amount: `₹${event.amount.toFixed(2)}`,
             risk: event.risk_score,
             decision: event.decision,
             reason: event.reason_codes.length > 0 ? event.reason_codes.join(", ") : "Standard baseline scoring",
@@ -376,29 +376,29 @@ export default function DashboardPage() {
               </div>
             </div>
             <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20 self-start md:self-auto">
-              Total Protected: $1,842,500
+              Total Protected: ₹1,842,500
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
               <div className="text-[11px] text-[#8995A3]">Device Farm Collusion</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">$890,200</div>
+              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹890,200</div>
               <div className="text-[10px] text-rose-400 mt-1">42 attacks stopped before payment</div>
             </div>
             <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
               <div className="text-[11px] text-[#8995A3]">Serial Return Arbitrage</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">$425,100</div>
+              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹425,100</div>
               <div className="text-[10px] text-amber-400 mt-1">Held for warehouse serial verification</div>
             </div>
             <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
               <div className="text-[11px] text-[#8995A3]">Listing &amp; Catalog Scams</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">$315,400</div>
+              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹315,400</div>
               <div className="text-[10px] text-cyan-400 mt-1">Flagged via CLIP image vector reuse</div>
             </div>
             <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
               <div className="text-[11px] text-[#8995A3]">Account Takeover Bursts</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">$211,800</div>
+              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹211,800</div>
               <div className="text-[10px] text-purple-400 mt-1">Session velocity step-up enforced</div>
             </div>
           </div>

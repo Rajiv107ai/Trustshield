@@ -64,7 +64,7 @@ class GenAIInvestigationAgent:
         # 1. Compile Structured Evidence (Directly traceable facts)
         evidence = []
         amt = float(transaction_data.get("amount", transaction_data.get("order_amount", 0.0)))
-        evidence.append(f"Transaction Amount: ${amt:.2f}")
+        evidence.append(f"Transaction Amount: INR {amt:.2f}")
 
         ret_rate = float(transaction_data.get("buyer_return_rate_before", 0.0))
         if ret_rate > 0.30:

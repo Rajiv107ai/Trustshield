@@ -61,7 +61,7 @@ CORPUS: List[KnowledgeChunk] = [
         category="policy",
         content=(
             "Entities with fewer than 3 historical interactions exhibit high epistemic uncertainty. "
-            "If transaction amount exceeds $150.00 for a cold-start buyer, hold transaction for automated "
+            "If transaction amount exceeds INR 150.00 for a cold-start buyer, hold transaction for automated "
             "address verification. Do not auto-block without negative behavioral evidence."
         ),
         keywords=["cold_start", "history", "new", "unvetted", "insufficient"],

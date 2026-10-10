@@ -52,14 +52,14 @@ const CASES_DATA: CaseItem[] = [
     summary:
       "Nine distinct buyer identities sharing identical mobile hardware signatures placing burst orders with a common single-merchant store within a 4-hour window.",
     timeline: [
-      { time: "18:12:04", event: "BUYER_RING_MEMBER_01 placed ORD_78901 ($890.00)", type: "ORDER" },
+      { time: "18:12:04", event: "BUYER_RING_MEMBER_01 placed ORD_78901 (₹890.00)", type: "ORDER" },
       { time: "18:44:19", event: "DEV_FARM_99 fingerprint detected on BUYER_RING_MEMBER_02 login", type: "DEVICE" },
-      { time: "19:15:33", event: "BUYER_RING_MEMBER_02 placed ORD_78904 ($910.00)", type: "ORDER" },
+      { time: "19:15:33", event: "BUYER_RING_MEMBER_02 placed ORD_78904 (₹910.00)", type: "ORDER" },
       { time: "20:02:11", event: "Graph edge weight exceeded threshold (HHI: 0.88)", type: "GRAPH" },
       { time: "22:45:00", event: "Automated Trust Engine flagged cluster with 94.2% fraud risk", type: "GRAPH" },
     ],
     evidence: {
-      transaction: "Cumulative cluster order volume: $14,240.00. 100% of transactions exceed 90th percentile basket size.",
+      transaction: "Cumulative cluster order volume: ₹14,240.00. 100% of transactions exceed 90th percentile basket size.",
       graph: "Graph density: 0.842. 8-node bipartite clique with shared hardware DEV_FARM_99.",
       behavioral: "Mean time between account registration and high-value purchase: 4.2 hours.",
       multimodal: "N/A — tabular and topological fraud vector.",
@@ -77,12 +77,12 @@ const CASES_DATA: CaseItem[] = [
       "New merchant listing high-end electronics using imagery stolen from authorized merchant with 94.5% CLIP cosine similarity match.",
     timeline: [
       { time: "14:10:00", event: "Merchant SELLER_SUSPECT_44 registered account", type: "ORDER" },
-      { time: "16:22:15", event: "Uploaded LISTING_CANON_501 ($340.00)", type: "ORDER" },
+      { time: "16:22:15", event: "Uploaded LISTING_CANON_501 (₹340.00)", type: "ORDER" },
       { time: "16:22:18", event: "FAISS vector nearest neighbor query triggered", type: "GRAPH" },
       { time: "19:20:00", event: "Self-match exclusion confirmed catalog theft from PROD_B07XYZ99", type: "GRAPH" },
     ],
     evidence: {
-      transaction: "Priced at $340.00, slightly undercutting median price ($350.00) to maximize quick sales.",
+      transaction: "Priced at ₹340.00, slightly undercutting median price (₹350.00) to maximize quick sales.",
       graph: "Zero historical sales or seller trust degree in graph ledger.",
       behavioral: "Seller account age: 3 days.",
       multimodal: "CLIP cosine visual similarity: 0.945 against catalog hero image.",
@@ -99,13 +99,13 @@ const CASES_DATA: CaseItem[] = [
     summary:
       "Customer with historical 80% return rate submitting another high-value 'wrong item received' chargeback claim.",
     timeline: [
-      { time: "Sep 12", event: "Claimed refund for ORD_5521 ($210.00) — Wrong Item", type: "RETURN" },
-      { time: "Sep 28", event: "Claimed refund for ORD_6104 ($180.00) — Defective", type: "RETURN" },
-      { time: "Oct 05", event: "Placed ORD_SIM_RETURN_04 ($320.00)", type: "ORDER" },
+      { time: "Sep 12", event: "Claimed refund for ORD_5521 (₹210.00) — Wrong Item", type: "RETURN" },
+      { time: "Sep 28", event: "Claimed refund for ORD_6104 (₹180.00) — Defective", type: "RETURN" },
+      { time: "Oct 05", event: "Placed ORD_SIM_RETURN_04 (₹320.00)", type: "ORDER" },
       { time: "Oct 07", event: "Submitted RET_CLAIM_9021 within 48h of delivery", type: "RETURN" },
     ],
     evidence: {
-      transaction: "Order amount: $320.00.",
+      transaction: "Order amount: ₹320.00.",
       graph: "Single buyer node connected to 2 distinct merchant targets.",
       behavioral: "Account return frequency: 4 refunds out of 5 lifetime purchases.",
       multimodal: "N/A.",

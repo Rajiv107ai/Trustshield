@@ -15,6 +15,8 @@ def reset_rng(seed: int = RNG_SEED) -> np.random.Generator:
     return rng
 
 
+CURRENCY = "INR"
+
 SIM_START = datetime(2025, 1, 1)
 SIM_END = datetime(2025, 12, 31)
 SIM_DAYS = (SIM_END - SIM_START).days
@@ -63,10 +65,11 @@ def generate_sellers(n_sellers: int, addresses_df: pd.DataFrame, rng: np.random.
         "Electronics", "Fashion", "Home & Kitchen", "Beauty", "Sports",
         "Toys", "Books", "Grocery", "Automotive", "Furniture"
     ]
+    seller_addr_pool = addresses_df["address_id"].iloc[:n_sellers].values if len(addresses_df) >= n_sellers else addresses_df["address_id"].values
     return pd.DataFrame({
         "seller_id": [f"SELLER_{i:05d}" for i in range(n_sellers)],
         "signup_date": generate_onboarding_dates(n_sellers, rng=gen),
-        "address_id": gen.choice(addresses_df["address_id"], size=n_sellers, replace=False),
+        "address_id": gen.choice(seller_addr_pool, size=n_sellers, replace=False),
         "category_focus": gen.choice(categories, size=n_sellers),
         "trust_score_current": 70.0,
         "trust_score_history": [[] for _ in range(n_sellers)],
@@ -77,12 +80,19 @@ def generate_sellers(n_sellers: int, addresses_df: pd.DataFrame, rng: np.random.
 
 
 def generate_buyers(n_buyers: int, addresses_df: pd.DataFrame, rng: np.random.Generator | None = None) -> pd.DataFrame:
-    """Generates buyer accounts."""
+    """Generates buyer accounts sampling addresses without replacement to eliminate unintended collisions."""
     gen = rng if rng is not None else globals()["rng"]
+    # Sample buyer addresses without replacement from dedicated pool so only the logged pairs share
+    if len(addresses_df) >= N_SELLERS + n_buyers:
+        buyer_addr_pool = addresses_df["address_id"].iloc[N_SELLERS:N_SELLERS + n_buyers].values
+    elif len(addresses_df) >= n_buyers:
+        buyer_addr_pool = addresses_df["address_id"].iloc[:n_buyers].values
+    else:
+        buyer_addr_pool = addresses_df["address_id"].values
     return pd.DataFrame({
         "buyer_id": [f"BUYER_{i:05d}" for i in range(n_buyers)],
         "signup_date": generate_onboarding_dates(n_buyers, rng=gen),
-        "address_id": gen.choice(addresses_df["address_id"], size=n_buyers, replace=True),
+        "address_id": gen.choice(buyer_addr_pool, size=n_buyers, replace=False),
         "trust_score_current": 70.0,
         "total_orders": 0,
         "total_returns": 0,
@@ -129,12 +139,12 @@ def assign_shared_addresses(buyers_df: pd.DataFrame, share_rate: float = 0.12, l
     # Determine first_seen_date: uniform between max(signup_a, signup_b) and SIM_END
     signup_a = pd.to_datetime(buyers_df.iloc[sharing_idx]["signup_date"].values)
     signup_b = pd.to_datetime(buyers_df.iloc[partner_idx]["signup_date"].values)
-    latest_signup = np.maximum(signup_a.asi8, signup_b.asi8)
-    sim_end_ns = int(pd.Timestamp(SIM_END).as_unit("ns").value)
+    latest_signup = pd.to_datetime(np.maximum(signup_a.values, signup_b.values))
+    sim_end_dt = pd.Timestamp(SIM_END)
     # Clamp: if latest_signup >= SIM_END, set first_seen = SIM_END
-    span_ns = np.maximum(sim_end_ns - latest_signup, 0)
-    offsets_ns = (gen.random(n_sharing) * span_ns).astype(np.int64)
-    first_seen = pd.to_datetime(latest_signup + offsets_ns)
+    span_seconds = np.maximum((sim_end_dt - latest_signup).total_seconds(), 0)
+    offsets_seconds = gen.random(n_sharing) * span_seconds
+    first_seen = latest_signup + pd.to_timedelta(offsets_seconds, unit="s")
 
     sharing_log = pd.DataFrame({
         "buyer_id": buyers_df.iloc[sharing_idx]["buyer_id"].values,
@@ -177,12 +187,12 @@ def assign_shared_devices(device_mapping_df: pd.DataFrame, buyers_df: pd.DataFra
     # Determine first_seen_date: uniform between max(signup_a, signup_b) and SIM_END
     signup_a = pd.to_datetime(buyers_df.iloc[sharing_idx]["signup_date"].values)
     signup_b = pd.to_datetime(buyers_df.iloc[partner_idx]["signup_date"].values)
-    latest_signup = np.maximum(signup_a.asi8, signup_b.asi8)
-    sim_end_ns = pd.Timestamp(SIM_END).as_unit("ns").value
+    latest_signup = pd.to_datetime(np.maximum(signup_a.values, signup_b.values))
+    sim_end_dt = pd.Timestamp(SIM_END)
     # Clamp: if latest_signup >= SIM_END, set first_seen = SIM_END
-    span_ns = np.maximum(sim_end_ns - latest_signup, 0)
-    offsets_ns = (gen.random(n_sharing) * span_ns).astype(np.int64)
-    first_seen = pd.to_datetime(latest_signup + offsets_ns)
+    span_seconds = np.maximum((sim_end_dt - latest_signup).total_seconds(), 0)
+    offsets_seconds = gen.random(n_sharing) * span_seconds
+    first_seen = latest_signup + pd.to_timedelta(offsets_seconds, unit="s")
 
     sharing_log = pd.DataFrame({
         "buyer_id": sharer_buyer_ids,
@@ -214,7 +224,7 @@ def build_base_entities(seed: int | None = RNG_SEED, rng: np.random.Generator | 
     elif rng is None:
         rng = globals()["rng"]
 
-    addresses_df = generate_addresses(n_addresses=int((N_SELLERS + N_BUYERS) * 0.9), rng=rng)
+    addresses_df = generate_addresses(n_addresses=N_SELLERS + N_BUYERS, rng=rng)
     devices_df = generate_devices(n_devices=N_BUYERS, rng=rng)
     sellers_df = generate_sellers(N_SELLERS, addresses_df, rng=rng)
     buyers_df = generate_buyers(N_BUYERS, addresses_df, rng=rng)
@@ -232,6 +242,7 @@ def build_base_entities(seed: int | None = RNG_SEED, rng: np.random.Generator | 
         "device_sharing_log": device_sharing_log,
         "rng": rng,
     }
+
 
 
 def generate_full_pipeline(seed: int = RNG_SEED, rng: np.random.Generator | None = None,
