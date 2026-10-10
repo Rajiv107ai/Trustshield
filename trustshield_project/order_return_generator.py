@@ -110,7 +110,13 @@ def generate_returns(orders_df: pd.DataFrame, base_return_rate: float = BASE_RET
         ])
 
     delay_days = gen.integers(1, RETURN_WINDOW_DAYS + 1, size=len(returned_orders))
-    return_dates = [min(od + timedelta(days=int(d)), SIM_END) for od, d in zip(returned_orders["order_date"], delay_days)]
+    raw_return_dates = [od + timedelta(days=int(d)) for od, d in zip(returned_orders["order_date"], delay_days)]
+    returned_orders = returned_orders.copy()
+    returned_orders["return_date"] = raw_return_dates
+    # Realistic observation horizon truncation: orders placed near SIM_END whose return occurs
+    # after SIM_END have not been returned yet as of the observation cutoff.
+    valid_mask = returned_orders["return_date"] <= SIM_END
+    returned_orders = returned_orders[valid_mask]
     reasons = gen.choice(RETURN_REASONS, size=len(returned_orders), p=RETURN_REASON_WEIGHTS)
 
     return pd.DataFrame({
@@ -118,7 +124,7 @@ def generate_returns(orders_df: pd.DataFrame, base_return_rate: float = BASE_RET
         "order_id": returned_orders["order_id"].to_numpy(),
         "buyer_id": returned_orders["buyer_id"].to_numpy(),
         "seller_id": returned_orders["seller_id"].to_numpy(),
-        "return_date": return_dates,
+        "return_date": returned_orders["return_date"].to_numpy(),
         "reason": reasons,
         "status": "approved",
     })

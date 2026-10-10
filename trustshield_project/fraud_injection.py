@@ -205,8 +205,12 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
 
         abuse_fraction = gen.uniform(0.6, 0.9)
         n_abuse = max(1, int(round(len(buyer_orders) * abuse_fraction)))
-        targeted_orders = buyer_orders.sample(
-            n=min(n_abuse, len(buyer_orders)),
+        # Resample orders so return abuse window fits inside SIM_END horizon without clamping
+        fit_orders = buyer_orders[buyer_orders["order_date"] <= SIM_END - timedelta(days=6)]
+        if len(fit_orders) < n_abuse:
+            fit_orders = buyer_orders
+        targeted_orders = fit_orders.sample(
+            n=min(n_abuse, len(fit_orders)),
             random_state=int(gen.integers(0, 2**31)),
         )
 
@@ -218,17 +222,15 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
             if order["order_id"] in already_returned_ids:
                 updated_return_ids_to_fraud.append(order["order_id"])
             else:
-                delay = int(gen.integers(1, 6))
-                # Reason drawn from the SAME pool as organic returns — a
-                # real abusive buyer states a normal-sounding reason, not
-                # something that gives away the fraud itself.
+                max_avail_delay = max(1, (SIM_END - order["order_date"]).days)
+                delay = int(gen.integers(1, min(6, max_avail_delay + 1)))
                 reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
                 new_return_rows.append({
                     "return_id": f"RETURN_FRAUD_{return_counter:06d}",
                     "order_id": order["order_id"],
                     "buyer_id": order["buyer_id"],
                     "seller_id": order["seller_id"],
-                    "return_date": min(order["order_date"] + timedelta(days=delay), SIM_END),
+                    "return_date": order["order_date"] + timedelta(days=delay),
                     "reason": reason,
                     "status": "approved",
                 })
@@ -324,21 +326,37 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
         if len(ring_orders) == 0:
             continue
 
-        # Cap how many of this ring's orders get pulled into the burst,
-        # so one large ring doesn't single-handedly blow past the target.
-        n_take = min(len(ring_orders), max(2, int(gen.integers(2, 6))))
-        taken = ring_orders.sample(n=n_take, random_state=int(gen.integers(0, 2**31)))
+        burst_span_days = int(gen.integers(3, 8))
+        latest_possible_start = SIM_END - timedelta(days=burst_span_days)
+
+        ring_listing_dates = ring_orders["listing_id"].map(listing_dates)
+        ring_signup_dates = ring_orders["buyer_id"].map(signup_dates)
+        floor_per_order = pd.concat([ring_listing_dates, ring_signup_dates], axis=1).max(axis=1)
+
+        valid_ring_orders = ring_orders[floor_per_order <= latest_possible_start]
+        if len(valid_ring_orders) < 2:
+            valid_ring_orders = ring_orders
+
+        n_take = min(len(valid_ring_orders), max(2, int(gen.integers(2, 6))))
+        taken = valid_ring_orders.sample(n=n_take, random_state=int(gen.integers(0, 2**31)))
 
         listing_dates_for_taken = taken["listing_id"].map(listing_dates)
         signup_dates_for_taken = taken["buyer_id"].map(signup_dates)
         burst_start_floor = max(listing_dates_for_taken.max(), signup_dates_for_taken.max())
-        max_start_offset = max(1, (SIM_END - burst_start_floor).days - 7)
-        burst_start = burst_start_floor + timedelta(days=int(gen.integers(1, max_start_offset + 1)))
-        burst_span_days = int(gen.integers(3, 8))
+
+        # Resample start date so burst window fits inside horizon without clamping
+        if burst_start_floor < latest_possible_start:
+            avail_days = (latest_possible_start - burst_start_floor).days
+            burst_start = burst_start_floor + timedelta(days=int(gen.integers(1, avail_days + 1)))
+        else:
+            burst_start = burst_start_floor
+
+        rem_days = max(1, (SIM_END - burst_start).days)
+        effective_span = min(burst_span_days, rem_days)
 
         for order_id in taken["order_id"]:
-            offset = int(gen.integers(0, burst_span_days))
-            reschedule_map[order_id] = min(burst_start + timedelta(days=offset), SIM_END)
+            offset = int(gen.integers(0, effective_span))
+            reschedule_map[order_id] = burst_start + timedelta(days=offset)
             fraud_order_ids.add(order_id)
             running_total += 1
 
@@ -422,16 +440,38 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
         n_take = min(len(group_orders), max(3, int(gen.integers(3, 10))))
         taken = group_orders.sample(n=n_take, random_state=int(gen.integers(0, 2**31)))
 
+        burst_span_days = int(gen.integers(5, 15))
+        max_return_delay = 4
+        total_window_needed = burst_span_days + max_return_delay
+        latest_possible_start = SIM_END - timedelta(days=total_window_needed)
+
+        grp_listing_dates = group_orders["listing_id"].map(listing_dates)
+        grp_signup_dates = group_orders["buyer_id"].map(signup_dates)
+        floor_per_order = pd.concat([grp_listing_dates, grp_signup_dates], axis=1).max(axis=1)
+        valid_group_orders = group_orders[floor_per_order <= latest_possible_start]
+        if len(valid_group_orders) < 3:
+            valid_group_orders = group_orders
+
+        n_take = min(len(valid_group_orders), max(3, int(gen.integers(3, 10))))
+        taken = valid_group_orders.sample(n=n_take, random_state=int(gen.integers(0, 2**31)))
+
         listing_dates_for_taken = taken["listing_id"].map(listing_dates)
         signup_dates_for_taken = taken["buyer_id"].map(signup_dates)
         burst_start_floor = max(listing_dates_for_taken.max(), signup_dates_for_taken.max())
-        max_start_offset = max(1, (SIM_END - burst_start_floor).days - 14)
-        burst_start = burst_start_floor + timedelta(days=int(gen.integers(1, max_start_offset + 1)))
-        burst_span_days = int(gen.integers(5, 15))
+
+        # Resample start date so burst window fits inside horizon
+        if burst_start_floor < latest_possible_start:
+            avail_days = (latest_possible_start - burst_start_floor).days
+            burst_start = burst_start_floor + timedelta(days=int(gen.integers(1, avail_days + 1)))
+        else:
+            burst_start = burst_start_floor
+
+        rem_days = max(1, (SIM_END - burst_start).days)
+        effective_span = min(burst_span_days, max(1, rem_days - max_return_delay))
 
         for order_id in taken["order_id"]:
-            offset = int(gen.integers(0, burst_span_days))
-            reschedule_map[order_id] = min(burst_start + timedelta(days=offset), SIM_END)
+            offset = int(gen.integers(0, effective_span))
+            reschedule_map[order_id] = burst_start + timedelta(days=offset)
 
         for _, order in taken.iterrows():
             fraud_order_ids.add(order["order_id"])
@@ -439,14 +479,15 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
             new_order_date = reschedule_map[order["order_id"]]
 
             if gen.random() < 0.8:
-                delay = int(gen.integers(1, 4))
+                max_avail_delay = max(1, (SIM_END - new_order_date).days)
+                delay = int(gen.integers(1, min(4, max_avail_delay + 1)))
                 reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
                 new_return_rows.append({
                     "return_id": f"RETURN_COLLUSION_{return_counter:06d}",
                     "order_id": order["order_id"],
                     "buyer_id": order["buyer_id"],
                     "seller_id": order["seller_id"],
-                    "return_date": min(new_order_date + timedelta(days=delay), SIM_END),
+                    "return_date": new_order_date + timedelta(days=delay),
                     "reason": reason,
                     "status": "approved",
                 })

@@ -232,11 +232,13 @@ def generate_oof_gnn_embeddings(
     n_splits: int = 5,
     epochs: int = 40,
     random_state: int = 42,
+    fold_strategy: str = "time_aware",
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
     """Generates K=5 buyer-grouped out-of-fold GNN embeddings for train, and train-fit embeddings for val/test.
 
     Mitigates label leakage into downstream hybrid classifier:
-    - Train split embeddings are generated via K=5 buyer-grouped out-of-fold cross-validation.
+    - Train split embeddings are generated via buyer-grouped out-of-fold cross-validation.
+      Supports 'time_aware' (forward chaining by earliest order date) and 'random' (shuffled KFold).
       For each fold k, the GraphSAGE encoder is trained strictly without fold k's buyers or labels.
       Fold k rows receive embeddings from this independent fold encoder.
     - Val and test split embeddings are generated via a single encoder trained on all train rows
@@ -261,17 +263,31 @@ def generate_oof_gnn_embeddings(
     gnn_cols = buyer_cols + seller_cols
 
     unique_buyers = np.array(sorted(train_df["buyer_id"].unique()))
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    if fold_strategy == "time_aware":
+        # Time-aware forward chaining: sort unique buyers by earliest order date
+        buyer_min_dates = train_df.groupby("buyer_id")["order_date"].min().sort_values()
+        sorted_buyers = buyer_min_dates.index.to_numpy()
+        chunks = np.array_split(sorted_buyers, n_splits)
+        folds = []
+        for k in range(n_splits):
+            val_b = set(chunks[k])
+            if k == 0:
+                tr_b = set(np.concatenate(chunks[1:]))
+            else:
+                tr_b = set(np.concatenate(chunks[:k]))
+            folds.append((tr_b, val_b))
+    else:
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        folds = [(set(unique_buyers[f_tr]), set(unique_buyers[f_val])) for f_tr, f_val in kf.split(unique_buyers)]
 
     train_aug = train_df.copy()
     for col in gnn_cols:
         train_aug[col] = 0.0
     train_aug["_oof_fold"] = -1
 
-    print(f"Generating K={n_splits} buyer-grouped out-of-fold GNN embeddings for training set...")
-    for fold, (fit_b_idx, val_b_idx) in enumerate(kf.split(unique_buyers)):
-        val_b_set = set(unique_buyers[val_b_idx])
-        fold_train_mask = ~train_df["buyer_id"].isin(val_b_set)
+    print(f"Generating K={n_splits} buyer-grouped out-of-fold GNN embeddings ({fold_strategy}) for training set...")
+    for fold, (fit_buyer_set, val_b_set) in enumerate(folds):
+        fold_train_mask = train_df["buyer_id"].isin(fit_buyer_set)
         fold_val_mask = train_df["buyer_id"].isin(val_b_set)
 
         f_tr_b, f_tr_s, f_tr_f, f_tr_y = _make_edge_tensors(train_df[fold_train_mask])
@@ -451,8 +467,6 @@ def run_phase5(gnn_epochs=50):
 
     return {
         "hybrid_model": hybrid_model,
-        "buyer_embeddings": buyer_embs_test,
-        "seller_embeddings": seller_embs_test,
         "phase5_meta": phase5_meta,
         "calibrator": phase5_calibrator,
         "val_auc": val_auc,

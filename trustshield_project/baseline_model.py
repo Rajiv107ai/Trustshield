@@ -25,19 +25,21 @@ def _cumulative_count_asof(orders_df: pd.DataFrame, group_col: str, date_col: st
     *same* timestamp for the same entity are never counted as prior history of
     each other — preventing temporal leakage on same-day/same-second events.
     """
-    # Build a running-count lookup keyed by (group_col, date_col)
-    sorted_df = cast(pd.DataFrame, orders_df[[group_col, date_col]]).sort_values(by=date_col, kind="mergesort").copy()
-    sorted_df["_running"] = sorted_df.groupby(group_col).cumcount() + 1  # 1-indexed count after current row
+    sorted_df = cast(pd.DataFrame, orders_df[[group_col, date_col]]).copy()
+    sorted_df[date_col] = pd.to_datetime(sorted_df[date_col]).dt.as_unit("ns")
+    sorted_df = sorted_df.sort_values(by=date_col, kind="mergesort")
+    sorted_df["_running"] = sorted_df.groupby(group_col).cumcount() + 1
 
     left = cast(pd.DataFrame, orders_df[[group_col, date_col]]).copy()
     left["_orig_index"] = left.index
+    left[date_col] = pd.to_datetime(left[date_col]).dt.as_unit("ns")
     left_sorted = left.sort_values(by=date_col, kind="mergesort")
 
     merged = pd.merge_asof(
         left_sorted, sorted_df[[group_col, date_col, "_running"]],
         on=date_col, by=group_col,
         direction="backward",
-        allow_exact_matches=False,  # strictly BEFORE current timestamp
+        allow_exact_matches=False,
     )
     return pd.Series(
         merged.set_index("_orig_index")["_running"].reindex(orders_df.index).fillna(0),
@@ -51,17 +53,19 @@ def _asof_cumulative_from_events(orders_df: pd.DataFrame, events_df: pd.DataFram
     if events_df.empty:
         return pd.Series(0, index=orders_df.index)
 
-    events_sorted = events_df.sort_values(by=event_date_col, kind="mergesort").copy()
+    events_sub = events_df[[group_col, event_date_col]].copy()
+    events_sub["_event_date"] = pd.to_datetime(events_sub[event_date_col]).dt.as_unit("ns")
+    events_sorted = events_sub.sort_values(by="_event_date", kind="mergesort")
     events_sorted["running_count"] = events_sorted.groupby(group_col).cumcount() + 1
-    events_sorted = events_sorted.rename(columns={event_date_col: "_event_date"})
 
-    orders_sub = pd.DataFrame(orders_df[[group_col, order_date_col]])
-    orders_sorted = orders_sub.sort_values(by=order_date_col, kind="mergesort").copy()
-    orders_sorted["_orig_index"] = orders_sorted.index
+    orders_sub = pd.DataFrame(orders_df[[group_col, order_date_col]]).copy()
+    orders_sub["_orig_index"] = orders_sub.index
+    orders_sub["_order_date"] = pd.to_datetime(orders_sub[order_date_col]).dt.as_unit("ns")
+    orders_sorted = orders_sub.sort_values(by="_order_date", kind="mergesort")
 
     merged = pd.merge_asof(
         orders_sorted, events_sorted[[group_col, "_event_date", "running_count"]],
-        left_on=order_date_col, right_on="_event_date", by=group_col, direction="backward",
+        left_on="_order_date", right_on="_event_date", by=group_col, direction="backward",
         allow_exact_matches=False,
     )
     return pd.Series(merged.set_index("_orig_index")["running_count"].reindex(orders_df.index).fillna(0))

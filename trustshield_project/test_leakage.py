@@ -591,19 +591,27 @@ class TestShuffledLabelCanary:
         train = df[df["order_date"] <= TRAIN_END].copy()
         test = df[df["order_date"] > VAL_END].copy()
 
-        # Shuffle training labels to eliminate real signal
-        rng = np.random.RandomState(42)
-        y_train_shuffled = rng.permutation(train["is_fraudulent"].to_numpy())
+        # Shuffle training labels over 10 independent shuffles to eliminate real signal
         y_test = test["is_fraudulent"].astype(int).to_numpy()
+        X_train = train[feat_cols].fillna(0)
+        X_test = test[feat_cols].fillna(0)
+        y_train_orig = train["is_fraudulent"].to_numpy()
 
-        clf = XGBClassifier(n_estimators=100, max_depth=4, random_state=42, eval_metric="logloss", verbosity=0)
-        clf.fit(train[feat_cols].fillna(0), y_train_shuffled)
-        scores = clf.predict_proba(test[feat_cols].fillna(0))[:, 1]
-        auc = roc_auc_score(y_test, scores)
+        shuffled_aucs = []
+        for seed in range(10):
+            rng = np.random.RandomState(seed)
+            y_train_shuffled = rng.permutation(y_train_orig)
+            clf = XGBClassifier(n_estimators=100, max_depth=4, random_state=42, eval_metric="logloss", verbosity=0)
+            clf.fit(X_train, y_train_shuffled)
+            scores = clf.predict_proba(X_test)[:, 1]
+            shuffled_aucs.append(roc_auc_score(y_test, scores))
 
-        assert 0.47 <= auc <= 0.53, (
-            f"Target leakage canary failed! Test ROC-AUC with shuffled train labels was {auc:.4f}, "
-            "which is outside the expected chance range [0.47, 0.53]."
+        mean_auc = float(np.mean(shuffled_aucs))
+        std_auc = float(np.std(shuffled_aucs))
+
+        assert 0.47 <= mean_auc <= 0.53, (
+            f"Target leakage canary failed! Mean test ROC-AUC over 10 shuffled runs was {mean_auc:.4f} +/- {std_auc:.4f}, "
+            f"which is outside the expected chance range [0.47, 0.53]. Individual values: {shuffled_aucs}"
         )
 
 
