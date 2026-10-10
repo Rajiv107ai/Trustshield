@@ -21,6 +21,8 @@ from baseline_model import build_features as build_tabular_features, TRAIN_END, 
 from graph_features import (
     build_relationship_graph,
     compute_relationship_features,
+    build_weekly_relationship_snapshots,
+    attach_relationship_snapshot_features,
     build_monthly_snapshots,
     attach_snapshot_features,
     add_edge_weight_before,
@@ -216,6 +218,123 @@ def _print_metrics(label, y_true, y_score):
           f"PR-AUC: {average_precision_score(y_true, y_score):.3f}")
 
 
+def generate_oof_gnn_embeddings(
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    buyer_idx: dict,
+    seller_idx: dict,
+    n_total: int,
+    X_nodes_train: torch.Tensor,
+    edge_index_train: torch.Tensor,
+    X_nodes_test: torch.Tensor,
+    edge_index_test: torch.Tensor,
+    n_splits: int = 5,
+    epochs: int = 40,
+    random_state: int = 42,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
+    """Generates K=5 buyer-grouped out-of-fold GNN embeddings for train, and train-fit embeddings for val/test.
+
+    Mitigates label leakage into downstream hybrid classifier:
+    - Train split embeddings are generated via K=5 buyer-grouped out-of-fold cross-validation.
+      For each fold k, the GraphSAGE encoder is trained strictly without fold k's buyers or labels.
+      Fold k rows receive embeddings from this independent fold encoder.
+    - Val and test split embeddings are generated via a single encoder trained on all train rows
+      (with an internal 80/20 train split for early stopping; never observing val or test labels).
+    """
+    from sklearn.model_selection import KFold
+
+    def _make_edge_tensors(split_df):
+        b_ids = np.clip(split_df["buyer_id"].map(buyer_idx).fillna(0).astype(int).to_numpy(), 0, n_total - 1)
+        s_ids = np.clip(split_df["seller_id"].map(seller_idx).fillna(0).astype(int).to_numpy(), 0, n_total - 1)
+        feat_arr = split_df[GNN_EDGE_FEAT_COLS].fillna(0).copy()
+        feat_arr["amount"] = np.log1p(feat_arr["amount"].clip(lower=0))
+        return (
+            torch.tensor(b_ids, dtype=torch.long),
+            torch.tensor(s_ids, dtype=torch.long),
+            torch.tensor(feat_arr.to_numpy(), dtype=torch.float32),
+            torch.tensor(split_df["y"].to_numpy(), dtype=torch.float32),
+        )
+
+    buyer_cols = [f"gnn_buyer_emb_{i}" for i in range(GNN_EMB_DIM)]
+    seller_cols = [f"gnn_seller_emb_{i}" for i in range(GNN_EMB_DIM)]
+    gnn_cols = buyer_cols + seller_cols
+
+    unique_buyers = np.array(sorted(train_df["buyer_id"].unique()))
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    train_aug = train_df.copy()
+    for col in gnn_cols:
+        train_aug[col] = 0.0
+    train_aug["_oof_fold"] = -1
+
+    print(f"Generating K={n_splits} buyer-grouped out-of-fold GNN embeddings for training set...")
+    for fold, (fit_b_idx, val_b_idx) in enumerate(kf.split(unique_buyers)):
+        val_b_set = set(unique_buyers[val_b_idx])
+        fold_train_mask = ~train_df["buyer_id"].isin(val_b_set)
+        fold_val_mask = train_df["buyer_id"].isin(val_b_set)
+
+        f_tr_b, f_tr_s, f_tr_f, f_tr_y = _make_edge_tensors(train_df[fold_train_mask])
+        f_val_b, f_val_s, f_val_f, f_val_y = _make_edge_tensors(train_df[fold_val_mask])
+
+        # Train fold encoder strictly without fold_val buyers or labels
+        fold_encoder = train_sage_encoder(
+            X_nodes_train, edge_index_train,
+            f_tr_b, f_tr_s, f_tr_f, f_tr_y,
+            f_val_b, f_val_s, f_val_f, f_val_y,
+            epochs=epochs,
+        )
+
+        # Extract embeddings for the held-out fold
+        f_b_embs, f_s_embs = extract_embeddings(
+            fold_encoder, X_nodes_train, edge_index_train, buyer_idx, seller_idx
+        )
+
+        fold_val_indices = train_df[fold_val_mask].index
+        zero = np.zeros(GNN_EMB_DIM, dtype=np.float32)
+        b_mat = np.vstack([f_b_embs.get(bid, zero) for bid in train_df.loc[fold_val_indices, "buyer_id"]])
+        s_mat = np.vstack([f_s_embs.get(sid, zero) for sid in train_df.loc[fold_val_indices, "seller_id"]])
+
+        train_aug.loc[fold_val_indices, buyer_cols] = b_mat
+        train_aug.loc[fold_val_indices, seller_cols] = s_mat
+        train_aug.loc[fold_val_indices, "_oof_fold"] = fold
+
+    # Train full encoder on train split only for val and test embeddings
+    print("Training full-train GNN encoder for validation and test embeddings...")
+    rng = np.random.RandomState(random_state)
+    all_b_unique = unique_buyers.copy()
+    rng.shuffle(all_b_unique)
+    split_pt = int(0.8 * len(all_b_unique))
+    fit_buyers = set(all_b_unique[:split_pt])
+
+    full_fit_mask = train_df["buyer_id"].isin(fit_buyers)
+    full_es_mask = ~full_fit_mask
+
+    full_fit_b, full_fit_s, full_fit_f, full_fit_y = _make_edge_tensors(train_df[full_fit_mask])
+    full_es_b, full_es_s, full_es_f, full_es_y = _make_edge_tensors(train_df[full_es_mask])
+
+    full_encoder = train_sage_encoder(
+        X_nodes_train, edge_index_train,
+        full_fit_b, full_fit_s, full_fit_f, full_fit_y,
+        full_es_b, full_es_s, full_es_f, full_es_y,
+        epochs=epochs,
+    )
+
+    # Validation embeddings: extracted from training graph state
+    val_b_embs, val_s_embs = extract_embeddings(
+        full_encoder, X_nodes_train, edge_index_train, buyer_idx, seller_idx
+    )
+    val_aug, _ = attach_gnn_embeddings(val_df, val_b_embs, val_s_embs)
+
+    # Test embeddings: extracted from test historical graph state (<= VAL_END)
+    test_b_embs, test_s_embs = extract_embeddings(
+        full_encoder, X_nodes_test, edge_index_test, buyer_idx, seller_idx
+    )
+    test_aug, _ = attach_gnn_embeddings(test_df, test_b_embs, test_s_embs)
+
+    return train_aug, val_aug, test_aug, gnn_cols
+
+
 def run_phase5(gnn_epochs=50):
     """Full hybrid model training and validation pipeline."""
     base = build_base_entities()
@@ -233,39 +352,8 @@ def run_phase5(gnn_epochs=50):
     df["order_date"] = pd.to_datetime(df["order_date"])
     df["y"] = df["is_fraudulent"].astype(int)
 
-    # TS-AUD-01 / Phase 2: Build strictly isolated relationship graphs per split.
-    # Train: information strictly prior to TRAIN_END
-    # Val: information strictly prior to validation decision time (cutoff TRAIN_END)
-    # Test: information strictly prior to test decision time (cutoff VAL_END)
-    rel_graph_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
-    rel_graph_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
-    rel_graph_test = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
-
-    train_mask = df["order_date"] <= TRAIN_END
-    val_mask = (df["order_date"] > TRAIN_END) & (df["order_date"] <= VAL_END)
-    test_mask = df["order_date"] > VAL_END
-
-    rel_feat_train = compute_relationship_features(rel_graph_train, df.loc[train_mask, "buyer_id"].unique())
-    rel_feat_val = compute_relationship_features(rel_graph_val, df.loc[val_mask, "buyer_id"].unique())
-    rel_feat_test = compute_relationship_features(rel_graph_test, df.loc[test_mask, "buyer_id"].unique())
-
-    df["share_degree"] = 0.0
-    df["share_component_size"] = 1.0
-
-    if train_mask.any():
-        tmp_train = df.loc[train_mask, ["buyer_id"]].merge(rel_feat_train, on="buyer_id", how="left")
-        df.loc[train_mask, "share_degree"] = tmp_train["share_degree"].fillna(0.0).values
-        df.loc[train_mask, "share_component_size"] = tmp_train["share_component_size"].fillna(1.0).values
-
-    if val_mask.any():
-        tmp_val = df.loc[val_mask, ["buyer_id"]].merge(rel_feat_val, on="buyer_id", how="left")
-        df.loc[val_mask, "share_degree"] = tmp_val["share_degree"].fillna(0.0).values
-        df.loc[val_mask, "share_component_size"] = tmp_val["share_component_size"].fillna(1.0).values
-
-    if test_mask.any():
-        tmp_test = df.loc[test_mask, ["buyer_id"]].merge(rel_feat_test, on="buyer_id", how="left")
-        df.loc[test_mask, "share_degree"] = tmp_test["share_degree"].fillna(0.0).values
-        df.loc[test_mask, "share_component_size"] = tmp_test["share_component_size"].fillna(1.0).values
+    # Phase 2: Attach point-in-time relationship graph features (share_degree, share_component_size)
+    df = attach_relationship_snapshot_features(df, base["address_sharing_log"], base["device_sharing_log"])
 
     snapshots, months = build_monthly_snapshots(
         result["orders"].assign(order_date=pd.to_datetime(result["orders"]["order_date"])),
@@ -290,6 +378,9 @@ def run_phase5(gnn_epochs=50):
 
     buyer_idx, seller_idx, n_buyers, n_total = build_node_index(txn["buyers"]["buyer_id"], catalog["sellers"]["seller_id"])
 
+    rel_graph_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
+    rel_graph_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
+
     # Training-period graph state: strictly bounded to <= TRAIN_END (no validation leakage)
     X_nodes_train = build_node_features(
         buyer_idx, seller_idx, n_total, train, rel_graph_train, txn["buyers"], catalog["sellers"], cutoff_date=TRAIN_END
@@ -302,35 +393,14 @@ def run_phase5(gnn_epochs=50):
     )
     edge_index_val = build_edge_index(buyer_idx, seller_idx, trainval, rel_graph_val)
 
-    def _edge_tensors(split_df):
-        b_ids = np.clip(split_df["buyer_id"].map(buyer_idx).fillna(0).astype(int).to_numpy(), 0, n_total - 1)
-        s_ids = np.clip(split_df["seller_id"].map(seller_idx).fillna(0).astype(int).to_numpy(), 0, n_total - 1)
-        feat_arr = split_df[GNN_EDGE_FEAT_COLS].fillna(0).copy()
-        feat_arr["amount"] = np.log1p(feat_arr["amount"].clip(lower=0))
-        return (
-            torch.tensor(b_ids, dtype=torch.long),
-            torch.tensor(s_ids, dtype=torch.long),
-            torch.tensor(feat_arr.to_numpy(), dtype=torch.float32),
-            torch.tensor(split_df["y"].to_numpy(), dtype=torch.float32)
-        )
-
-    train_b, train_s, train_feats, train_y_t = _edge_tensors(train)
-    val_b, val_s, val_feats, val_y_t = _edge_tensors(val)
-
-    print("Training GraphSAGE representation encoder...")
-    encoder = train_sage_encoder(
-        X_nodes_train, edge_index_train, train_b, train_s, train_feats, train_y_t,
-        val_b, val_s, val_feats, val_y_t, epochs=gnn_epochs
+    # Generate K=5 buyer-grouped out-of-fold GNN embeddings (leak-free)
+    train_aug, val_aug, test_aug, gnn_cols = generate_oof_gnn_embeddings(
+        train, val, test,
+        buyer_idx, seller_idx, n_total,
+        X_nodes_train, edge_index_train,
+        X_nodes_val, edge_index_val,
+        n_splits=5, epochs=gnn_epochs
     )
-
-    # Validation embeddings are extracted from training-period graph state (leak-free)
-    buyer_embs_train, seller_embs_train = extract_embeddings(encoder, X_nodes_train, edge_index_train, buyer_idx, seller_idx)
-    # Test embeddings are extracted from historical graph state up to VAL_END (historical for test)
-    buyer_embs_test, seller_embs_test = extract_embeddings(encoder, X_nodes_val, edge_index_val, buyer_idx, seller_idx)
-
-    train_aug, gnn_cols = attach_gnn_embeddings(train, buyer_embs_train, seller_embs_train)
-    val_aug, _ = attach_gnn_embeddings(val, buyer_embs_train, seller_embs_train)
-    test_aug, _ = attach_gnn_embeddings(test, buyer_embs_test, seller_embs_test)
     hybrid_feature_cols = phase3_feature_cols + gnn_cols
 
 
