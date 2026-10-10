@@ -489,3 +489,42 @@ class TestModelUsedField:
         })
         assert r.status_code == 200
         assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    def test_transaction_scoring_with_client_supplied_graph_features(self, client):
+        """Test POST /transaction/score accepts client-supplied graph topology features."""
+        # 1. Calling with client-supplied graph features
+        graph_payload = {
+            "order_id": "ORD_GRAPH_CLIENT_001",
+            "buyer_id": "BUYER_000001",
+            "seller_id": "SELLER_000001",
+            "amount": 250.0,
+            "base_price": 250.0,
+            "category_median_price": 250.0,
+            "share_degree": 6.0,
+            "share_component_size": 15.0,
+            "buyer_pagerank": 0.005,
+            "seller_pagerank": 0.012,
+            "buyer_seller_edge_weight_before": 4.0,
+            "seller_buyer_concentration_hhi": 0.45,
+        }
+        r = client.post("/transaction/score", json=graph_payload)
+        assert r.status_code == 200
+        d = r.json()
+        assert d["order_id"] == "ORD_GRAPH_CLIENT_001"
+        assert 0.0 <= d["overall_fraud_probability"] <= 1.0
+
+        # 2. Calling with graph features omitted defaults gracefully to 0.0 / 1.0
+        no_graph_payload = {
+            "order_id": "ORD_GRAPH_CLIENT_002",
+            "buyer_id": "BUYER_000002",
+            "seller_id": "SELLER_000002",
+            "amount": 250.0,
+            "base_price": 250.0,
+            "category_median_price": 250.0,
+        }
+        r2 = client.post("/transaction/score", json=no_graph_payload)
+        assert r2.status_code == 200
+        d2 = r2.json()
+        assert d2["order_id"] == "ORD_GRAPH_CLIENT_002"
+        assert 0.0 <= d2["overall_fraud_probability"] <= 1.0
+
