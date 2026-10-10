@@ -261,6 +261,93 @@ def attach_snapshot_features(df: pd.DataFrame, snapshots: dict, months: list) ->
     return df.drop(columns=["month", "_month_idx"])
 
 
+def build_monthly_plain_aggregate_snapshots(orders_df: pd.DataFrame, sim_start, n_months: int = 12):
+    """Builds monthly non-graph plain aggregate baseline snapshots.
+
+    Uses strictly identical monthly cutoff dates and point-in-time conventions
+    as build_monthly_snapshots, but with ZERO graph computation:
+    - buyer_prev_month_order_count: count of orders by buyer in cutoff month
+    - buyer_distinct_sellers_prior: distinct sellers purchased from prior to cutoff
+    - seller_prev_month_order_count: count of orders by seller in cutoff month
+    - seller_distinct_buyers_prior: distinct buyers sold to prior to cutoff
+    - seller_top_buyer_share_prior: max buyer volume share for seller prior to cutoff
+    """
+    orders = orders_df.copy()
+    orders["month"] = pd.PeriodIndex(orders["order_date"], freq="M")
+    months = sorted(orders["month"].unique())
+
+    snapshots = {}
+    for i in range(1, len(months)):
+        cutoff = months[i - 1]
+        cum_orders = pd.DataFrame(orders[orders["month"] <= cutoff])
+        prev_month_orders = pd.DataFrame(orders[orders["month"] == cutoff])
+        if cum_orders.empty:
+            continue
+
+        buyer_prev_counts = prev_month_orders.groupby("buyer_id").size().to_dict()
+        buyer_distinct_sellers = cum_orders.groupby("buyer_id")["seller_id"].nunique().to_dict()
+        buyer_ids = list(dict.fromkeys(cum_orders["buyer_id"]))
+        buyer_rows = [
+            {
+                "buyer_id": b,
+                "buyer_prev_month_order_count": float(buyer_prev_counts.get(b, 0.0)),
+                "buyer_distinct_sellers_prior": float(buyer_distinct_sellers.get(b, 0.0)),
+            }
+            for b in buyer_ids
+        ]
+
+        seller_prev_counts = prev_month_orders.groupby("seller_id").size().to_dict()
+        seller_distinct_buyers = cum_orders.groupby("seller_id")["buyer_id"].nunique().to_dict()
+        seller_buyer_counts = cum_orders.groupby(["seller_id", "buyer_id"]).size()
+        seller_totals = cum_orders.groupby("seller_id").size()
+        shares = seller_buyer_counts.div(seller_totals, level="seller_id")
+        top_shares = shares.groupby(level=0).max().to_dict()
+
+        seller_ids = list(dict.fromkeys(cum_orders["seller_id"]))
+        seller_rows = [
+            {
+                "seller_id": s,
+                "seller_prev_month_order_count": float(seller_prev_counts.get(s, 0.0)),
+                "seller_distinct_buyers_prior": float(seller_distinct_buyers.get(s, 0.0)),
+                "seller_top_buyer_share_prior": float(top_shares.get(s, 0.0)),
+            }
+            for s in seller_ids
+        ]
+
+        snapshots[i] = (pd.DataFrame(buyer_rows), pd.DataFrame(seller_rows))
+
+    return snapshots, months
+
+
+def attach_plain_aggregate_features(df: pd.DataFrame, snapshots: dict, months: list) -> pd.DataFrame:
+    """Attaches prior-month plain aggregate snapshot features to orders."""
+    df = df.copy()
+    df["month"] = pd.PeriodIndex(df["order_date"], freq="M")
+    month_to_idx = {m: i for i, m in enumerate(months)}
+    df["_month_idx"] = df["month"].map(month_to_idx.get)
+
+    feature_cols = [
+        "buyer_prev_month_order_count",
+        "buyer_distinct_sellers_prior",
+        "seller_prev_month_order_count",
+        "seller_distinct_buyers_prior",
+        "seller_top_buyer_share_prior",
+    ]
+    for col in feature_cols:
+        df[col] = 0.0
+
+    for month_idx, (buyer_feat, seller_feat) in snapshots.items():
+        mask = df["_month_idx"] == month_idx
+        if not mask.any():
+            continue
+        sub = df.loc[mask, ["buyer_id", "seller_id"]].merge(buyer_feat, on="buyer_id", how="left") \
+                                                       .merge(seller_feat, on="seller_id", how="left")
+        for col in feature_cols:
+            df.loc[mask, col] = sub[col].fillna(0.0).to_numpy()
+
+    return df.drop(columns=["month", "_month_idx"])
+
+
 def add_edge_weight_before(df: pd.DataFrame) -> pd.DataFrame:
     """Computes prior transaction count between specific buyer-seller pairs.
 
