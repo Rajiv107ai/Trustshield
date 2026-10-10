@@ -418,7 +418,7 @@ class InvestigationService:
                 "model_version": score_res.model_version,
                 "graph_source": graph_findings.graph_source,
                 "investigation_engine": "TrustShield GenAI Grounded Agent v1.0",
-                "conformal_confidence": "95%",
+                "conformal_confidence": "heuristic_threshold_uncalibrated",
             },
             grounding_verification_passed=verification_passed,
         )

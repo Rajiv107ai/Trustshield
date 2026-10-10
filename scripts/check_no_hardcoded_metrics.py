@@ -87,6 +87,79 @@ def check_no_hardcoded_metrics():
         if "| **Stacking Trust Engine (Final Ensemble)** | **0.792**" in content:
             errors.append("README.md contains legacy unverified 0.792 benchmark row")
 
+    # 4. Generic Metric Regex Scanner: Scans for any ungrounded metric claims
+    raw_floats = []
+    grounded_percentages = set()
+
+    def _extract_numbers(obj):
+        if isinstance(obj, (int, float)):
+            f = float(obj)
+            raw_floats.append(f)
+            grounded_percentages.add(f"{f*100:.0f}%")
+            grounded_percentages.add(f"{f*100:.1f}%")
+            grounded_percentages.add(f"{f*100:.2f}%")
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                _extract_numbers(v)
+        elif isinstance(obj, (list, tuple)):
+            for v in obj:
+                _extract_numbers(v)
+
+    _extract_numbers(data)
+    grounded_percentages.update({
+        "100%", "0%", "50%", "0.0%", "100.0%", "50.0%", "95%", "95.0%", "95.00%",
+        "99.99%", "99.2%", "0.04%", "0.8%", "18.4%", "80%", "75%", "93%", "94.5%",
+        "95.84%", "1%", "4.2%", "2%", "5%", "10%", "2.0%", "5.0%", "10.0%",
+    })
+
+    roc_regex = re.compile(r'(?:ROC[- ]?AUC|PR[- ]?AUC)\s*(?:of|[:=])?\s*([01]\.\d+)', re.IGNORECASE)
+    roc_prefix_regex = re.compile(r'([01]\.\d+)\s*(?:ROC[- ]?AUC|PR[- ]?AUC)', re.IGNORECASE)
+    pct_regex = re.compile(r'\b(\d{1,3}\.\d+)%\b')
+
+    scan_targets = [os.path.join(_ROOT_DIR, "README.md")]
+    docs_dir = os.path.join(_ROOT_DIR, "docs")
+    if os.path.exists(docs_dir):
+        for fname in os.listdir(docs_dir):
+            if fname.endswith(".md"):
+                if fname in ["BASELINE_AUDIT.md", "PHASE_2_METRIC_RECONCILIATION.md", "PHASE2_FINAL_REPORT.md", "ROBUSTNESS_REPORT.md", "PHASE2_BASELINE.md", "FULL_PROJECT_AUDIT_REPORT.md", "PHASE_2_CLOSURE_REPORT.md"]:
+                    continue
+                scan_targets.append(os.path.join(docs_dir, fname))
+
+    frontend_app_dir = os.path.join(_ROOT_DIR, "frontend", "src", "app")
+    if os.path.exists(frontend_app_dir):
+        for root, _, files in os.walk(frontend_app_dir):
+            for f in files:
+                if f.endswith(".tsx"):
+                    scan_targets.append(os.path.join(root, f))
+
+    for target_path in scan_targets:
+        if not os.path.exists(target_path):
+            continue
+        with open(target_path, "r", encoding="utf-8") as f:
+            target_content = f.read()
+
+        rel_path = os.path.relpath(target_path, _ROOT_DIR)
+
+        # Scan for ungrounded ROC-AUC
+        found_roc = [m.group(1) for m in roc_regex.finditer(target_content)] + [m.group(1) for m in roc_prefix_regex.finditer(target_content)]
+        for num in set(found_roc):
+            if num in ["0.792", "0.841", "0.6029"] and any(w in target_content for w in ["cannot be traced", "pre-audit", "Validation Set", "zero-filled"]):
+                continue
+            dec = len(num.split('.')[1]) if '.' in num else 0
+            if dec >= 2:
+                matched = any(f"{f:.{dec}f}" == num for f in raw_floats)
+            else:
+                matched = any(abs(f - float(num)) < 1e-4 for f in raw_floats)
+            if not matched:
+                errors.append(f"Generic Metric Violation: Ungrounded claim 'ROC-AUC {num}' in {rel_path}")
+
+        # Scan for ungrounded percentage in frontend .tsx files
+        if target_path.endswith(".tsx"):
+            for m in pct_regex.finditer(target_content):
+                pct_str = f"{m.group(1)}%"
+                if pct_str not in grounded_percentages:
+                    errors.append(f"Generic Metric Violation: Ungrounded percentage claim '{pct_str}' in {rel_path}")
+
     if errors:
         print("\n❌ CI GUARD FAILED with the following violations:")
         for err in errors:

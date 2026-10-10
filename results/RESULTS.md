@@ -349,54 +349,116 @@ The 20-seed metric arrays are printed below for independent verification:
 | `seller_pagerank` | 0.7396 +/- 0.0220 | +0.0014 | [-0.0018, +0.0047] | p = 3.7401e-01 | p_adj = 1.0000e+00 |
 | `seller_buyer_concentration_hhi` | 0.7436 +/- 0.0201 | -0.0026 | [-0.0057, +0.0005] | p = 1.0023e-01 | p_adj = 1.0000e+00 |
 | `buyer_seller_edge_weight_before` | 0.7422 +/- 0.0206 | -0.0011 | [-0.0038, +0.0016] | p = 3.8836e-01 | p_adj = 1.0000e+00 |
-## 6. Comprehensive Per-Type Fraud Breakdown (20 Seeds Paired)
+## 5. Practical Significance: Fraud Value Caught (INR) & Recall at Review Budgets (20 Seeds)
 
-Evaluates model discrimination against legitimate orders for each isolated fraud type, along with recall at operational review capacities:
+In operational trust & safety operations, manual review capacity is constrained by investigator budgets (e.g. 2%, 5%, 10% of order volume).
 
-| Fraud Type | Model Variant | Isolated ROC-AUC (mean +/- std) | Recall @ 2% Budget | Recall @ 5% Budget | Recall @ 10% Budget |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **fake_listing** | Tabular Baseline (b) | 0.8327 +/- 0.0186 | 42.46% | 54.71% | 62.97% |
-| | Tabular + Graph (c) | 0.8243 +/- 0.0152 | 42.68% | 53.54% | 60.53% |
-| **return_abuse** | Tabular Baseline (b) | 0.9098 +/- 0.0334 | 29.31% | 72.71% | 78.65% |
-| | Tabular + Graph (c) | 0.9138 +/- 0.0298 | 28.75% | 72.70% | 79.14% |
-| **coordinated_fraud** | Tabular Baseline (b) | 0.6403 +/- 0.0433 | 0.67% | 8.24% | 21.64% |
-| | Tabular + Graph (c) | 0.6872 +/- 0.0636 | 0.68% | 9.73% | 26.69% |
-| **seller_buyer_collusion** | Tabular Baseline (b) | 0.5001 +/- 0.0422 | 0.40% | 2.22% | 6.86% |
-| | Tabular + Graph (c) | 0.4971 +/- 0.0384 | 0.45% | 2.11% | 6.37% |
+| Review Budget | Model Variant | Fraud Recall (mean +/- std) | Paired Recall Lift | Paired Recall p-value | Fraud Value Caught (INR, mean) | Paired Value Lift (INR, mean) | Paired Value p-value |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **2%** | Tabular Baseline (b) | 18.96% +/- 0.90% | baseline | — | INR 317,916 | baseline | — |
+| | Tabular + Graph (c) | 18.90% +/- 0.85% | -0.06% | p = 3.6480e-01 | INR 317,124 | -792 | p = 9.3051e-01 |
+| **5%** | Tabular Baseline (b) | 35.21% +/- 1.87% | baseline | — | INR 725,484 | baseline | — |
+| | Tabular + Graph (c) | 35.30% +/- 1.80% | +0.09% | p = 4.6881e-01 | INR 732,427 | +6,943 | p = 2.5291e-01 |
+| **10%** | Tabular Baseline (b) | 43.67% +/- 2.32% | baseline | — | INR 922,754 | baseline | — |
+| | Tabular + Graph (c) | 44.48% +/- 2.85% | +0.81% | p = 4.2351e-02 | INR 945,039 | +22,285 | p = 7.7498e-02 |
 
-## 7. Horizon Audit: Daily Fraud Rate Over Last 14 Days vs Test Mean
+> **Operational Conclusion on Review Budgets**: At tight operational review budgets (2% and 5%), graph features provide **no statistically significant lift** in either fraud recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud monetary value caught (2%: p = 0.9305; 5%: p = 0.2529). Only at a relaxed 10% review budget does recall lift reach marginal significance (+0.81%, p = 0.0424).
+
+## 6. Comprehensive Per-Type Fraud Breakdown & Formal Retraction
+
+> **Formal Retraction of Earlier Per-Type Table**:
+> The earlier per-type table reporting coordinated fraud ROC ~0.7494 is formally retracted. That table was produced on an untruncated 5-seed exploratory run where the tabular baseline did not isolate device sharing counts per fraud type, artificially inflating coordinated lift.
+> In this canonical 20-seed evaluation on the truncated test split (excluding the final 21 days for right-censoring), coordinated fraud achieves isolated ROC 0.6403 (b) vs 0.6872 (c) with only 0.68% recall at a 2% budget, and seller-buyer collusion operates strictly at chance (ROC 0.50).
+
+| Fraud Type | Model Variant | Isolated ROC-AUC (mean +/- std) | Recall @ 2% Budget | Recall @ 5% Budget | Recall @ 10% Budget | Operational Note |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| **fake_listing** | Tabular Baseline (b) | 0.8327 +/- 0.0186 | 42.46% | 54.71% | 62.97% | High detection via listings |
+| | Tabular + Graph (c) | 0.8243 +/- 0.0152 | 42.68% | 53.54% | 60.53% | High detection via listings |
+| **return_abuse** | Tabular Baseline (b) | 0.9098 +/- 0.0334 | 29.31% | 72.71% | 78.65% | High detection via history |
+| | Tabular + Graph (c) | 0.9138 +/- 0.0298 | 28.75% | 72.70% | 79.14% | High detection via history |
+| **coordinated_fraud** | Tabular Baseline (b) | 0.6403 +/- 0.0433 | 0.67% | 8.24% | 21.64% | Near random at 2% budget |
+| | Tabular + Graph (c) | 0.6872 +/- 0.0636 | 0.68% | 9.73% | 26.69% | Near random at 2% budget |
+| **seller_buyer_collusion** | Tabular Baseline (b) | 0.5001 +/- 0.0422 | 0.40% | 2.22% | 6.86% | Strictly at chance (ROC 0.50) |
+| | Tabular + Graph (c) | 0.4971 +/- 0.0384 | 0.45% | 2.11% | 6.37% | Strictly at chance (ROC 0.50) |
+
+## 7. Horizon Audit: Right-Censoring Exclusion & Git Timeline
 
 - **Test-Period Mean Fraud Rate**: `8.85%`
-- **Root Cause of Dec 31 Seed 42 Discrepancy**: In pre-audit commits prior to af919e85e8, burst starts in inject_seller_buyer_collusion and inject_coordinated_fraud sampled windows without bounding burst_span_days against SIM_END, clamping late orders to Dec 31 (20 fraud orders for Seed 42). Following the burst window fix [floor, SIM_END - needed_span], bursts fit within the horizon without artificial clamping, yielding 7 fraud orders for Seed 42 on Dec 31.
+- **Git Timeline & Root Cause of Dec 31 Seed 42 Discrepancy**: In pre-audit commits prior to af919e85e8, burst starts in inject_seller_buyer_collusion and inject_coordinated_fraud sampled windows without bounding burst_span_days against SIM_END, clamping late orders to Dec 31 (20 fraud orders for Seed 42). Following the burst window fix [floor, SIM_END - needed_span], bursts fit within the horizon without artificial clamping, yielding 7 fraud orders for Seed 42 on Dec 31.
 
-| Date | Daily Fraud Rate (mean +/- std) | Difference vs Test Period Mean |
-| :--- | :---: | :---: |
-| `2025-12-18` | 10.24% +/- 2.63% | +1.39% |
-| `2025-12-19` | 11.19% +/- 1.41% | +2.34% |
-| `2025-12-20` | 11.31% +/- 2.15% | +2.46% |
-| `2025-12-21` | 10.42% +/- 1.79% | +1.57% |
-| `2025-12-22` | 10.35% +/- 1.05% | +1.50% |
-| `2025-12-23` | 11.03% +/- 1.77% | +2.18% |
-| `2025-12-24` | 11.23% +/- 1.92% | +2.38% |
-| `2025-12-25` | 10.65% +/- 1.58% | +1.80% |
-| `2025-12-26` | 9.45% +/- 1.80% | +0.60% |
-| `2025-12-27` | 7.26% +/- 1.28% | -1.59% |
-| `2025-12-28` | 7.27% +/- 1.67% | -1.58% |
-| `2025-12-29` | 6.68% +/- 1.79% | -2.17% |
-| `2025-12-30` | 5.89% +/- 2.27% | -2.96% |
-| `2025-12-31` | 2.21% +/- 0.60% | -6.64% |
+### Truncated Test Horizon Benchmark (Final 21 Days Excluded for All Models):
+To strictly eliminate right-censoring in returns and late-horizon burst pileup, the final 21 days (`order_date > 2025-12-10`) were excluded from the test split across all 20 seeds:
+| Model Variant | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Two-Sided p-value |
+| :--- | :---: | :---: | :---: | :---: |
+| (a) Tabular (without device) | 0.7223 +/- 0.0161 | 0.4545 +/- 0.0220 | -0.0298 | — |
+| (b) Tabular Baseline | 0.7521 +/- 0.0170 | 0.4775 +/- 0.0264 | baseline | — |
+| (d) Plain Aggregates Control | 0.7487 +/- 0.0192 | 0.4736 +/- 0.0259 | -0.0034 | p = 1.0695e-01 |
+| (c) Tabular + Graph Features | 0.7635 +/- 0.0223 | 0.4856 +/- 0.0310 | **+0.0114** | **p = 3.0153e-05** |
 
-## 8. Test-Set Calibration: Expected Calibration Error (ECE)
+## 8. Probability Calibration Audit: Test ECE & Brier Score (20 Seeds Paired)
 
-- **Tabular Baseline (b) Test ECE**: 0.0477 +/- 0.0111
-- **Tabular + Graph (c) Test ECE**: 0.0591 +/- 0.0125
+Isotonic regression was fitted strictly on the validation split per seed and evaluated on out-of-time test orders:
+| Metric | Model Variant | Raw Score (mean +/- std) | Calibrated Score (mean +/- std) | Paired Lift (c vs b) | p-value |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Expected Calibration Error (ECE)** | Tabular Baseline (b) | 0.0538 +/- 0.0161 | 0.0226 +/- 0.0043 | baseline | — |
+| | Tabular + Graph (c) | 0.0634 +/- 0.0142 | 0.0210 +/- 0.0044 | -0.0016 | p = 1.7755e-04 |
+| **Brier Score** | Tabular Baseline (b) | 0.0665 +/- 0.0042 | 0.0583 +/- 0.0024 | baseline | — |
+| | Tabular + Graph (c) | 0.0674 +/- 0.0035 | 0.0580 +/- 0.0025 | -0.0003 | p = 5.3334e-02 |
 
-## 12. What This Does NOT Show
+## 9. Capacity-Constrained Review-Budget Threshold Policy (5% Budget Selected on Val)
+
+To simulate production operating conditions, threshold $\tau$ was chosen strictly on the validation split per seed to enforce a 5% manual review capacity constraint:
+| Operational Metric | Tabular Baseline (b) | Tabular + Graph (c) | Paired Lift (c vs b) | 95% Confidence Interval | p-value |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Selected Threshold $\tau$ (on Val)** | 0.5673 +/- 0.0553 | 0.5794 +/- 0.0517 | +0.0121 | — | — |
+| **Realized Test Review Volume** | 4.71% +/- 0.38% | 4.83% +/- 0.42% | +0.12% | — | — |
+| **Realized Precision** | 68.59% +/- 3.60% | 67.70% +/- 4.19% | -0.89% | — | — |
+| **Realized Fraud Recall** | 37.45% +/- 2.71% | 37.89% +/- 2.79% | +0.44% | [-0.0011, +0.0100] | p = 1.3267e-01 |
+| **Realized Fraud Value Caught (INR)** | INR 424,218 | INR 428,059 | INR +3,842 | [-5,135, +12,819] | p = 4.1202e-01 |
+
+## 10. Fraud Ring Detection Recovery vs Baselines
+
+- **Unit Definition (Member-level)**: Evaluates precision, recall, and F1 over individual buyer nodes belonging to ground-truth rings
+- **Unit Definition (Ring-level)**: Evaluates recovery of ground-truth ring clusters (defined as detecting >= 50% of the ring's member nodes)
+- **Scientific Recovery Note**: Device and address sharing graphs were generated by the synthetic injection engine; this test evaluates generator recovery mechanics.
+
+| Detector Method | Member-level Precision | Member-level Recall | Member-level F1 | Ring-level Recovery Rate |
+| :--- | :---: | :---: | :---: | :---: |
+| All Connected Components (size >= 2, no risk filter) | 37.40% | 36.42% | 0.3688 | 46.14% |
+| Random Cluster Baseline | 17.55% | 17.14% | 0.1734 | 23.16% |
+| TrustShield High-Risk Filter (risk >= 0.50) | 89.25% | 8.30% | 0.1517 | 15.07% |
+
+### Ring Recovery Breakdown by Fraud Type:
+- **`fake_listing`**: 0.00% ring recovery
+- **`return_abuse`**: 45.82% ring recovery
+- **`coordinated_fraud`**: 4.39% ring recovery
+- **`seller_buyer_collusion`**: 0.00% ring recovery
+
+## 11. Conformal Prediction Audit & Serving Assessment (20 Seeds)
+
+- **Nominal Target Error Rate**: $\alpha = 0.05$ (Nominal Guarantee: 95% (finite-sample distribution-free bound on calibration cohort))
+- **Empirical Test Coverage (Overall)**: 93.55% +/- 0.44% (**below 95%** due to temporal covariate shift)
+- **Empirical Test Coverage (Legit, Y=0)**: 98.29% +/- 0.20%
+- **Empirical Test Coverage (Fraud, Y=1)**: 43.24% +/- 4.35% (severe under-coverage on minority fraud class under marginal calibration)
+- **Mean Prediction Set Size**: 1.0227 +/- 0.0141
+- **Serving Pipeline Status**: Serving currently uses heuristic score thresholds (<0.20, >0.70) without calling .calibrate(). The 95% mathematical coverage guarantee only applies when .calibrate() is executed with validation scores.
+
+## 12. Exploratory Diagnostic: Why Monthly Snapshots Miss Collusion Bursts
+
+> **Exploratory Diagnostic Label**: Not used for generator or feature tuning.
+
+- **Share of collusion orders with `buyer_seller_edge_weight_before > 0`**: 1.66% +/- 0.69%
+- **Share of collusion orders sharing a buyer-seller pair with an earlier burst**: 1.22% +/- 0.51%
+- **Topological Explanation**: Collusion orders occur within short 5-14 day bursts. Monthly-lagged bipartite snapshots only refresh once every calendar month; thus, orders within a burst occurring between snapshot cadences have edge_weight_before = 0 and cannot see same-month prior orders in the snapshot graph.
+
+## 13. What This Does NOT Show
 
 To maintain scientific honesty and prevent over-interpretation of experimental results:
 
 1. **Does NOT show GNN superiority over gradient boosted trees:** Integrating out-of-fold GNN embeddings into XGBoost results in net negative lift (-0.0263 ROC-AUC, p = 0.0083). Tabular trees with point-in-time graph features remain superior.
-2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0115 ROC-AUC, +0.0088 PR-AUC). Historical reports claiming double-digit lifts suffered from temporal leakage or unadjusted baselines.
+2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0114 ROC-AUC, +0.0081 PR-AUC). Historical reports claiming double-digit lifts suffered from temporal leakage or unadjusted baselines.
 3. **Does NOT show that a 0.50 threshold is viable in production:** Under marketplace base rates (~7%), thresholding at 0.50 yields < 1% recall. Deployment requires capacity-calibrated threshold policies.
-4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.048 - 0.059) due to temporal drift, even though in-sample isotonic validation achieves 0.0000.
+4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.021 - 0.023 calibrated, ~0.054 - 0.063 raw) due to temporal drift, even though in-sample isotonic validation achieves 0.0000.
 5. **Does NOT show identical lift on production traffic without shadow validation:** Synthetic generators mirror adversarial attack mechanics, but live merchant traffic requires continuous covariate and chargeback monitoring.
+6. **Does NOT show significant practical lift at operational review budgets:** At 2% and 5% review budgets, graph features show no statistically significant lift in recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud value caught (2%: p = 0.9305; 5%: p = 0.2529).
+7. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** Seller-buyer collusion discrimination is strictly at chance (isolated ROC 0.5001 vs 0.4971), and coordinated fraud recall at a 2% review budget is near random (0.68%).

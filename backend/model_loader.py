@@ -80,6 +80,9 @@ class ModelStore:
         self.calibrator: Any = None
         self.phase5_calibrator: Any = None
 
+        # --- Graph Snapshot (API Parity) ---
+        self.graph_snapshot: Optional[dict] = None
+
         # --- Phase 5 (optional) ---
         self.hybrid_model: Any         = None
         self.buyer_embeddings:  dict = {}
@@ -122,6 +125,12 @@ class ModelStore:
         if os.path.isfile(calibrator_path):
             self.calibrator = joblib.load(calibrator_path)
             print("[model_loader] Loaded ProbabilityCalibrator from models/calibrator.joblib")
+
+        snap_path = os.path.join(MODELS_DIR, "graph_snapshot.joblib")
+        if os.path.isfile(snap_path):
+            self.graph_snapshot = joblib.load(snap_path)
+            print(f"[model_loader] Loaded graph snapshot from {snap_path}")
+
         self._loaded = True
         print(f"[model_loader] Loaded Phase 3 models from {MODELS_DIR}")
         if self.rings_df is not None:
