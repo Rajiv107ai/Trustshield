@@ -98,7 +98,7 @@ def main() -> Dict[str, Any]:
     print("=" * 80)
 
     # 1. Verify existence of datasets
-    export_dir = os.path.join(_PROJECT_DIR, "synthetic_data_export")
+    export_dir = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else os.environ.get("DATA_DIR", os.path.join(_PROJECT_DIR, "synthetic_data_export"))
     required_csvs = [
         "orders.csv", "listings.csv", "returns.csv",
         "buyers.csv", "sellers.csv", "products.csv",
@@ -311,8 +311,11 @@ def main() -> Dict[str, Any]:
     ])
     returns_feat, _ = build_return_features(returns_df, orders_df, buyers_df, sellers_df)
     
-    # Pure out-of-time test (> VAL_END, Months 11-12)
-    returns_test_pure = returns_feat[returns_feat["return_date"] > P2_VAL_END]
+    # Pure out-of-time test (> VAL_END, Months 11-12, uncensored orders placed <= 2025-12-10)
+    returns_test_pure = returns_feat[
+        (returns_feat["return_date"] > P2_VAL_END) &
+        (returns_feat["order_date"] <= pd.Timestamp("2025-12-31") - pd.Timedelta(days=21))
+    ]
     X_ret_pure = returns_test_pure.reindex(return_meta, axis=1, fill_value=0.0).fillna(0.0)
     y_ret_pure = returns_test_pure["is_fraudulent"].astype(int).to_numpy()
     p_ret_pure = np.asarray(return_fraud_model.predict_proba(X_ret_pure))[:, 1]

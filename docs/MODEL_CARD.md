@@ -1,5 +1,8 @@
 # TrustShield AI — Model Card
 
+> [!WARNING]
+> Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
+
 **Model Version:** `v1.0.0-phase1-core`  
 **Document Revision:** 2026-10-07  
 **Model Types:** Ensemble (Random Forest + XGBoost + Heterogeneous Graph Neural Network + Unified Trust Engine)  

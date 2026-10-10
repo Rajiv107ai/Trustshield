@@ -1,5 +1,8 @@
 # TrustShield AI — Phase 2 Baseline Audit & Inspection Report
 
+> [!WARNING]
+> Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
+
 **Inspection Date:** 2026-10-07  
 **Auditor:** Senior ML Researcher + Backend Systems Architect  
 **Source Repository:** `https://github.com/Rajiv107ai/Trustshield`  

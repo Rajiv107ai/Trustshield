@@ -246,7 +246,8 @@ def build_base_entities(seed: int | None = RNG_SEED, rng: np.random.Generator | 
 
 
 def generate_full_pipeline(seed: int = RNG_SEED, rng: np.random.Generator | None = None,
-                           abo_metadata_path: str | None = None) -> dict:
+                           abo_metadata_path: str | None = None,
+                           ring_coherent: bool = False) -> dict:
     """Executes the full upstream generation pipeline deterministically starting from a controlled seed."""
     base = build_base_entities(seed=seed, rng=rng)
     p_rng = base["rng"]
@@ -260,8 +261,11 @@ def generate_full_pipeline(seed: int = RNG_SEED, rng: np.random.Generator | None
     )
     result = inject_all_fraud(
         catalog["listings"], txn["orders"], txn["returns"], txn["buyers"], catalog["products"],
-        base["address_sharing_log"], base["device_sharing_log"], rng=p_rng
+        base["address_sharing_log"], base["device_sharing_log"], rng=p_rng,
+        ring_coherent=ring_coherent
     )
+    if ring_coherent and "device_sharing_log" in result:
+        base["device_sharing_log"] = result["device_sharing_log"]
     return {
         "base": base,
         "catalog": catalog,
