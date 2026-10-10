@@ -33,3 +33,26 @@
 | **return_abuse** | 0.724 | 0.713 | 0.707 | 0.691 |
 | **coordinated_fraud** | 0.087 | 0.119 | 0.128 | 0.152 |
 | **seller_buyer_collusion** | 0.025 | 0.024 | 0.082 | 0.079 |
+
+## 4. Fake Listing Detector — Multimodal Honesty (Phase 3)
+
+> [!WARNING]
+> ABO images are NOT present locally (`ABO_DATA_DIR` unset). The surrogate feature (`synthetic_mismatch_score`) uses TF-IDF + Gaussian noise (sigma=0.45) on `displayed_product_id`, which directly reflects the synthetic label swap mechanism. The surrogate score is **never** termed a "multimodal win". The **Headline** result is the honest tabular-only model.
+
+| Evaluation Row | Feature Set | Test ROC-AUC | Test PR-AUC | Test Precision | Test Recall | Test F1 |
+|---|---|---|---|---|---|---|
+| **1. HEADLINE (Honest)** | Tabular Only (4 features, without surrogate) | **0.809** | **0.572** | 0.563 | 0.556 | 0.560 |
+| **2. Diagnostic** | Tabular + Synthetic Mismatch Score | 0.944 | 0.770 | 0.658 | 0.751 | 0.702 |
+| **3. Canary Alone** | Synthetic Mismatch Score Alone | 0.923 | 0.530 | 0.116 | 0.852 | 0.205 |
+
+## 5. Return Fraud Detector (Right-Censoring Exclusion)
+
+Orders placed in the final 21 days of the horizon (after 2025-12-10) are excluded from the test split to prevent right-censoring distortion.
+
+| Model | Test Set N | Test ROC-AUC | Test PR-AUC | Test Precision | Test Recall | Test F1 |
+|---|---|---|---|---|---|---|
+| **Logistic Regression** | 1,100 | 0.910 | 0.858 | 0.780 | 0.675 | 0.724 |
+| **Random Forest** | 1,100 | 0.954 | 0.910 | 0.890 | 0.617 | 0.729 |
+| **XGBoost (Headline)** | 1,100 | **0.953** | **0.906** | 0.818 | 0.696 | 0.752 |
+| **XGBoost @ Cost Threshold (0.02)** | 1,100 | **0.953** | **0.906** | 0.682 | 0.953 | 0.795 |
+

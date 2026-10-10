@@ -1657,5 +1657,74 @@
         "density": 0.002227443855312235
       }
     }
+  },
+  "fake_listing_multimodal_honesty": {
+    "abo_images_available_locally": false,
+    "surrogate_class": "SyntheticImageTextSimilarity",
+    "surrogate_feature": "synthetic_mismatch_score",
+    "evaluation": {
+      "headline_without_surrogate": {
+        "model": "XGBoost",
+        "roc_auc": 0.809,
+        "pr_auc": 0.572,
+        "precision": 0.563,
+        "recall": 0.556,
+        "f1": 0.56,
+        "cost_optimal": {
+          "threshold": 0.69,
+          "precision": 0.72,
+          "recall": 0.533,
+          "f1": 0.612,
+          "cost": 132449
+        }
+      },
+      "diagnostic_with_surrogate": {
+        "model": "XGBoost",
+        "roc_auc": 0.944,
+        "pr_auc": 0.77,
+        "precision": 0.658,
+        "recall": 0.751,
+        "f1": 0.702,
+        "cost_optimal": {
+          "threshold": 0.62,
+          "precision": 0.726,
+          "recall": 0.722,
+          "f1": 0.724,
+          "cost": 93252
+        }
+      },
+      "canary_surrogate_alone": {
+        "model": "XGBoost",
+        "roc_auc": 0.923,
+        "pr_auc": 0.53,
+        "precision": 0.116,
+        "recall": 0.852,
+        "f1": 0.205,
+        "cost_optimal": {
+          "threshold": 0.68,
+          "precision": 0.183,
+          "recall": 0.769,
+          "f1": 0.296,
+          "cost": 80135
+        }
+      }
+    }
+  },
+  "return_fraud_uncensored": {
+    "exclusion_window_days": 21,
+    "n_test_samples": 1100,
+    "model": "XGBoost",
+    "roc_auc": 0.953,
+    "pr_auc": 0.906,
+    "precision": 0.818,
+    "recall": 0.696,
+    "f1": 0.752,
+    "cost_optimal": {
+      "threshold": 0.02,
+      "precision": 0.682,
+      "recall": 0.953,
+      "f1": 0.795,
+      "cost": 41840
+    }
   }
 }

@@ -408,14 +408,19 @@ class CLIPMultimodalScorer:
 
 
 # ---------------------------------------------------------------------------
-# TF-IDF surrogate scorer (fallback / legacy)
+# Synthetic image-text similarity surrogate (Phase 3 Honest Renaming)
 # ---------------------------------------------------------------------------
 
-class MultimodalScorer:
-    """TF-IDF surrogate for multimodal similarity — CPU-only, no extra deps.
+class SyntheticImageTextSimilarity:
+    """Synthetic TF-IDF + Gaussian noise surrogate for image-text similarity.
 
-    Behaviour is identical to the pre-Phase-4 implementation.  All existing
-    tests rely on this class and continue to pass unchanged.
+    DISCLOSURE (Audit Phase 3):
+    This is a synthetic surrogate, NOT a true multimodal vision-language model
+    (such as CLIP). It constructs pseudo-image vectors by adding Gaussian noise
+    (sigma=0.45) to TF-IDF text vectors. Because fraud injection assigns
+    fake listings a mismatched displayed_product_id, this surrogate
+    directly correlates with the perturbation mechanism. It must NEVER be
+    referred to as 'CLIP' or a 'multimodal win'.
     """
 
     def __init__(self, n_components: int = 64, random_state: int = 42):
@@ -426,7 +431,7 @@ class MultimodalScorer:
         self.text_embeddings: np.ndarray = np.empty((0, n_components))
         self.image_embeddings: np.ndarray = np.empty((0, n_components))
 
-    def fit(self, products_df: pd.DataFrame) -> "MultimodalScorer":
+    def fit(self, products_df: pd.DataFrame) -> "SyntheticImageTextSimilarity":
         texts = (
             products_df["category"].fillna("").astype(str) + " "
             + products_df["title"].fillna("").astype(str) + " "
@@ -451,9 +456,9 @@ class MultimodalScorer:
         self._fitted = True
         return self
 
-    def score_listings(self, listings_df: pd.DataFrame) -> pd.Series:
+    def score_listings(self, listings_df: pd.DataFrame, feature_name: str = "multimodal_similarity_score") -> pd.Series:
         if not self._fitted:
-            raise ValueError("MultimodalScorer must be fitted before scoring listings.")
+            raise ValueError("SyntheticImageTextSimilarity must be fitted before scoring listings.")
 
         fallback_idx = 0
         prod_indices = [
@@ -476,7 +481,11 @@ class MultimodalScorer:
 
         raw_sim = np.sum(u * v, axis=1)
         calibrated = np.clip(0.55 + 0.90 * raw_sim, 0.05, 0.98).round(4)
-        return pd.Series(calibrated, index=listings_df.index, name="multimodal_similarity_score")
+        return pd.Series(calibrated, index=listings_df.index, name=feature_name)
+
+
+# Backwards compatibility alias
+MultimodalScorer = SyntheticImageTextSimilarity
 
 
 # ---------------------------------------------------------------------------
