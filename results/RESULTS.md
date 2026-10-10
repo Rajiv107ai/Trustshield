@@ -349,3 +349,54 @@ The 20-seed metric arrays are printed below for independent verification:
 | `seller_pagerank` | 0.7396 +/- 0.0220 | +0.0014 | [-0.0018, +0.0047] | p = 3.7401e-01 | p_adj = 1.0000e+00 |
 | `seller_buyer_concentration_hhi` | 0.7436 +/- 0.0201 | -0.0026 | [-0.0057, +0.0005] | p = 1.0023e-01 | p_adj = 1.0000e+00 |
 | `buyer_seller_edge_weight_before` | 0.7422 +/- 0.0206 | -0.0011 | [-0.0038, +0.0016] | p = 3.8836e-01 | p_adj = 1.0000e+00 |
+## 6. Comprehensive Per-Type Fraud Breakdown (20 Seeds Paired)
+
+Evaluates model discrimination against legitimate orders for each isolated fraud type, along with recall at operational review capacities:
+
+| Fraud Type | Model Variant | Isolated ROC-AUC (mean +/- std) | Recall @ 2% Budget | Recall @ 5% Budget | Recall @ 10% Budget |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **fake_listing** | Tabular Baseline (b) | 0.8327 +/- 0.0186 | 42.46% | 54.71% | 62.97% |
+| | Tabular + Graph (c) | 0.8243 +/- 0.0152 | 42.68% | 53.54% | 60.53% |
+| **return_abuse** | Tabular Baseline (b) | 0.9098 +/- 0.0334 | 29.31% | 72.71% | 78.65% |
+| | Tabular + Graph (c) | 0.9138 +/- 0.0298 | 28.75% | 72.70% | 79.14% |
+| **coordinated_fraud** | Tabular Baseline (b) | 0.6403 +/- 0.0433 | 0.67% | 8.24% | 21.64% |
+| | Tabular + Graph (c) | 0.6872 +/- 0.0636 | 0.68% | 9.73% | 26.69% |
+| **seller_buyer_collusion** | Tabular Baseline (b) | 0.5001 +/- 0.0422 | 0.40% | 2.22% | 6.86% |
+| | Tabular + Graph (c) | 0.4971 +/- 0.0384 | 0.45% | 2.11% | 6.37% |
+
+## 7. Horizon Audit: Daily Fraud Rate Over Last 14 Days vs Test Mean
+
+- **Test-Period Mean Fraud Rate**: `8.85%`
+- **Root Cause of Dec 31 Seed 42 Discrepancy**: In pre-audit commits prior to af919e85e8, burst starts in inject_seller_buyer_collusion and inject_coordinated_fraud sampled windows without bounding burst_span_days against SIM_END, clamping late orders to Dec 31 (20 fraud orders for Seed 42). Following the burst window fix [floor, SIM_END - needed_span], bursts fit within the horizon without artificial clamping, yielding 7 fraud orders for Seed 42 on Dec 31.
+
+| Date | Daily Fraud Rate (mean +/- std) | Difference vs Test Period Mean |
+| :--- | :---: | :---: |
+| `2025-12-18` | 10.24% +/- 2.63% | +1.39% |
+| `2025-12-19` | 11.19% +/- 1.41% | +2.34% |
+| `2025-12-20` | 11.31% +/- 2.15% | +2.46% |
+| `2025-12-21` | 10.42% +/- 1.79% | +1.57% |
+| `2025-12-22` | 10.35% +/- 1.05% | +1.50% |
+| `2025-12-23` | 11.03% +/- 1.77% | +2.18% |
+| `2025-12-24` | 11.23% +/- 1.92% | +2.38% |
+| `2025-12-25` | 10.65% +/- 1.58% | +1.80% |
+| `2025-12-26` | 9.45% +/- 1.80% | +0.60% |
+| `2025-12-27` | 7.26% +/- 1.28% | -1.59% |
+| `2025-12-28` | 7.27% +/- 1.67% | -1.58% |
+| `2025-12-29` | 6.68% +/- 1.79% | -2.17% |
+| `2025-12-30` | 5.89% +/- 2.27% | -2.96% |
+| `2025-12-31` | 2.21% +/- 0.60% | -6.64% |
+
+## 8. Test-Set Calibration: Expected Calibration Error (ECE)
+
+- **Tabular Baseline (b) Test ECE**: 0.0477 +/- 0.0111
+- **Tabular + Graph (c) Test ECE**: 0.0591 +/- 0.0125
+
+## 12. What This Does NOT Show
+
+To maintain scientific honesty and prevent over-interpretation of experimental results:
+
+1. **Does NOT show GNN superiority over gradient boosted trees:** Integrating out-of-fold GNN embeddings into XGBoost results in net negative lift (-0.0263 ROC-AUC, p = 0.0083). Tabular trees with point-in-time graph features remain superior.
+2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0115 ROC-AUC, +0.0088 PR-AUC). Historical reports claiming double-digit lifts suffered from temporal leakage or unadjusted baselines.
+3. **Does NOT show that a 0.50 threshold is viable in production:** Under marketplace base rates (~7%), thresholding at 0.50 yields < 1% recall. Deployment requires capacity-calibrated threshold policies.
+4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.048 - 0.059) due to temporal drift, even though in-sample isotonic validation achieves 0.0000.
+5. **Does NOT show identical lift on production traffic without shadow validation:** Synthetic generators mirror adversarial attack mechanics, but live merchant traffic requires continuous covariate and chargeback monitoring.

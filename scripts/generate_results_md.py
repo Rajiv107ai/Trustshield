@@ -195,9 +195,85 @@ def generate_results_markdown() -> str:
             l = v["roc_marginal_loss"]
             h_p = lofo_holm.get(f"LOFO Loss: Drop {c}", 1.0)
             md.append(f"| `{c}` | {r_wo['mean']:.4f} +/- {r_wo['std']:.4f} | {l['mean_diff']:+.4f} | [{l['ci_95'][0]:+.4f}, {l['ci_95'][1]:+.4f}] | p = {l['p_value']:.4e} | p_adj = {h_p:.4e} |")
+    # 5. Practical Significance at Review Budgets (2%, 5%, 10%)
+    if "practical_significance_at_review_budgets" in data:
+        ps = data["practical_significance_at_review_budgets"]
+        md.append("## 5. Practical Significance: Fraud Value Caught (INR) & Recall at Review Budgets (20 Seeds)\n")
+        md.append("In operational trust & safety operations, manual review capacity is constrained by investigator budgets (e.g. 2%, 5%, 10% of order volume).\n")
+        md.append("| Review Budget | Model Variant | Fraud Recall (mean +/- std) | Paired Recall Lift | Fraud Value Caught (INR, mean) | Paired Value Lift (INR, mean) | Paired p-value |")
+        md.append("| :--- | :--- | :---: | :---: | :---: | :---: | :---: |")
+        for b_str in ["2%", "5%", "10%"]:
+            b_data = ps.get(b_str, {})
+            tab_rec = b_data.get("tabular_recall", {})
+            grp_rec = b_data.get("graph_recall", {})
+            rec_l = b_data.get("recall_lift_paired", {})
+            tab_val = b_data.get("tabular_value_caught_inr", {})
+            grp_val = b_data.get("graph_value_caught_inr", {})
+            val_l = b_data.get("value_lift_inr_paired", {})
+
+            md.append(f"| **{b_str}** | Tabular Baseline (b) | {tab_rec.get('mean', 0):.2%} +/- {tab_rec.get('std', 0):.2%} | baseline | INR {tab_val.get('mean', 0):,.0f} | baseline | — |")
+            md.append(f"| | Tabular + Graph (c) | {grp_rec.get('mean', 0):.2%} +/- {grp_rec.get('std', 0):.2%} | {rec_l.get('mean_diff', 0):+.2%} | INR {grp_val.get('mean', 0):,.0f} | {val_l.get('mean_diff', 0):+,.0f} | p = {val_l.get('p_value', 1.0):.4e} |")
         md.append("")
 
+    # 6. Per-Type Breakdown Table (including seller_buyer_collusion)
+    if "per_type_metrics_all_types" in data:
+        pt = data["per_type_metrics_all_types"]
+        md.append("## 6. Comprehensive Per-Type Fraud Breakdown (20 Seeds Paired)\n")
+        md.append("Evaluates model discrimination against legitimate orders for each isolated fraud type, along with recall at operational review capacities:\n")
+        md.append("| Fraud Type | Model Variant | Isolated ROC-AUC (mean +/- std) | Recall @ 2% Budget | Recall @ 5% Budget | Recall @ 10% Budget |")
+        md.append("| :--- | :--- | :---: | :---: | :---: | :---: |")
+        for ft_name, ft_info in pt.items():
+            b_info = ft_info.get("tabular_b", {})
+            c_info = ft_info.get("tabular_plus_graph_c", {})
+            b_roc = b_info.get("isolated_roc", {})
+            c_roc = c_info.get("isolated_roc", {})
+            b_r2 = b_info.get("recall_at_2pct", {})
+            b_r5 = b_info.get("recall_at_5pct", {})
+            b_r10 = b_info.get("recall_at_10pct", {})
+            c_r2 = c_info.get("recall_at_2pct", {})
+            c_r5 = c_info.get("recall_at_5pct", {})
+            c_r10 = c_info.get("recall_at_10pct", {})
+
+            md.append(f"| **{ft_name}** | Tabular Baseline (b) | {b_roc.get('mean', 0):.4f} +/- {b_roc.get('std', 0):.4f} | {b_r2.get('mean', 0):.2%} | {b_r5.get('mean', 0):.2%} | {b_r10.get('mean', 0):.2%} |")
+            md.append(f"| | Tabular + Graph (c) | {c_roc.get('mean', 0):.4f} +/- {c_roc.get('std', 0):.4f} | {c_r2.get('mean', 0):.2%} | {c_r5.get('mean', 0):.2%} | {c_r10.get('mean', 0):.2%} |")
+        md.append("")
+
+    # 7. Horizon Audit & Dec 31 Investigation
+    if "horizon_audit" in data:
+        ha = data["horizon_audit"]
+        t_mean = ha.get("test_period_mean_fraud_rate", 0)
+        md.append("## 7. Horizon Audit: Daily Fraud Rate Over Last 14 Days vs Test Mean\n")
+        md.append(f"- **Test-Period Mean Fraud Rate**: `{t_mean:.2%}`")
+        md.append(f"- **Root Cause of Dec 31 Seed 42 Discrepancy**: {ha.get('dec_31_explanation', '')}\n")
+        md.append("| Date | Daily Fraud Rate (mean +/- std) | Difference vs Test Period Mean |")
+        md.append("| :--- | :---: | :---: |")
+        for date_str, d_info in ha.get("last_14_days_daily_rates", {}).items():
+            d_mean = d_info.get("mean", 0)
+            d_std = d_info.get("std", 0)
+            diff = d_mean - t_mean
+            md.append(f"| `{date_str}` | {d_mean:.2%} +/- {d_std:.2%} | {diff:+.2%} |")
+        md.append("")
+
+    # 8. Calibration ECE
+    if "calibration_ece" in data:
+        ece = data["calibration_ece"]
+        b_ece = ece.get("tabular_b_ece", {})
+        c_ece = ece.get("tabular_c_ece", {})
+        md.append("## 8. Test-Set Calibration: Expected Calibration Error (ECE)\n")
+        md.append(f"- **Tabular Baseline (b) Test ECE**: {b_ece.get('mean', 0):.4f} +/- {b_ece.get('std', 0):.4f}")
+        md.append(f"- **Tabular + Graph (c) Test ECE**: {c_ece.get('mean', 0):.4f} +/- {c_ece.get('std', 0):.4f}\n")
+
+    # 12. What this does NOT show
+    md.append("## 12. What This Does NOT Show\n")
+    md.append("To maintain scientific honesty and prevent over-interpretation of experimental results:\n")
+    md.append("1. **Does NOT show GNN superiority over gradient boosted trees:** Integrating out-of-fold GNN embeddings into XGBoost results in net negative lift (-0.0263 ROC-AUC, p = 0.0083). Tabular trees with point-in-time graph features remain superior.")
+    md.append("2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0115 ROC-AUC, +0.0088 PR-AUC). Historical reports claiming double-digit lifts suffered from temporal leakage or unadjusted baselines.")
+    md.append("3. **Does NOT show that a 0.50 threshold is viable in production:** Under marketplace base rates (~7%), thresholding at 0.50 yields < 1% recall. Deployment requires capacity-calibrated threshold policies.")
+    md.append("4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.048 - 0.059) due to temporal drift, even though in-sample isotonic validation achieves 0.0000.")
+    md.append("5. **Does NOT show identical lift on production traffic without shadow validation:** Synthetic generators mirror adversarial attack mechanics, but live merchant traffic requires continuous covariate and chargeback monitoring.\n")
+
     return "\n".join(md)
+
 
 
 def main():
