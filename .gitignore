@@ -43,3 +43,4 @@ trustshield_project/synthetic_data_export/*.gz
 # Generated mesh seed files
 scripts/seed_graph.cypher
 scripts/seed_redis.txt
+scratch/
