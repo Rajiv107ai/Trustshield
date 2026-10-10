@@ -1,5 +1,8 @@
 # TrustShield AI — E-Commerce Fraud Intelligence Platform
 
+> [!WARNING]
+> Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
+
 [![Python](https://img.shields.io/badge/Python-3.10+_%7C_3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-16_(React_19)-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)

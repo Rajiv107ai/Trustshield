@@ -184,14 +184,21 @@ def build_return_features(returns_df, orders_df, buyers_df, sellers_df):
     return df, feature_cols
 
 
-def run_return_fraud_detector(returns_df, orders_df, buyers_df, sellers_df):
-    """Executes return fraud detection pipeline."""
+def run_return_fraud_detector(returns_df, orders_df, buyers_df, sellers_df, exclude_last_21_days=True):
+    """Executes return fraud detection pipeline.
+    
+    Orders placed in the final 21 days of the horizon (after 2025-12-10) are subject
+    to right-censoring and are excluded from the test split to prevent evaluation distortion.
+    """
     df, feature_cols = build_return_features(returns_df, orders_df, buyers_df, sellers_df)
     train = df[df["return_date"] <= TRAIN_END]
     val = df[(df["return_date"] > TRAIN_END) & (df["return_date"] <= VAL_END)]
     test = df[df["return_date"] > VAL_END]
+    if exclude_last_21_days:
+        uncensored_cutoff = pd.Timestamp("2025-12-31") - pd.Timedelta(days=21)
+        test = test[test["order_date"] <= uncensored_cutoff]
 
-    print(f"\nReturn Fraud Detector — Train: {len(train)} ({train['y'].mean():.2%}), Val: {len(val)}, Test: {len(test)}")
+    print(f"\nReturn Fraud Detector — Train: {len(train)} ({train['y'].mean():.2%}), Val: {len(val)}, Test (uncensored): {len(test)}")
     return train_eval(train, val, test, feature_cols, "Return Fraud Detector", amount_col="order_amount", fp_cost=100)
 
 

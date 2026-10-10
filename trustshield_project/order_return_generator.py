@@ -43,9 +43,10 @@ def generate_order_date_candidates(signup_date, n: int, sim_end=SIM_END,
                                    rng: np.random.Generator | None = None) -> list:
     """Generates order dates respecting buyer registration date."""
     gen = rng if rng is not None else globals()["rng"]
-    window_days = max(1, (sim_end - signup_date).days)
+    window_days = max(1, (sim_end - signup_date).days + 1)
     offsets = (gen.random(n) ** 1.3) * window_days
-    return [signup_date + timedelta(days=int(d)) for d in offsets]
+    # Clamp to sim_end in case floating point offset hits exactly window_days
+    return [min(sim_end, signup_date + timedelta(days=int(d))) for d in offsets]
 
 
 def generate_orders(buyers_df: pd.DataFrame, listings_df: pd.DataFrame, 

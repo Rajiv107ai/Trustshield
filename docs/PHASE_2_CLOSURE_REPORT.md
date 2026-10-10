@@ -1,5 +1,8 @@
 # TrustShield — Phase 2 Closure Audit Report
 
+> [!WARNING]
+> Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
+
 **Audit Branch:** `fix/phase-2-integrity`  
 **Audit Timestamp:** 2026-10-09T16:25:00+05:30  
 **Audit Baseline Commit:** `4615a53602d0a4ffe447d4d2fd14bd69a70bf740` (HEAD of `main`)  

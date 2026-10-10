@@ -1,6 +1,9 @@
 # TrustShield AI — Phase 2 Final Report
 **Evaluation Integrity, Security Hardening, Empirical Benchmarking & Quality Assurance**
 
+> [!WARNING]
+> Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
+
 ---
 
 ## 1. Executive Summary

@@ -1,5 +1,8 @@
 # TrustShield — Phase 2 Metric Reconciliation & Forensic Report
 
+> [!WARNING]
+> Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
+
 **Document Version:** 1.0.0  
 **Timestamp:** 2026-10-09T16:25:00+05:30  
 **Audited Branch:** `fix/phase-2-integrity`  

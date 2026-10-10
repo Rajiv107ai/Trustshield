@@ -208,7 +208,9 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
         # Resample orders so return abuse window fits inside SIM_END horizon without clamping
         fit_orders = buyer_orders[buyer_orders["order_date"] <= SIM_END - timedelta(days=6)]
         if len(fit_orders) < n_abuse:
-            fit_orders = buyer_orders
+            fit_orders = buyer_orders[buyer_orders["order_date"] <= SIM_END - timedelta(days=1)]
+        if len(fit_orders) == 0:
+            continue
         targeted_orders = fit_orders.sample(
             n=min(n_abuse, len(fit_orders)),
             random_state=int(gen.integers(0, 2**31)),
@@ -222,19 +224,20 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
             if order["order_id"] in already_returned_ids:
                 updated_return_ids_to_fraud.append(order["order_id"])
             else:
-                max_avail_delay = max(1, (SIM_END - order["order_date"]).days)
-                delay = int(gen.integers(1, min(6, max_avail_delay + 1)))
-                reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
-                new_return_rows.append({
-                    "return_id": f"RETURN_FRAUD_{return_counter:06d}",
-                    "order_id": order["order_id"],
-                    "buyer_id": order["buyer_id"],
-                    "seller_id": order["seller_id"],
-                    "return_date": order["order_date"] + timedelta(days=delay),
-                    "reason": reason,
-                    "status": "approved",
-                })
-                return_counter += 1
+                avail_delay = (SIM_END - order["order_date"]).days
+                if avail_delay >= 1:
+                    delay = int(gen.integers(1, min(6, avail_delay + 1)))
+                    reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
+                    new_return_rows.append({
+                        "return_id": f"RETURN_FRAUD_{return_counter:06d}",
+                        "order_id": order["order_id"],
+                        "buyer_id": order["buyer_id"],
+                        "seller_id": order["seller_id"],
+                        "return_date": order["order_date"] + timedelta(days=delay),
+                        "reason": reason,
+                        "status": "approved",
+                    })
+                    return_counter += 1
 
         ring_id = f"RING_ABUSE_{min(buyer_id, partner_of.get(buyer_id, buyer_id))}" \
             if buyer_id in partner_of else f"RING_ABUSE_{buyer_id}"
@@ -266,7 +269,8 @@ def inject_return_abuse(buyers_df, orders_df, returns_df, address_sharing_log,
 # ---------------------------------------------------------------------------
 
 def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, device_sharing_log,
-                            already_fraud_order_ids, target_fraud_orders, rng=None):
+                            already_fraud_order_ids, target_fraud_orders, rng=None,
+                            ring_coherent: bool = False):
     """
     Groups buyers connected by fraud_linked device sharing into rings
     (connected components), then for each ring reschedules a subset of
@@ -274,13 +278,10 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
     sybil / multi-accounting pattern where linked accounts transact in a
     tight cluster rather than spread naturally across the year.
 
-    The burst window for a ring is always chosen *after* both the latest
-    listing_date AND the latest buyer signup_date among the orders being
-    moved, so neither order_date >= listing_date nor order_date >= buyer
-    signup_date is ever violated by the reschedule. Orders that already
-    have a return on file are excluded from the reschedule pool entirely —
-    moving order_date forward without also shifting that return's date
-    would leave a return dated before its own order.
+    When ring_coherent=True:
+    1. Burst orders adopt the shared device linking the ring.
+    2. The sharing log first_seen_date is derived as <= the burst order dates
+       (min of order date and existing first_seen), ensuring causal coherence.
     """
     gen = rng if rng is not None else globals()["rng"]
     fraud_pairs = device_sharing_log[device_sharing_log["share_type"] == "fraud_linked"]
@@ -290,11 +291,6 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
         uf.union(row["buyer_id"], row["shared_with_buyer_id"])
 
     rings = {}
-    # sorted() here is not cosmetic — Python's string-set iteration order is
-    # hash-randomized per process (PYTHONHASHSEED), so without sorting, ring
-    # processing order (and therefore every downstream rng draw) silently
-    # differed between runs even with a fixed rng seed. Verified empirically:
-    # two runs produced different is_fraudulent counts before this fix.
     for buyer_id in sorted(set(fraud_pairs["buyer_id"]) | set(fraud_pairs["shared_with_buyer_id"])):
         root = uf.find(buyer_id)
         rings.setdefault(root, set()).add(buyer_id)
@@ -305,6 +301,7 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
     already_returned_order_ids = set(returns_df["order_id"])
 
     orders_df = orders_df.copy()
+    device_sharing_log = device_sharing_log.copy()
     eligible_orders = orders_df[
         (~orders_df["order_id"].isin(already_fraud_order_ids)) &
         (~orders_df["order_id"].isin(already_returned_order_ids))
@@ -314,6 +311,7 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
     fraud_order_ids = set()
     running_total = 0
     reschedule_map = {}  # order_id -> new order_date
+    reschedule_dev_map = {}  # order_id -> shared device_id (when ring_coherent=True)
 
     ring_ids = list(rings.keys())
     gen.shuffle(ring_ids)
@@ -354,11 +352,30 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
         rem_days = max(1, (SIM_END - burst_start).days)
         effective_span = min(burst_span_days, rem_days)
 
+        # In coherent mode, pick the shared device for the ring
+        ring_device = None
+        if ring_coherent:
+            rp = fraud_pairs[fraud_pairs["buyer_id"].isin(members) & fraud_pairs["shared_with_buyer_id"].isin(members)]
+            ring_device = rp["shared_device_id"].iloc[0] if len(rp) > 0 else f"DEV_COORD_{root}"
+
+        earliest_order_in_burst = SIM_END
         for order_id in taken["order_id"]:
             offset = int(gen.integers(0, effective_span))
-            reschedule_map[order_id] = burst_start + timedelta(days=offset)
+            new_dt = burst_start + timedelta(days=offset)
+            reschedule_map[order_id] = new_dt
+            if new_dt < earliest_order_in_burst:
+                earliest_order_in_burst = new_dt
+            if ring_coherent and ring_device:
+                reschedule_dev_map[order_id] = ring_device
             fraud_order_ids.add(order_id)
             running_total += 1
+
+        if ring_coherent:
+            p_mask = device_sharing_log["buyer_id"].isin(members) & device_sharing_log["shared_with_buyer_id"].isin(members)
+            if p_mask.any():
+                device_sharing_log.loc[p_mask, "first_seen_date"] = device_sharing_log.loc[p_mask, "first_seen_date"].apply(
+                    lambda d: min(pd.to_datetime(d), earliest_order_in_burst)
+                )
 
         ring_id_label = f"RING_COORD_{root}"
         for member in members:
@@ -370,10 +387,12 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
     if reschedule_map:
         mask = orders_df["order_id"].isin(reschedule_map.keys())
         orders_df.loc[mask, "order_date"] = orders_df.loc[mask, "order_id"].map(reschedule_map)
+        if ring_coherent and reschedule_dev_map:
+            orders_df.loc[mask, "device_id"] = orders_df.loc[mask, "order_id"].map(reschedule_dev_map)
         orders_df.loc[mask, "is_fraudulent"] = True
         orders_df.loc[mask, "fraud_type"] = "coordinated_fraud"
 
-    return orders_df, fraud_order_ids, pd.DataFrame(ledger_rows)
+    return orders_df, fraud_order_ids, pd.DataFrame(ledger_rows), device_sharing_log
 
 
 # ---------------------------------------------------------------------------
@@ -381,29 +400,23 @@ def inject_coordinated_fraud(orders_df, listings_df, buyers_df, returns_df, devi
 # ---------------------------------------------------------------------------
 
 def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
-                                  already_fraud_order_ids, target_fraud_orders, rng=None):
+                                  already_fraud_order_ids, target_fraud_orders,
+                                  device_sharing_log=None, rng=None,
+                                  ring_coherent: bool = False):
     """
     Picks a seller and a small group (3-6) of their repeat buyers, then
     concentrates a burst of orders + near-automatic 'approved' refund
-    returns between just that group and that seller — simulating a seller
-    and a handful of buyer accounts self-dealing to fabricate revenue and
-    then extract refunds, rather than genuine independent customers.
-
-    Like coordinated_fraud, the group's chosen orders are rescheduled into
-    a short burst window (5-14 days — slightly longer than coordinated
-    fraud's 3-7, since a collusion "campaign" plausibly runs a bit longer
-    before the seller account gets flagged) so this scenario leaves an
-    actual detectable temporal/structural signature — a seller receiving
-    a burst of repeat business from the same small buyer set — rather than
-    just being scattered pre-existing orders with extra returns attached.
-    The burst window respects both listing_date and buyer signup_date, and
-    orders that already have a return on file are excluded from the pool
-    entirely (same reasoning as coordinated_fraud: rescheduling without
-    also shifting an existing return would leave it dated before its own
-    order).
+    returns between just that group and that seller.
+    
+    When ring_coherent=True:
+    1. Colluding buyers adopt a shared device DEV_COLLUSION_{seller_id} for burst orders.
+    2. Edge records are added to device_sharing_log with first_seen_date derived as
+       <= the burst order dates, ensuring causal coherence.
     """
     gen = rng if rng is not None else globals()["rng"]
     orders_df = orders_df.copy()
+    if device_sharing_log is not None:
+        device_sharing_log = device_sharing_log.copy()
     already_returned_ids = set(returns_df["order_id"])
     eligible_orders = orders_df[
         (~orders_df["order_id"].isin(already_fraud_order_ids)) &
@@ -419,10 +432,12 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
 
     ledger_rows = []
     new_return_rows = []
+    new_sharing_rows = []
     fraud_order_ids = set()
     running_total = 0
     return_counter = len(returns_df) + 100000  # offset to avoid id collision with return_abuse block
     reschedule_map = {}
+    reschedule_dev_map = {}
 
     for seller_id in candidate_sellers:
         if running_total >= target_fraud_orders:
@@ -437,9 +452,6 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
         colluding_buyers = gen.choice(buyer_pool, size=group_size, replace=False)
 
         group_orders = seller_orders[seller_orders["buyer_id"].isin(colluding_buyers)]
-        n_take = min(len(group_orders), max(3, int(gen.integers(3, 10))))
-        taken = group_orders.sample(n=n_take, random_state=int(gen.integers(0, 2**31)))
-
         burst_span_days = int(gen.integers(5, 15))
         max_return_delay = 4
         total_window_needed = burst_span_days + max_return_delay
@@ -468,10 +480,29 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
 
         rem_days = max(1, (SIM_END - burst_start).days)
         effective_span = min(burst_span_days, max(1, rem_days - max_return_delay))
+        collusion_dev = f"DEV_COLLUSION_{seller_id}"
 
+        earliest_order_in_burst = SIM_END
         for order_id in taken["order_id"]:
             offset = int(gen.integers(0, effective_span))
-            reschedule_map[order_id] = burst_start + timedelta(days=offset)
+            new_dt = burst_start + timedelta(days=offset)
+            reschedule_map[order_id] = new_dt
+            if new_dt < earliest_order_in_burst:
+                earliest_order_in_burst = new_dt
+            if ring_coherent:
+                reschedule_dev_map[order_id] = collusion_dev
+
+        if ring_coherent and device_sharing_log is not None:
+            c_buyers = list(colluding_buyers)
+            for i in range(len(c_buyers)):
+                for j in range(i + 1, len(c_buyers)):
+                    new_sharing_rows.append({
+                        "buyer_id": c_buyers[i],
+                        "shared_with_buyer_id": c_buyers[j],
+                        "shared_device_id": collusion_dev,
+                        "share_type": "fraud_linked",
+                        "first_seen_date": earliest_order_in_burst,
+                    })
 
         for _, order in taken.iterrows():
             fraud_order_ids.add(order["order_id"])
@@ -479,19 +510,20 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
             new_order_date = reschedule_map[order["order_id"]]
 
             if gen.random() < 0.8:
-                max_avail_delay = max(1, (SIM_END - new_order_date).days)
-                delay = int(gen.integers(1, min(4, max_avail_delay + 1)))
-                reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
-                new_return_rows.append({
-                    "return_id": f"RETURN_COLLUSION_{return_counter:06d}",
-                    "order_id": order["order_id"],
-                    "buyer_id": order["buyer_id"],
-                    "seller_id": order["seller_id"],
-                    "return_date": new_order_date + timedelta(days=delay),
-                    "reason": reason,
-                    "status": "approved",
-                })
-                return_counter += 1
+                avail_delay = (SIM_END - new_order_date).days
+                if avail_delay >= 1:
+                    delay = int(gen.integers(1, min(4, avail_delay + 1)))
+                    reason = gen.choice(RETURN_REASONS, p=RETURN_REASON_WEIGHTS)
+                    new_return_rows.append({
+                        "return_id": f"RETURN_COLLUSION_{return_counter:06d}",
+                        "order_id": order["order_id"],
+                        "buyer_id": order["buyer_id"],
+                        "seller_id": order["seller_id"],
+                        "return_date": new_order_date + timedelta(days=delay),
+                        "reason": reason,
+                        "status": "approved",
+                    })
+                    return_counter += 1
 
         ring_id = f"RING_COLLUSION_{seller_id}"
         ledger_rows.append({"fraud_ring_id": ring_id, "fraud_type": "seller_buyer_collusion",
@@ -508,6 +540,8 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
     if reschedule_map:
         resched_mask = orders_df["order_id"].isin(reschedule_map.keys())
         orders_df.loc[resched_mask, "order_date"] = orders_df.loc[resched_mask, "order_id"].map(reschedule_map)
+        if ring_coherent and reschedule_dev_map:
+            orders_df.loc[resched_mask, "device_id"] = orders_df.loc[resched_mask, "order_id"].map(reschedule_dev_map)
 
     returns_df = returns_df.copy()
     if new_return_rows:
@@ -516,6 +550,11 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
         new_df["fraud_type"] = "seller_buyer_collusion"
         returns_df = pd.concat([returns_df, new_df], ignore_index=True)
 
+    if ring_coherent and new_sharing_rows and device_sharing_log is not None:
+        device_sharing_log = pd.concat([device_sharing_log, pd.DataFrame(new_sharing_rows)], ignore_index=True)
+
+    if device_sharing_log is not None:
+        return orders_df, returns_df, fraud_order_ids, pd.DataFrame(ledger_rows), device_sharing_log
     return orders_df, returns_df, fraud_order_ids, pd.DataFrame(ledger_rows)
 
 
@@ -526,7 +565,7 @@ def inject_seller_buyer_collusion(orders_df, returns_df, listings_df, buyers_df,
 def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
                       address_sharing_log, device_sharing_log,
                       total_orders=None, target_rate=TARGET_FRAUD_RATE,
-                      rng=None):
+                      rng=None, ring_coherent: bool = False):
     gen = rng if rng is not None else globals()["rng"]
     total_orders = total_orders or len(orders_df)
     total_fraud_target = int(total_orders * target_rate)
@@ -541,10 +580,6 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
         listings_df, orders_df, products_df, target_n_fake_listings, rng=gen
     )
 
-    # fake_listing's actual order count is a byproduct of listing selection
-    # now, not a direct target — rebalance the other 3 types' order budgets
-    # off the REMAINING total so overall order-level fraud rate still lands
-    # close to target_rate, keeping their 30:20:10 relative proportions.
     remaining_budget = max(0, total_fraud_target - len(fake_ids))
     other_share_sum = FRAUD_TYPE_SHARE["return_abuse"] + FRAUD_TYPE_SHARE["coordinated_fraud"] \
         + FRAUD_TYPE_SHARE["seller_buyer_collusion"]
@@ -562,14 +597,16 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
 
     print("Injecting coordinated fraud...")
     already = fake_ids | abuse_ids
-    orders_df, coord_ids, ledger3 = inject_coordinated_fraud(
-        orders_df, listings_df, buyers_df, returns_df, device_sharing_log, already, targets["coordinated_fraud"], rng=gen
+    orders_df, coord_ids, ledger3, device_sharing_log = inject_coordinated_fraud(
+        orders_df, listings_df, buyers_df, returns_df, device_sharing_log, already, targets["coordinated_fraud"],
+        rng=gen, ring_coherent=ring_coherent
     )
 
     print("Injecting seller-buyer collusion...")
     already = already | coord_ids
-    orders_df, returns_df, collusion_ids, ledger4 = inject_seller_buyer_collusion(
-        orders_df, returns_df, listings_df, buyers_df, already, targets["seller_buyer_collusion"], rng=gen
+    orders_df, returns_df, collusion_ids, ledger4, device_sharing_log = inject_seller_buyer_collusion(
+        orders_df, returns_df, listings_df, buyers_df, already, targets["seller_buyer_collusion"],
+        device_sharing_log=device_sharing_log, rng=gen, ring_coherent=ring_coherent
     )
 
     # Merge fake-listing / return-abuse fraud flags onto orders_df too, so
@@ -594,6 +631,7 @@ def inject_all_fraud(listings_df, orders_df, returns_df, buyers_df, products_df,
         "orders": orders_df,
         "returns": returns_df,
         "fraud_ground_truth": fraud_ground_truth,
+        "device_sharing_log": device_sharing_log,
         "rng": gen,
     }
 
