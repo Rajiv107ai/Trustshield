@@ -799,16 +799,18 @@ def get_fraud_rings(
 
     ring_items: List[FraudRingItem] = []
     for _, row in df.iterrows():
-        raw_members = row.get("members")
+        r = row.to_dict()
+        raw_members = r.get("members")
         members_list = list(raw_members) if isinstance(raw_members, (list, tuple)) else []
+        avg_score = float(r.get("avg_risk_score", 0.0))
         ring_items.append(FraudRingItem(
-            ring_id=row["ring_id"],
-            size=int(row["size"]),
-            n_orders=int(row["n_orders"]),
-            avg_risk_score=float(row["avg_risk_score"]),
-            max_risk_score=float(row["max_risk_score"]),
-            n_high_risk_orders=int(row["n_high_risk_orders"]),
-            risk_label=_risk_label(row["avg_risk_score"]),
+            ring_id=str(r.get("ring_id", "")),
+            size=int(r.get("size", 0)),
+            n_orders=int(r.get("n_orders", 0)),
+            avg_risk_score=avg_score,
+            max_risk_score=float(r.get("max_risk_score", 0.0)),
+            n_high_risk_orders=int(r.get("n_high_risk_orders", 0)),
+            risk_label=_risk_label(avg_score),
             members=members_list,
         ))
 

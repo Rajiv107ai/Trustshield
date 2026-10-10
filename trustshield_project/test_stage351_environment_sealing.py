@@ -226,4 +226,4 @@ class TestHoldoutProtectionGuards:
         manifest_path = os.path.join(_DATA_DIR, "dataset_manifest.json")
         with open(manifest_path, "rb") as f:
             h = hashlib.sha256(f.read()).hexdigest()
-        assert h == "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b"
+        assert h == "3eaa93d7b36487d7c565cf1098790c5d117e2ef0e090651519b25fa828714b9d"

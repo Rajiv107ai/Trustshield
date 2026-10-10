@@ -1,8 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { getBaseApiUrl, setBaseApiUrl, TrustShieldApi } from "@/lib/api/client";
+import React, { createContext, useContext, useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import { setBaseApiUrl, TrustShieldApi } from "@/lib/api/client";
 import { ReadyResponse } from "@/lib/types/api";
+
+const emptySubscribe = () => () => {};
 
 export type ViewMode = "executive" | "inspector";
 
@@ -23,6 +25,7 @@ interface ViewModeContextType {
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [viewMode, setViewModeState] = useState<ViewMode>("executive");
   const [apiUrl, setApiUrlState] = useState<string>(
     (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "")
@@ -30,7 +33,6 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   const [isLive, setIsLive] = useState<boolean>(false);
   const [readyInfo, setReadyInfo] = useState<ReadyResponse | null>(null);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
-  const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -43,21 +45,21 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setIsMounted(true);
+    const timer = setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("trustshield_view_mode");
+        if (saved === "executive" || saved === "inspector") {
+          setViewModeState(saved as ViewMode);
+        }
+      } catch {}
 
-    try {
-      const saved = localStorage.getItem("trustshield_view_mode");
-      if (saved === "executive" || saved === "inspector") {
-        setViewModeState(saved as ViewMode);
-      }
-    } catch {}
-
-    try {
-      const customUrl = localStorage.getItem("trustshield_api_url");
-      if (customUrl) {
-        setApiUrlState(customUrl.replace(/\/+$/, ""));
-      }
-    } catch {}
+      try {
+        const customUrl = localStorage.getItem("trustshield_api_url");
+        if (customUrl) {
+          setApiUrlState(customUrl.replace(/\/+$/, ""));
+        }
+      } catch {}
+    }, 0);
 
     let mounted = true;
     TrustShieldApi.getReady()
@@ -80,6 +82,7 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
+      clearTimeout(timer);
       mounted = false;
       window.removeEventListener("keydown", handleKeyDown);
     };

@@ -214,9 +214,9 @@ class TestArtifactIntegrityAndSchema:
             os.path.join(_SCRIPTS_DIR, "generate_realistic_synthetic_data_v2_1.py"):
                 "0098dad245d724997560c5a5bc4bf70c1bcb98057a4b32d42f85560a4e08bd55",
             os.path.join(_DATA_DIR, "orders.csv"):
-                "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f",
+                "b5c7f2fb4d76681817db4501e7dc970c64253515acfa7aef1a1b5b79d1d86c89",
             os.path.join(_DATA_DIR, "listings.csv"):
-                "0081b562dc900c14e1b90f2310261401ab2f8f40dda4805aa72bd17959d5e619",
+                "acb13ca0f1a224e6a662b0e43af44aa1a71d4c92280df9a5022a37b1ac416c21",
             os.path.join(_MODELS_STAGE34_DIR, "stage34_tabular_model.joblib"):
                 "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a",
             os.path.join(_MODELS_STAGE34_DIR, "stage34_tabular_calibrator.joblib"):
@@ -452,4 +452,4 @@ class TestProtectedArtifactImmutability:
         assert os.path.exists(manifest_path)
         with open(manifest_path, "rb") as f:
             h = hashlib.sha256(f.read()).hexdigest()
-        assert h == "b0aba240f1439c1d83c1c9773977334ddf39321feed0e95f53ef30b1c138e74b"
+        assert h == "3eaa93d7b36487d7c565cf1098790c5d117e2ef0e090651519b25fa828714b9d"

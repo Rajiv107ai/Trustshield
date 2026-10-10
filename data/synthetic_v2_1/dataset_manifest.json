@@ -6,73 +6,73 @@
   "files": {
     "addresses.csv": {
       "row_count": 4950,
-      "file_size": 168343,
-      "sha256": "6bd1810838f5fff64f253d9a022f3cb69e3a87a65713a699f5d032ef2e2385cc"
+      "file_size": 163392,
+      "sha256": "2379029003fb529b61860c86c783f74b26562a1b9f4e20d211e82992f4d12d19"
     },
     "devices.csv": {
       "row_count": 5000,
-      "file_size": 185046,
-      "sha256": "fbff496bad859c4350faae2fc9488461a8d775f0399f73e5b4efb0efd5aef964"
+      "file_size": 180045,
+      "sha256": "87cb1bbdfec5311a7f8a73d961a64928b18dc2f7e238c20c35c13b0d324ed2a0"
     },
     "device_mapping.csv": {
       "row_count": 5400,
-      "file_size": 157031,
-      "sha256": "69e2ab78eb2d55515b2ea726d72c92049814d72083dde34a38c3c3df2560569c"
+      "file_size": 151630,
+      "sha256": "e4a9f67bbca26eb931e2194dee8d049331d0becec38c32df87c6522b9cb199fe"
     },
     "address_sharing_log.csv": {
       "row_count": 600,
-      "file_size": 47222,
-      "sha256": "858b6c3af3dad6d49ef464c2bbf0a9e425a86527ca285a4d026e9473a6a005ce"
+      "file_size": 46621,
+      "sha256": "c82478ccd80170f6dbdfc10f7b27fde46f06c52240ecd1e5aa2ca544eb0e7724"
     },
     "device_sharing_log.csv": {
       "row_count": 400,
-      "file_size": 31277,
-      "sha256": "2c2b0d691c15543d8930644a577546f9b52e2f0ee9f709e3c1f2cd994ab5cbf3"
+      "file_size": 30876,
+      "sha256": "fe64161efa99888ff411dcfbabefb1e7a4aadd93996cd2a6cf9f01c293ca1400"
     },
     "buyers.csv": {
       "row_count": 5000,
-      "file_size": 227006,
-      "sha256": "3113e81c0e7b4ac0d561ca90cbee541bed8290907f77aefee5badbf9943992b5"
+      "file_size": 222005,
+      "sha256": "f4369285611de38f03e3bbde3a62ee705bf8df916fbf8301b1fe89afb57a0fd1"
     },
     "sellers.csv": {
       "row_count": 500,
-      "file_size": 31524,
-      "sha256": "4368a6fd88ff4d6fab5b8dc4eb8af20a0123e9a5feb86d334f714ed608e61d3d"
+      "file_size": 31023,
+      "sha256": "d83042a0ae8511d0440983633dadd7e7af48fe71e8c5a9325989134dc5c25012"
     },
     "products.csv": {
       "row_count": 3000,
-      "file_size": 527904,
-      "sha256": "b699e4e80d59d50e48d912273b868d523d3180fcb52615ecda6898fefa02afa7"
+      "file_size": 524903,
+      "sha256": "f0a97cd76c583d6c5de41562348457627a38b2f4a3744bc87ed4924f51ea62de"
     },
     "listings.csv": {
       "row_count": 20000,
-      "file_size": 2173321,
-      "sha256": "0081b562dc900c14e1b90f2310261401ab2f8f40dda4805aa72bd17959d5e619"
+      "file_size": 2153320,
+      "sha256": "acb13ca0f1a224e6a662b0e43af44aa1a71d4c92280df9a5022a37b1ac416c21"
     },
     "orders.csv": {
       "row_count": 50000,
-      "file_size": 6417053,
-      "sha256": "325597a6e0c2afa533c01d26895457cba166cd0bc2c0f9ce4f12c43355741b8f"
+      "file_size": 6367052,
+      "sha256": "b5c7f2fb4d76681817db4501e7dc970c64253515acfa7aef1a1b5b79d1d86c89"
     },
     "returns.csv": {
       "row_count": 5537,
-      "file_size": 622972,
-      "sha256": "34eb6514d2ebe4b90608f31fb09fd71c2aa1709424d3e00c22c6a38df119a14a"
+      "file_size": 617434,
+      "sha256": "5fb395d0735b166e8a7196fe150b228580becac6ee5a8ab8ff833160f45c0378"
     },
     "fraud_ground_truth.csv": {
       "row_count": 2034,
-      "file_size": 128051,
-      "sha256": "5b56a996287f6d6bd6f23bf2312a49914c9a84b937ad75279f579255682d6929"
+      "file_size": 126016,
+      "sha256": "8fb738d2845e4e4132c41cf1ed996f1077ba386dbaf80ddaf22f777cd930d1be"
     },
     "generator_personas.csv": {
       "row_count": 5500,
-      "file_size": 168122,
-      "sha256": "79be2849c3441f3852d213cfa5cb3ff0ef6b30bd8c7574adbe9a6c4dd2891c89"
+      "file_size": 162621,
+      "sha256": "66d923d1db9356ff84bdc608423e022dec372f0871154f2f7e6e7d6535e15589"
     },
     "perturbation_audit.csv": {
       "row_count": 500,
-      "file_size": 43770,
-      "sha256": "6b2010d5286e49d07980d610bdd322e75f1a01f716cd59ee343150200ddb29a8"
+      "file_size": 43269,
+      "sha256": "fe4d2f252bdfaffcca9f191024f61a97296a3c3b9246676e13243fa5bae9d0bc"
     }
   }
 }
