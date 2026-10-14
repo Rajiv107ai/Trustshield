@@ -1,0 +1,217 @@
+{
+  "script": "scripts/evaluate_naive_connected_components_20seeds.py",
+  "definition": {
+    "graph": "base['address_sharing_log'] + base['device_sharing_log'] with event_date <= VAL_END",
+    "naive_baseline": "connected_components(size >= 2)",
+    "ring_recall_criterion": ">= 50% members detected in ground-truth ring cluster",
+    "ring_precision_criterion": ">= 50% component members belong to ground-truth ring"
+  },
+  "summary": {
+    "member_precision": {
+      "mean": 0.3723824723050977,
+      "std": 0.019111597135468103
+    },
+    "member_recall": {
+      "mean": 0.36920417189579446,
+      "std": 0.015545364387434974
+    },
+    "member_f1": {
+      "mean": 0.37067259113031226,
+      "std": 0.015890423305304015
+    },
+    "ring_precision": {
+      "mean": 0.44099780548332596,
+      "std": 0.021663014952994088
+    },
+    "ring_recall": {
+      "mean": 0.45603625226276606,
+      "std": 0.020687361451486384
+    },
+    "ring_f1": {
+      "mean": 0.44801474459036744,
+      "std": 0.016520932934290744
+    }
+  },
+  "per_seed_runs": [
+    {
+      "seed": 42,
+      "member_precision": 0.41785714285714287,
+      "member_recall": 0.3722163308589608,
+      "member_f1": 0.3937184520471116,
+      "ring_precision": 0.4776902887139108,
+      "ring_recall": 0.4444444444444444,
+      "ring_f1": 0.4604680581910183
+    },
+    {
+      "seed": 101,
+      "member_precision": 0.3632183908045977,
+      "member_recall": 0.35545556805399325,
+      "member_f1": 0.3592950540079591,
+      "ring_precision": 0.45038167938931295,
+      "ring_recall": 0.455012853470437,
+      "ring_f1": 0.4526854219948849
+    },
+    {
+      "seed": 202,
+      "member_precision": 0.363013698630137,
+      "member_recall": 0.365097588978186,
+      "member_f1": 0.3640526617057814,
+      "ring_precision": 0.44472361809045224,
+      "ring_recall": 0.46134020618556704,
+      "ring_f1": 0.4528795437327578
+    },
+    {
+      "seed": 303,
+      "member_precision": 0.3557800224466891,
+      "member_recall": 0.3518312985571587,
+      "member_f1": 0.35379464285714285,
+      "ring_precision": 0.4158415841584158,
+      "ring_recall": 0.4534005037783375,
+      "ring_f1": 0.4338096057841281
+    },
+    {
+      "seed": 404,
+      "member_precision": 0.37001078748651567,
+      "member_recall": 0.3765093304061471,
+      "member_f1": 0.37323177366702937,
+      "ring_precision": 0.4213075060532688,
+      "ring_recall": 0.49278846153846156,
+      "ring_f1": 0.4542531311883552
+    },
+    {
+      "seed": 505,
+      "member_precision": 0.40301974448315914,
+      "member_recall": 0.3834254143646409,
+      "member_f1": 0.3929784824462061,
+      "ring_precision": 0.46547314578005117,
+      "ring_recall": 0.4795180722891566,
+      "ring_f1": 0.472391237715128
+    },
+    {
+      "seed": 606,
+      "member_precision": 0.36080178173719374,
+      "member_recall": 0.3656884875846501,
+      "member_f1": 0.3632286995515695,
+      "ring_precision": 0.4226044226044226,
+      "ring_recall": 0.45454545454545453,
+      "ring_f1": 0.43799337916984976
+    },
+    {
+      "seed": 707,
+      "member_precision": 0.37254901960784315,
+      "member_recall": 0.3693304535637149,
+      "member_f1": 0.3709327548806941,
+      "ring_precision": 0.44418052256532065,
+      "ring_recall": 0.45323741007194246,
+      "ring_f1": 0.4486632645289055
+    },
+    {
+      "seed": 808,
+      "member_precision": 0.3808988764044944,
+      "member_recall": 0.3684782608695652,
+      "member_f1": 0.37458563535911604,
+      "ring_precision": 0.45614035087719296,
+      "ring_recall": 0.43099273607748184,
+      "ring_f1": 0.44321011300517144
+    },
+    {
+      "seed": 909,
+      "member_precision": 0.3713620488940629,
+      "member_recall": 0.36624569460390355,
+      "member_f1": 0.3687861271676301,
+      "ring_precision": 0.4362244897959184,
+      "ring_recall": 0.4381188118811881,
+      "ring_f1": 0.43716959875205824
+    },
+    {
+      "seed": 1001,
+      "member_precision": 0.36220472440944884,
+      "member_recall": 0.36261261261261263,
+      "member_f1": 0.3624085537422623,
+      "ring_precision": 0.4474327628361858,
+      "ring_recall": 0.4575,
+      "ring_f1": 0.4524103831891224
+    },
+    {
+      "seed": 1102,
+      "member_precision": 0.34124293785310733,
+      "member_recall": 0.3443557582668187,
+      "member_f1": 0.3427922814982974,
+      "ring_precision": 0.40145985401459855,
+      "ring_recall": 0.44854881266490765,
+      "ring_f1": 0.42370001132887736
+    },
+    {
+      "seed": 1203,
+      "member_precision": 0.3989247311827957,
+      "member_recall": 0.41498881431767337,
+      "member_f1": 0.4067982456140351,
+      "ring_precision": 0.4613583138173302,
+      "ring_recall": 0.5062034739454094,
+      "ring_f1": 0.4827416380879165
+    },
+    {
+      "seed": 1304,
+      "member_precision": 0.364367816091954,
+      "member_recall": 0.3561797752808989,
+      "member_f1": 0.36022727272727273,
+      "ring_precision": 0.4416243654822335,
+      "ring_recall": 0.41624365482233505,
+      "ring_f1": 0.4285585558525817
+    },
+    {
+      "seed": 1405,
+      "member_precision": 0.3898678414096916,
+      "member_recall": 0.3924611973392461,
+      "member_f1": 0.3911602209944751,
+      "ring_precision": 0.46116504854368934,
+      "ring_recall": 0.4723618090452261,
+      "ring_f1": 0.46669628158561755
+    },
+    {
+      "seed": 1506,
+      "member_precision": 0.3853211009174312,
+      "member_recall": 0.3684210526315789,
+      "member_f1": 0.3766816143497758,
+      "ring_precision": 0.46464646464646464,
+      "ring_recall": 0.4602409638554217,
+      "ring_f1": 0.46243322192689285
+    },
+    {
+      "seed": 1607,
+      "member_precision": 0.3563348416289593,
+      "member_recall": 0.369284876905041,
+      "member_f1": 0.36269430051813467,
+      "ring_precision": 0.42039800995024873,
+      "ring_recall": 0.44386422976501305,
+      "ring_f1": 0.4318125455597556
+    },
+    {
+      "seed": 1708,
+      "member_precision": 0.3564463705308776,
+      "member_recall": 0.3684210526315789,
+      "member_f1": 0.3623348017621145,
+      "ring_precision": 0.41371158392434987,
+      "ring_recall": 0.4339152119700748,
+      "ring_f1": 0.42357261592605217
+    },
+    {
+      "seed": 1809,
+      "member_precision": 0.3532058492688414,
+      "member_recall": 0.35400225479143177,
+      "member_f1": 0.35360360360360366,
+      "ring_precision": 0.41379310344827586,
+      "ring_recall": 0.45905707196029777,
+      "ring_f1": 0.4352514459366729
+    },
+    {
+      "seed": 1910,
+      "member_precision": 0.38122171945701355,
+      "member_recall": 0.37907761529808776,
+      "member_f1": 0.380146644106035,
+      "ring_precision": 0.45979899497487436,
+      "ring_recall": 0.4593908629441624,
+      "ring_f1": 0.45959483835160264
+    }
+  ]
+}
