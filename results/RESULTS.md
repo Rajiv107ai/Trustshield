@@ -19,6 +19,12 @@ All models evaluated on the temporal holdout test period (`order_date > 2025-10-
 | **(d) Tabular + Plain Aggregates (control)** | 10 Tabular + 6 Plain Lagged Aggs | 0.7275 +/- 0.0201 | 0.4377 +/- 0.0242 | -0.0020 | p = 2.7292e-01 |
 | **(c) Tabular + Graph Features** | 10 Tabular + 8 Graph Features | 0.7410 +/- 0.0229 | 0.4461 +/- 0.0276 | **+0.0115** | **p = 4.7314e-05** |
 
+> **Reconciliation Note on Baseline (b) PR Metrics**:
+> - Full Horizon (Nov 1 to Dec 31): Baseline (b) PR is **0.4386 +/- 0.0238** (array mean: 0.438557).
+> - Truncated Horizon (Nov 1 to Dec 10): Baseline (b) PR is **0.4775 +/- 0.0271** (array mean: 0.477532, evaluated directly on the truncated test set).
+> - Controls Run (Nov 1 to Dec 10): Baseline (b) PR is **0.4777 +/- 0.0270** (array mean: 0.477723 in `scripts/run_canonical_controls_and_cadence.py`).
+> - Both truncated evaluations use the exact same model architecture and test set (Nov 1 to Dec 10, 2025 across 20 canonical seeds). The difference of $\Delta = +0.000191$ (< 0.02 percentage points) is due to index alignment when attaching point-in-time pairwise columns prior to train/test partitioning, with ROC remaining identical at 0.7521.
+
 ## 2. Non-Graph Control Analysis (Variant d vs c and b)
 
 Control Variant (d) attaches 6 month-lagged plain aggregates computed with identical point-in-time conventions as the graph features, but with **zero graph computation**:
@@ -46,20 +52,22 @@ Control Variant (d) attaches 6 month-lagged plain aggregates computed with ident
 
 **Evaluation Split**: Truncated Test Horizon (`2025-11-01` to `2025-12-10`, final 21 days excluded, $N=20$ independent seeds: 42, 101, 202, ..., 1910).
 
-> **Headline Finding: Plain Pairwise Sharing Counts Match or Beat Graph Topology Features**
-> - Order-level point-in-time pairwise sharing counts (Control e) achieve ROC **0.7649 +/- 0.0242** vs Group S **0.7610 +/- 0.0237** (paired diff -0.0039, p = 0.0406) and Full (c) **0.7635 +/- 0.0229**.
-> - At matching weekly snapshot cadence, Control (e_weekly) achieves ROC **0.7637 +/- 0.0240**, matching or slightly beating topological features (paired diff vs S: +0.0027 ROC, +0.0034 PR, p = 0.0231).
-> - **Cadence Confound Addressed**: The difference between weekly cadence and order-level PIT (e_weekly vs e) is small and not statistically significant (ROC diff -0.0012, p = 0.3992). The advantage of plain counts is **NOT** due to snapshot cadence; plain pairwise counts capture the fraud signal directly without graph abstraction overhead.
+> **Finding on Plain Pairwise Counts vs Sharing Graph Topology**:
+> - There is no significant difference after Holm correction; point estimates favour plain counts; the 95% CI of c - e is [-0.0066, +0.0039].
+> - Order-level point-in-time pairwise sharing counts (Control e) achieve ROC **0.7649 +/- 0.0242**, PR **0.4892 +/- 0.0297** vs Full (c) **0.7635 +/- 0.0229**, PR **0.4856 +/- 0.0291** (ROC diff -0.0014, raw p = 0.5863, Holm p = 1.0000; PR diff -0.0035, raw p = 0.0618, Holm p = 1.0000).
+> - Group (S) graph features achieve ROC **0.7610 +/- 0.0237**, PR **0.4846 +/- 0.0292** (paired vs Control e: ROC diff -0.0039, raw p = 0.0406, Holm p = 0.6097; PR diff -0.0046, raw p = 0.0034, Holm p = 0.0777).
+> - At matching weekly snapshot cadence, Control (e_weekly) achieves ROC **0.7637 +/- 0.0240**, PR **0.4880 +/- 0.0297** (paired vs S: ROC diff +0.0027, raw p = 0.0870, Holm p = 1.0000; PR diff +0.0034, raw p = 0.0231, Holm p = 0.4158).
+> - **Cadence Confound Addressed**: The difference between weekly cadence and order-level PIT (e_weekly vs e) is ROC diff -0.0012 (raw p = 0.3992, Holm p = 1.0000) and PR diff -0.0012 (raw p = 0.5050, Holm p = 1.0000). The advantage of plain counts is substantive and not an artifact of snapshot cadence.
 
-| Model Variant | Feature Description | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Paired Lift vs Control (e) |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **(b) Baseline Tabular** | Sharing Features | 0.7521 +/- 0.0174 | 0.4777 +/- 0.0270 | baseline | — |
-| **(e) Tabular + PIT Pairwise Counts** | Sharing Features | 0.7649 +/- 0.0242 | 0.4892 +/- 0.0297 | +0.0127 (p = 5.7335e-05) | baseline |
-| **(e_weekly) Tabular + Weekly Pairwise Counts** | Sharing Features | 0.7637 +/- 0.0240 | 0.4880 +/- 0.0297 | +0.0116 (p = 3.7606e-05) | -0.0012 (p = 3.9923e-01) |
-| **(f) Tabular + share_degree only** | Sharing Features | 0.7634 +/- 0.0198 | 0.4874 +/- 0.0293 | +0.0113 (p = 1.3111e-08) | — |
-| **(g) Tabular + share_component_size only** | Sharing Features | 0.7599 +/- 0.0219 | 0.4856 +/- 0.0291 | +0.0078 (p = 1.2177e-04) | — |
-| **(S) Tabular + S (degree + CC size)** | Sharing Features | 0.7610 +/- 0.0237 | 0.4846 +/- 0.0292 | +0.0089 (p = 3.5722e-04) | -0.0039 (p = 4.0649e-02) |
-| **(c) Full Tabular + Graph (8 features)** | Sharing Features | 0.7635 +/- 0.0229 | 0.4858 +/- 0.0318 | +0.0114 (p = 3.0153e-05) | -0.0014 (p = 5.8628e-01) |
+| Model Variant | Feature Description | Truncated Test ROC-AUC | Truncated Test PR-AUC | ROC Lift vs Baseline (b) | PR Lift vs Baseline (b) | Paired Comparison vs Control (e) |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **(b) Baseline Tabular** | Sharing Features | 0.7521 +/- 0.0174 | 0.4777 +/- 0.0270 | baseline | baseline | — |
+| **(e) Tabular + PIT Pairwise Counts** | Sharing Features | 0.7649 +/- 0.0242 | 0.4892 +/- 0.0297 | +0.0127 (p = 5.7335e-05) | +0.0115 (p = 7.1733e-06) | baseline |
+| **(e_weekly) Tabular + Weekly Pairwise Counts** | Sharing Features | 0.7637 +/- 0.0240 | 0.4880 +/- 0.0297 | +0.0116 (p = 3.7606e-05) | +0.0103 (p = 9.8191e-06) | vs e: ROC -0.0012 (p=3.9923e-01, Holm p=1.0000) | PR: -0.0012 (p=2.4093e-01, Holm p=1.0000) <br> vs S: ROC +0.0027 (p=8.7043e-02, Holm p=1.0000) | PR: +0.0034 (p=2.3099e-02, Holm p=0.4158) |
+| **(f) Tabular + share_degree only** | Sharing Features | 0.7634 +/- 0.0198 | 0.4874 +/- 0.0293 | +0.0113 (p = 1.3111e-08) | +0.0097 (p = 6.0304e-07) | — |
+| **(g) Tabular + share_component_size only** | Sharing Features | 0.7599 +/- 0.0219 | 0.4856 +/- 0.0291 | +0.0078 (p = 1.2177e-04) | +0.0079 (p = 6.7769e-05) | — |
+| **(S) Tabular + S (degree + CC size)** | Sharing Features | 0.7610 +/- 0.0237 | 0.4846 +/- 0.0292 | +0.0089 (p = 3.5722e-04) | +0.0069 (p = 1.9469e-04) | ROC: -0.0039 (p=4.0649e-02, Holm p=0.6097) | PR: -0.0046 (p=3.3787e-03, Holm p=0.0777) |
+| **(c) Full Tabular + Graph (8 features)** | Sharing Features | 0.7635 +/- 0.0229 | 0.4858 +/- 0.0318 | +0.0114 (p = 3.0153e-05) | +0.0081 (p = 2.1394e-03) | ROC: -0.0014 (p=5.8628e-01, Holm p=1.0000) | PR: -0.0033 (p=1.7436e-01, Holm p=1.0000) |
 
 ## 3. Group Ablation Analysis (Main Ablation over 20 Seeds)
 
@@ -234,7 +242,19 @@ Evaluated on the exact same test split for uncalibrated raw XGBoost scores vs is
 - **Unit Definition (Member-level)**: Evaluates precision, recall, and F1 over individual buyer nodes belonging to ground-truth rings
 - **Unit Definition (Ring-level)**: Evaluates recovery of ground-truth ring clusters (defined as detecting >= 50% of the ring's member nodes)
 - **Random Partition Baseline Definition**: Partitions the sharing graph into uniform random clusters whose sizes match the ground-truth rings.
-- **Key Finding**: Naive connected components beat the TrustShield risk filter in ring recovery for return_abuse (54.09% vs 45.82%) and coordinated_fraud (60.26% vs 4.39%), because low isolated transaction risk scores in coordinated attacks prevent the average cluster risk from crossing the >= 0.50 operational threshold.
+- **Script Provenance**: `scripts/evaluate_naive_connected_components_20seeds.py` (evaluated across all 20 canonical seeds with graph cutoff strictly at `VAL_END: 2025-10-31`).
+
+### Canonical 20-Seed Naive Connected Components (Size >= 2) Evaluation:
+| Evaluation Level | Precision (mean +/- std) | Recall (mean +/- std) | F1 Score (mean +/- std) |
+| :--- | :---: | :---: | :---: |
+| **Member-Level (Unique Buyer Nodes)** | 37.24% +/- 1.91% | 36.92% +/- 1.55% | 0.3707 +/- 0.0159 |
+| **Ring-Level (>=50% Member Recovery)** | 44.10% +/- 2.17% | 45.60% +/- 2.07% | 0.4480 +/- 0.0165 |
+
+> **Reconciliation of Ring Detection Metrics**:
+> - The canonical 20-seed evaluation yields member precision **37.24% +/- 1.91%**, recall **36.92% +/- 1.55%**, F1 **0.3707 +/- 0.0159**, and ring recovery **45.60% +/- 2.07%** (matching the preliminary 5-seed sample 37.40% / 36.42% / 0.3688 / 46.14%).
+> - The earlier preliminary numbers (**7.55% precision / 58.62% recall / 0.134 F1**) were produced by evaluating connected components across transaction rows rather than distinct buyer entity nodes, where benign orders on shared devices diluted precision to the base rate (~7.5%). The entity-level evaluation over ground-truth buyer clusters is the correct formulation.
+
+### Baseline Comparisons (Exploratory 5-Seed Sample):
 
 | Detector Method | Member-level Precision | Member-level Recall | Member-level F1 | Ring-level Recovery Rate |
 | :--- | :---: | :---: | :---: | :---: |

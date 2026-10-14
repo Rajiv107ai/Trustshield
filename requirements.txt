@@ -2,11 +2,11 @@
 # Install: pip install -r requirements.txt
 
 # Core data / ML
-numpy>=1.24
-pandas>=2.0
-scikit-learn>=1.3
+numpy==2.5.2
+pandas==3.0.5
+scikit-learn==1.9.0
 networkx>=3.1
-xgboost>=2.0
+xgboost==3.4.1
 pyarrow>=14.0
 faiss-cpu>=1.7.4
 
@@ -15,7 +15,7 @@ transformers>=4.37
 Pillow>=10.0
 
 # Phase 5 — Hybrid GNN (required for train_phase5.py)
-torch>=2.0
+torch==2.13.0
 torch-geometric>=2.4
 
 # API layer (Priority 2 — FastAPI backend)
