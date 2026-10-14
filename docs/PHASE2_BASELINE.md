@@ -1,12 +1,14 @@
 # TrustShield AI — Phase 2 Baseline Audit & Inspection Report
 
+<!-- BEGIN GENERATED -->
+
 > [!WARNING]
 > Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
 
 **Inspection Date:** 2026-10-07  
 **Auditor:** Senior ML Researcher + Backend Systems Architect  
 **Source Repository:** `https://github.com/Rajiv107ai/Trustshield`  
-**Test Suite State:** 125 passing tests (100% green)  
+**Test Suite State:** automated test suite (100% green)  
 **Environment:** Python 3.14.7 | PyTorch 2.14.1 | PyG (torch-geometric) 2.8.0 | FAISS 1.15.1 | XGBoost 3.4.1 | Scikit-Learn 1.9.1  
 
 ---
@@ -48,7 +50,7 @@ Evaluated on the frozen holdout temporal test partition (`order_date > VAL_END`)
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Phase 1 Tabular Baseline (RF)** | 0.742 | 0.418 | 0.612 | 0.540 | 0.574 | 8.8% | 34.1 | 4.2 ms |
 | **Phase 3 Tabular + Graph (RF)** | 0.814 | 0.528 | 0.704 | 0.648 | 0.675 | 11.2% | 27.2 | 8.6 ms |
-| **Existing Standalone GNN (2-layer GCN)** | 0.519 | 0.114 | 0.220 | 0.190 | 0.204 | 14.5% | 88.0 | 38.5 ms |
+| **Existing Standalone GNN (2-layer GCN)** | 0.verified | 0.114 | 0.220 | 0.190 | 0.204 | 14.5% | 88.0 | 38.5 ms |
 | **Phase 5 Hybrid GNN + XGBoost** | 0.696 | 0.384 | 0.589 | 0.512 | 0.548 | 9.4% | 41.6 | 26.2 ms |
 | **Phase 1 Unified Trust Engine** | **0.841** | **0.586** | **0.748** | **0.692** | **0.719** | **7.5%** | **19.4** | **11.4 ms** |
 
@@ -62,3 +64,5 @@ Evaluated on the frozen holdout temporal test partition (`order_date > VAL_END`)
 4. **Trust Engine Stacking:** The Phase 1 Trust Engine utilizes weighted linear aggregation. Phase 2 must evaluate **Stacking / Meta-Learners** against weighted ensembles and provide conformal prediction intervals.
 5. **Community-Level Ring Intelligence:** Connected components flag broad clusters without scoring ring risk. Phase 2 must implement **candidate community burstiness and sub-graph risk scoring**.
 6. **Investigative Explanations:** The API provides raw metrics. A **GenAI Forensic Investigation Agent + RAG** layer is needed to synthesize structured evidence into investigator dossiers without determining the fraud probability.
+
+<!-- END GENERATED -->

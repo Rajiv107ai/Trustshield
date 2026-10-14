@@ -13,6 +13,7 @@ interface SearchResult {
   link: string;
 }
 
+/* BEGIN GENERATED */
 const SEARCH_DATABASE: SearchResult[] = [
   // Presets & Transactions
   { id: "ORD_SIM_SAFE_01", type: "TRANSACTION", title: "ORD_SIM_SAFE_01", subtitle: "Verified Repeat Buyer (₹65.50) · ALLOW", link: "/transactions?preset=preset_normal_buyer" },
@@ -31,6 +32,7 @@ const SEARCH_DATABASE: SearchResult[] = [
   { id: "NAV_ANALYZER", type: "NAV", title: "Transaction Risk Analyzer", subtitle: "Hero scoring engine with scenario simulator", link: "/transactions" },
   { id: "NAV_MODELS", type: "NAV", title: "Model Registry & Calibration", subtitle: "Phase 5 Hybrid, Reliability curve, ECE", link: "/models" },
 ];
+/* END GENERATED */
 
 export function SearchModal() {
   const { searchOpen, setSearchOpen } = useViewMode();

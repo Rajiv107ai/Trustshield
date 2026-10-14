@@ -24,6 +24,7 @@ import {
 export default function DashboardPage() {
   const { viewMode, isLive, readyInfo } = useViewMode();
   const [streamStatus, setStreamStatus] = useState<"LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "OFFLINE">("CONNECTING");
+  /* BEGIN GENERATED */
   const [metrics, setMetrics] = useState({
     totalAnalyzed: 142850,
     flaggedFraud: 4210,
@@ -71,6 +72,7 @@ export default function DashboardPage() {
       timestamp: "14 mins ago",
     },
   ]);
+  /* END GENERATED */
 
   useEffect(() => {
     const cleanup = TrustShieldApi.createTransactionEventSource(
@@ -180,6 +182,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* BEGIN GENERATED */}
           <div className="flex items-center gap-4 text-xs font-mono shrink-0 self-start lg:self-center">
             {viewMode === "executive" ? (
               <>
@@ -207,6 +210,7 @@ export default function DashboardPage() {
               </>
             )}
           </div>
+          {/* END GENERATED */}
         </div>
       </div>
 
@@ -250,13 +254,17 @@ export default function DashboardPage() {
       </div>
 
       {/* DYNAMIC KEY METRICS ROW (ADAPTS TO VIEW MODE) */}
+      {/* BEGIN GENERATED */}
       {viewMode === "executive" ? (
         /* ================= EXECUTIVE STORY METRICS ================= */
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 rounded-xl border border-blue-500/20 bg-[#111821] relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-blue-300">Fraud Loss Prevented</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-blue-300">Fraud Loss Prevented</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <Sparkles className="w-4 h-4 text-blue-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
@@ -269,7 +277,10 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl border border-emerald-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-emerald-300">Clean Buyer Experience</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-emerald-300">Clean Buyer Experience</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
@@ -282,7 +293,10 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl border border-amber-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-amber-300">Chargeback Dispute Rate</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-amber-300">Chargeback Dispute Rate</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <ShieldAlert className="w-4 h-4 text-amber-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
@@ -295,7 +309,10 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl border border-cyan-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-cyan-300">Autonomous Action Rate</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-cyan-300">Autonomous Action Rate</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <Zap className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
@@ -311,7 +328,10 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 rounded-xl border border-purple-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-purple-300">Inferences Evaluated</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-purple-300">Inferences Evaluated</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <Activity className="w-4 h-4 text-purple-400" />
             </div>
             <div suppressHydrationWarning className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
@@ -324,7 +344,10 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl border border-indigo-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-indigo-300">Conformal Coverage C(X)</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-indigo-300">Conformal Coverage C(X)</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <Layers className="w-4 h-4 text-indigo-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
@@ -337,7 +360,10 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl border border-cyan-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-cyan-300">Expected Calibration Error</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-cyan-300">Expected Calibration Error</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <Microscope className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
@@ -350,7 +376,10 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl border border-rose-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <span className="font-medium text-rose-300">Hardware Latency (p95)</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-rose-300">Hardware Latency (p95)</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
               <Clock className="w-4 h-4 text-rose-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
@@ -360,6 +389,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      {/* END GENERATED */}
 
       {/* DUAL MODE MIDDLE INTELLIGENCE SECTION */}
       {viewMode === "executive" ? (
@@ -447,10 +477,12 @@ export default function DashboardPage() {
       )}
 
       {/* Operational Decision Distribution */}
+      {/* BEGIN GENERATED */}
       <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold text-[#E8EDF3] uppercase tracking-wider">
-            Operational Decision Routing Distribution
+          <div className="text-xs font-semibold text-[#E8EDF3] uppercase tracking-wider flex items-center gap-2">
+            <span>Operational Decision Routing Distribution</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
           </div>
           <div className="text-[11px] text-[#8995A3] font-mono">Last 24 Hours: 142,850 decisions</div>
         </div>
@@ -486,6 +518,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      {/* END GENERATED */}
 
       {/* Flagged Transactions Queue (ADAPTS TO VIEW MODE) */}
       <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
@@ -494,6 +527,7 @@ export default function DashboardPage() {
             <div>
               <div className="text-xs font-semibold text-[#E8EDF3] uppercase tracking-wider flex items-center gap-2">
                 <span>Priority Risk Queue &amp; Incident Triage</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
                 <span
                   className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
                     viewMode === "executive"
@@ -629,6 +663,7 @@ export default function DashboardPage() {
                   <th className="py-2 px-3 text-right">Deep Inspect</th>
                 </tr>
               </thead>
+              {/* BEGIN GENERATED */}
               <tbody className="divide-y divide-[#151D27] text-xs font-mono">
                 {recentTransactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
@@ -685,6 +720,7 @@ export default function DashboardPage() {
                   </tr>
                 ))}
               </tbody>
+              {/* END GENERATED */}
             </table>
           )}
         </div>

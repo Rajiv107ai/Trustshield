@@ -18,6 +18,7 @@ interface FeedItem {
   isNew?: boolean;
 }
 
+/* BEGIN GENERATED */
 const INITIAL_FEED_DATA: FeedItem[] = [
   { id: "ORD_78921", timestamp: "10:58:12", buyer: "BUYER_RING_MEMBER_04", seller: "SELLER_RING_LEADER_01", amount: 890.00, risk: 0.942, decision: "BLOCK", reason: "HIGH_DEVICE_COLLISION" },
   { id: "ORD_78920", timestamp: "10:57:44", buyer: "BUYER_REFUND_ABUSER", seller: "SELLER_ELECTRONICS_09", amount: 320.00, risk: 0.785, decision: "HOLD", reason: "HIGH_RETURN_VELOCITY" },
@@ -28,6 +29,7 @@ const INITIAL_FEED_DATA: FeedItem[] = [
   { id: "ORD_78915", timestamp: "10:50:41", buyer: "BUYER_GUEST_104", seller: "SELLER_WATCHES_02", amount: 1200.00, risk: 0.810, decision: "BLOCK", reason: "COLD_START_BUYER_HIGH_VALUE" },
   { id: "ORD_78914", timestamp: "10:48:33", buyer: "BUYER_ACCOUNT_62", seller: "SELLER_REPUTABLE_12", amount: 44.00, risk: 0.035, decision: "ALLOW", reason: "CLEAN_BASELINE" },
 ];
+/* END GENERATED */
 
 export default function TransactionFeedPage() {
   const [filterDecision, setFilterDecision] = useState<string>("ALL");

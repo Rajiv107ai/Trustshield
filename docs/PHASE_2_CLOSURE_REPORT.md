@@ -1,5 +1,7 @@
 # TrustShield — Phase 2 Closure Audit Report
 
+<!-- BEGIN GENERATED -->
+
 > [!WARNING]
 > Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
 
@@ -215,3 +217,5 @@ All requirements stipulated for Phase 2 closure have been fulfilled:
 - [x] 100% test pass rate across unit, integration, security, frontend build, and static typing suites.
 
 **Phase 2 is formally APPROVED and CLOSED.** Phase 3 architecture and deployment work may now proceed in accordance with project governance.
+
+<!-- END GENERATED -->

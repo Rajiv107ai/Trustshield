@@ -84,6 +84,7 @@ interface ClusterDefinition {
 // Preset Cluster Topologies (Multi-Relational Datasets)
 // ============================================================================
 
+/* BEGIN GENERATED */
 const CLUSTERS: ClusterDefinition[] = [
   {
     id: "RING_COLLUSION_01",
@@ -473,6 +474,7 @@ const CLUSTERS: ClusterDefinition[] = [
     ],
   },
 ];
+/* END GENERATED */
 
 // ============================================================================
 // Main Component
@@ -508,6 +510,7 @@ function TrustGraphContent() {
     setTimeout(() => setActionFeedback(null), 3500);
   };
 
+  /* BEGIN GENERATED */
   // Real-time live ingestion stream simulation
   useEffect(() => {
     if (!isLiveStreaming) return;
@@ -595,6 +598,7 @@ function TrustGraphContent() {
     setActionFeedback(`Discovered 2-Hop Entity: ${expandId}`);
     setTimeout(() => setActionFeedback(null), 4000);
   };
+  /* END GENERATED */
 
   // Toggle Freeze in Graph Ledger
   const handleToggleFreeze = () => {
@@ -656,6 +660,7 @@ function TrustGraphContent() {
 
   return (
     <div className="space-y-6">
+      {/* BEGIN GENERATED */}
       {/* Header & Topology Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -1077,6 +1082,7 @@ function TrustGraphContent() {
           )}
         </div>
       </div>
+      {/* END GENERATED */}
     </div>
   );
 }

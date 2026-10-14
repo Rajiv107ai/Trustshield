@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 export default function EvaluationStudioPage() {
-  const [threshold, setThreshold] = useState<number>(0.45);
+  const [threshold, setThreshold] = useState<number>(0.5);
   const [resultsData, setResultsData] = useState<any>(null);
 
   useEffect(() => {
@@ -25,6 +25,7 @@ export default function EvaluationStudioPage() {
       .catch((err) => console.error("Could not fetch results.json:", err));
   }, []);
 
+  /* BEGIN GENERATED */
   // Dynamically constructed ablation ladder from results.json
   const primaryAnalysis = resultsData?.pre_registered_primary_analysis_20_seeds;
   const graphFree = resultsData?.graph_free_baseline_comparisons_20_seeds;
@@ -87,6 +88,7 @@ export default function EvaluationStudioPage() {
   const fn = totalPositives - tp;
   const fp = Math.round(totalNegatives * (1.0 - threshold) * 0.05);
   const tn = totalNegatives - fp;
+  /* END GENERATED */
 
   return (
     <div className="space-y-6">
@@ -142,6 +144,7 @@ export default function EvaluationStudioPage() {
         </div>
 
         {/* Right: Dynamic Confusion Matrix Simulator */}
+        {/* BEGIN GENERATED */}
         <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4 font-mono">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
@@ -235,6 +238,7 @@ export default function EvaluationStudioPage() {
           </table>
         </div>
       </div>
+      {/* END GENERATED */}
     </div>
   );
 }

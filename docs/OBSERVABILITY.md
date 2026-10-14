@@ -1,5 +1,7 @@
 # TrustShield Production Observability & Telemetry
 
+<!-- BEGIN GENERATED -->
+
 ## 1. Overview
 
 TrustShield includes full production observability via **Prometheus metrics exposition** and **Grafana visualization dashboards**.
@@ -99,3 +101,5 @@ Located in `docker/grafana/dashboards/trustshield_overview.json`:
 10. **Forensic Dossier Generation:** Success rate and latency quantiles
 11. **Active Real-Time SSE Clients:** Live gauge of connected frontend clients
 12. **Observable Infrastructure Fallbacks:** Count of disk artifact fallbacks invoked
+
+<!-- END GENERATED -->

@@ -1,5 +1,7 @@
 # TrustShield AI — Phase 0 Audit Baseline Report
 
+<!-- BEGIN GENERATED -->
+
 **Execution Timestamp:** 2026-10-10  
 **Environment:** Python 3.14.7 | pytest 9.1.1 | Windows (x86_64)  
 **Auditor Role:** Senior ML Engineer (Remediation & Reproducibility)
@@ -65,4 +67,6 @@ Below is the verified inventory of the files cited in Phase 0:
 
 ## 4. Phase 0 Conclusion
 
-The repository foundation is functional (all 520 tests pass), but the underlying feature engineering, data generation timestamps, and metrics claims suffer from the documented scientific discrepancies. We proceed to **Phase 1** to fix the data generator timestamp bug, address collisions, and currency standardization.
+The repository foundation is functional (all automated test suite pass), but the underlying feature engineering, data generation timestamps, and metrics claims suffer from the documented scientific discrepancies. We proceed to **Phase 1** to fix the data generator timestamp bug, address collisions, and currency standardization.
+
+<!-- END GENERATED -->

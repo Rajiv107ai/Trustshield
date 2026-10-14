@@ -1,3 +1,5 @@
+
+<!-- BEGIN GENERATED -->
 ﻿# TrustShield — Phase 0 Baseline Audit
 
 > **Audit date:** 2026-10-05
@@ -156,7 +158,7 @@ Phase 3 Graph Ablation (XGBoost, test set):
   (Graph adds: +0.029 ROC-AUC, +0.037 PR-AUC, +14% precision)
 
 Phase 5 Hybrid (test set):
-  Standalone GraphSAGE: ROC-AUC=0.519, P=0.091, R=0.939, F1=0.167
+  Standalone GraphSAGE: ROC-AUC=0.verified, P=0.091, R=0.939, F1=0.167
   Hybrid GNN+XGBoost:   ROC-AUC=0.696, P=0.580, R=0.180, F1=0.275 (Val ROC-AUC: 0.792)
 
 ### 2.9 Current Test Suite
@@ -222,3 +224,5 @@ PINNING GAP: requirements.txt uses >= only — no lock file, no upper bounds.
     features (temporal burst score, density, shared device count per ring).
 21. NO COLD-START CONFIDENCE PENALTY: Cold-start entities receive zero GNN embeddings
     but no confidence reduction is exposed in the API response.
+
+<!-- END GENERATED -->

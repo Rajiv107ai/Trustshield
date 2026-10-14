@@ -1,5 +1,7 @@
 # TrustShield AI — Empirical Scalability & Resource Benchmark Report
 
+<!-- BEGIN GENERATED -->
+
 > **Benchmark Date:** October 07, 2026 (21:25 UTC)  
 > **Environment:** Python 3.14.7 | Single Node Process | In-Memory Engine  
 > **Evaluation Objective:** Validate pipeline execution time, memory overhead, graph construction scalability, and inference throughput across increasing orders of magnitude.
@@ -42,3 +44,5 @@ Component Latency Scaling Profile:
 1. **Memory Efficiency:** Peak RAM consumption remains exceptionally bounded (104.2 MB at 100k orders), proving that pandas vectorized types and garbage collection manage heap allocation without out-of-memory hazards.
 2. **Temporal Joins as Dominant Stage:** `merge_asof` and cumulative event window calculation account for ~45% of pipeline runtime, confirming the architectural need for Redis online feature caches in live production.
 3. **Graph Construction Stability:** Monthly snapshot aggregation handles 100k order graphs in under 5 seconds on CPU without distributed cluster overhead.
+
+<!-- END GENERATED -->

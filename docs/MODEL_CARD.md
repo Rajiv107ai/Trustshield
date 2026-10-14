@@ -52,23 +52,35 @@ The models are trained and validated on synthetic marketplace transactions gener
 
 ## 4. Quantitative Performance Metrics
 
+<!-- BEGIN GENERATED -->
 ### Audited Canonical 20-Seed Benchmark (from `results/results.json`)
 
 All metrics below are computed across $N=20$ data seeds on the Standard dataset under strict audit remediation controls:
 
-$$\begin{array}{lccc}
+$$\begin{array}{lcccc}
 \hline
-\textbf{Evaluation Metric} & \textbf{(a) Tabular (No Device)} & \textbf{(b) Tabular (With Device)} & \textbf{(c) Tabular + Graph} \\
+\textbf{Evaluation Metric} & \textbf{(a) Tabular (No Dev)} & \textbf{(b) Tabular (Baseline)} & \textbf{(d) Plain Aggs (Control)} & \textbf{(c) Tabular + Graph} \\
 \hline
-\text{Test ROC-AUC (mean } \pm \text{ std)} & 0.7021 \pm 0.0186 & 0.7295 \pm 0.0193 & \mathbf{0.7410 \pm 0.0229} \\
-\text{Test PR-AUC (mean } \pm \text{ std)} & 0.4179 \pm 0.0202 & 0.4386 \pm 0.0238 & \mathbf{0.4461 \pm 0.0276} \\
-\text{Paired Lift vs Baseline [95\% CI]} & — & \text{Baseline} & \mathbf{+0.0115 \text{ [+0.0069, +0.0161]}} \\
-p\text{-value (Paired t-test)} & — & — & \mathbf{p < 10^{-4}} \\
+\text{Test ROC-AUC (mean } \pm \text{ std)} & 0.7021 \pm 0.0186 & 0.7295 \pm 0.0193 & 0.7275 \pm 0.0201 & \mathbf{0.7410 \pm 0.0229} \\
+\text{Test PR-AUC (mean } \pm \text{ std)} & 0.4179 \pm 0.0202 & 0.4386 \pm 0.0238 & 0.4377 \pm 0.0242 & \mathbf{0.4461 \pm 0.0276} \\
+\text{Paired Lift vs Baseline [95\% CI]} & -0.0274 & \text{Baseline} & -0.0020 & \mathbf{+0.0115 \text{ [+0.0069, +0.0161]}} \\
+p\text{-value (Paired t-test)} & p = 1.0000 & — & p = 0.2729 & \mathbf{p = 4.73 \times 10^{-5}} \\
 \hline
 \end{array}$$
 
+- **Confirmatory 15 Seeds (c vs b Lift)**: $+0.0112$ ($p = 2.15 \times 10^{-4}$).
+- **Exploratory 5 Seeds (c vs b Lift)**: $+0.0123$ ($p = 0.1145$).
+- **Operational Review Budgets (N=20)**: 2% budget recall lift -0.06% ($p = 0.3648$); 5% budget recall lift +0.09% ($p = 0.4688$); 10% budget recall lift +0.81% ($p = 0.0424$).
 - **Tuned Hybrid Model (Standard, $N=5$)**: Test ROC-AUC $0.7014 \pm 0.0387$, Test PR-AUC $0.4006 \pm 0.0464$ (paired difference vs Tabular: $-0.0263$, $p=0.0083$; underperforms tabular baseline).
 - **Coherent Variant (Upper Bound, $N=5$)**: Tabular $0.7935 \pm 0.0405$, Tabular+Graph $0.8001 \pm 0.0380$ (paired lift: $+0.0066$, $p=0.0340$).
+
+### Truncated Test Horizon Benchmark (Final 21 Days Excluded for All Models):
+| Model Variant | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Two-Sided p-value |
+| :--- | :---: | :---: | :---: | :---: |
+| (a) Tabular (without device) | 0.7223 ± 0.0165 | 0.4545 ± 0.0226 | -0.0298 | — |
+| (b) Tabular Baseline | 0.7521 ± 0.0174 | 0.4775 ± 0.0271 | Baseline | — |
+| (d) Plain Aggregates Control | 0.7487 ± 0.0197 | 0.4736 ± 0.0266 | -0.0034 | $p = 0.1070$ |
+| (c) Tabular + Graph Features | 0.7635 ± 0.0229 | 0.4856 ± 0.0318 | **+0.0114** | **$p = 3.02 \times 10^{-5}$** |
 
 ### Sensitivity Analysis: Standard vs. Coherent Variants
 
@@ -92,9 +104,9 @@ Graph lift is evaluated under two synthetic generator configurations to assess s
 
 ## 5. Operational Considerations & Guardrails
 
-1. **Cold-Start Entities:** Entities with $< 3$ prior transactions are explicitly flagged (`cold_start = True`). In accordance with epistemic uncertainty principles, their confidence score is attenuated by $30\%$, and zero-vectors replace historical embeddings.
+1. **Cold-Start Entities:** Entities with $< 3$ prior transactions are explicitly flagged (`cold_start = True`). In accordance with epistemic uncertainty principles, their confidence score is attenuated by 30 percent, and zero-vectors replace historical embeddings.
 2. **Anti-Feedback Loop Guard:** Model predictions and risk scores are explicitly banned from feature inputs to prevent model echo chambers and distribution drift.
-3. **Detector Disagreement:** When component detectors diverge by $> 0.40$ in risk estimation, the transaction is flagged with `HIGH_DETECTOR_DISAGREEMENT` and prioritized for manual review.
+3. **Detector Disagreement:** When component detectors diverge by $> 0.4$ in risk estimation, the transaction is flagged with `HIGH_DETECTOR_DISAGREEMENT` and prioritized for manual review.
 4. **Graph Snapshot Lifecycle:** The graph feature snapshot is a training-time artifact and strictly requires periodic scheduled refresh in live production environments.
 
 ---
@@ -110,5 +122,6 @@ Graph lift is evaluated under two synthetic generator configurations to assess s
 5. **Does NOT show that a 0.50 threshold yields <1% recall:** On the canonical pipeline, thresholding at 0.50 yields **31.83% ± 3.69% recall** on calibrated probabilities and **40.22% ± 3.30% recall** on raw XGBoost scores. Neither scale yields <1% recall.
 6. **Does NOT show zero out-of-sample calibration error (ECE):** While in-sample validation ECE can reach $0.0000$ via isotonic regression, test-set ECE is strictly non-zero ($\sim 0.021 - 0.023$ calibrated, $\sim 0.054 - 0.063$ raw), even though in-sample isotonic validation achieves 0.0000.
 7. **Does NOT show production performance without live continuous monitoring:** Synthetic benchmark lifts reflect simulated attack mechanics. Production deployment requires live shadow scoring, continuous concept drift monitoring, and delayed chargeback reconciliation.
+<!-- END GENERATED -->
 
 

@@ -1,5 +1,7 @@
 # TrustShield — Independent Evaluator Readiness & Execution Checklist
 
+<!-- BEGIN GENERATED -->
+
 **Document Version**: 1.1.0  
 **Status**: RECONCILED AUDIT PROTOCOL FOR INDEPENDENT EVALUATOR SIGN-OFF  
 **Target Evaluation**: Blind-Holdout Evaluation (Synthetic Dataset v2.2)  
@@ -221,3 +223,5 @@ If any of the following failure modes occur, the evaluation run is immediately t
 | **Independent Evaluator** | *Pending External Auditor* | `ED25519:...` | *Pending* | `AWAITING SIGN-OFF` |
 | **MLOps Engineer** | *Pending Deployment Custodian* | `ED25519:...` | *Pending* | `AWAITING DEPLOYMENT` |
 | **ML Research Engineer** | Antigravity AI Auditor | `4615a53602d0...` (Git Baseline) | 2026-10-09 | `RECONCILED AUDIT COMPLETE (STAGE 3.5.5)` |
+
+<!-- END GENERATED -->

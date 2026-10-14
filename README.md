@@ -9,7 +9,7 @@
 [![Turbopack](https://img.shields.io/badge/Turbopack-Enabled-0070F3?logo=vercel&logoColor=white)](https://turbo.build/)
 [![PyTorch Geometric](https://img.shields.io/badge/PyG-HeteroGNN-EE4C2C?logo=pytorch&logoColor=white)](https://pyg.org)
 [![Cryptography](https://img.shields.io/badge/Cryptography-AES--256--GCM_AEAD-4B32C3?logo=security&logoColor=white)](https://cryptography.io)
-[![Tests Passing](https://img.shields.io/badge/Tests-519_Passed_(100%25)-brightgreen)](trustshield_project/)
+[![Tests Passing](https://img.shields.io/badge/Tests-Passing-brightgreen)](trustshield_project/)
 [![Pyright Type Check](https://img.shields.io/badge/Pyright-0_Errors-brightgreen)](pyrightconfig.json)
 [![Stage 3.5.5 Reconciled](https://img.shields.io/badge/Audit-Stage_3.5.5_Reconciled-blue)](reports/phase355_artifact_provenance_audit.md)
 [![Redis](https://img.shields.io/badge/Redis-8.1_Feature_Store-DC382D?logo=redis&logoColor=white)](docs/INFRASTRUCTURE.md)
@@ -69,9 +69,9 @@ flowchart TD
         D & E & F & G --> H[Stacking Meta-Learner]
         H --> I[Isotonic Probability Calibrator]
         I --> J{Decision Router}
-        J -->|p < 0.20| K[ALLOW: Instant Clearance]
-        J -->|0.20 <= p <= 0.70| L[REVIEW / HOLD: Manual Queue]
-        J -->|p > 0.70| M[BLOCK: Decline & Freeze]
+        J -->|p < 0.2| K[ALLOW: Instant Clearance]
+        J -->|0.2 <= p <= 0.7| L[REVIEW / HOLD: Manual Queue]
+        J -->|p > 0.7| M[BLOCK: Decline & Freeze]
     end
 
     subgraph Forensic["Forensic Observability & Audit"]
@@ -134,13 +134,26 @@ frontend/src/app/
 > [!NOTE]
 > All metrics reported below are canonical benchmarks produced under strict independent audit controls across 20 pre-registered data seeds on the Standard dataset. Raw and calibrated metrics are serialized in [results/results.json](results/results.json) and [results/RESULTS.md](results/RESULTS.md).
 
+<!-- BEGIN GENERATED -->
 | Model / Variant | Feature Set | Test ROC-AUC (mean ± std) | Test PR-AUC (mean ± std) | Paired Lift vs Tabular Baseline [95% CI] | $p$-value |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **(a) Tabular (No Device)** | 9 Tabular (no device count) | 0.7021 ± 0.0186 | 0.4179 ± 0.0202 | — | — |
+| **(a) Tabular (No Device)** | 9 Tabular (no device count) | 0.7021 ± 0.0186 | 0.4179 ± 0.0202 | -0.0274 | $p = 1.0000$ |
 | **(b) Tabular (With Device)** | 10 Tabular (current baseline) | 0.7295 ± 0.0193 | 0.4386 ± 0.0238 | Baseline | Baseline |
-| **(c) Tabular + Graph (Primary)** | 10 Tabular + 8 Graph Features | **0.7410 ± 0.0229** | **0.4461 ± 0.0276** | **+0.0115** [+0.0069, +0.0161] | **$p < 10^{-4}$** |
-| **Coherent Variant (Upper Bound)** | 10 Tabular + 8 Graph Features | 0.8001 ± 0.0380 | 0.4982 ± 0.0503 | +0.0066 [+0.0008, +0.0124] | $p = 0.034$ |
-| **Tuned Hybrid (OOF GNN + XGB)** | Tabular + Graph + GraphSAGE | 0.7014 ± 0.0387 | 0.4006 ± 0.0464 | -0.0263 (Loses to Tabular) | $p = 0.008$ |
+| **(d) Plain Aggregates (Control)** | 10 Tabular + 6 Plain Lagged Aggs | 0.7275 ± 0.0201 | 0.4377 ± 0.0242 | -0.0020 [-0.0058, +0.0017] | $p = 0.2729$ |
+| **(c) Tabular + Graph (Primary)** | 10 Tabular + 8 Graph Features | **0.7410 ± 0.0229** | **0.4461 ± 0.0276** | **+0.0115** [+0.0069, +0.0161] | **$p = 4.73 \times 10^{-5}$** |
+| **Coherent Variant (Upper Bound)** | 10 Tabular + 8 Graph Features | 0.8001 ± 0.0380 | 0.4982 ± 0.0503 | +0.0066 [+0.0008, +0.0124] | $p = 0.0340$ |
+| **Tuned Hybrid (OOF GNN + XGB)** | Tabular + Graph + GraphSAGE | 0.7014 ± 0.0387 | 0.4006 ± 0.0464 | -0.0263 (Loses to Tabular) | $p = 0.0083$ |
+
+- **Confirmatory 15 Seeds (c vs b Lift)**: $+0.0112$ ($p = 2.15 \times 10^{-4}$).
+- **Exploratory 5 Seeds (c vs b Lift)**: $+0.0123$ ($p = 0.1145$).
+
+### Truncated Test Horizon Benchmark (Final 21 Days Excluded for All Models):
+| Model Variant | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Two-Sided p-value |
+| :--- | :---: | :---: | :---: | :---: |
+| (a) Tabular (without device) | 0.7223 ± 0.0165 | 0.4545 ± 0.0226 | -0.0298 | — |
+| (b) Tabular Baseline | 0.7521 ± 0.0174 | 0.4775 ± 0.0271 | Baseline | — |
+| (d) Plain Aggregates Control | 0.7487 ± 0.0197 | 0.4736 ± 0.0266 | -0.0034 | $p = 0.1070$ |
+| (c) Tabular + Graph Features | 0.7635 ± 0.0229 | 0.4856 ± 0.0318 | **+0.0114** | **$p = 3.02 \times 10^{-5}$** |
 
 ### Sensitivity Analysis: Standard vs. Coherent Variants
 
@@ -156,8 +169,8 @@ Graph lift is framed as a sensitivity analysis between two temporal relationship
 ### Operational Conclusions & Review Budgets
 
 While the global ROC lift of graph features is $\sim +0.011$, operational trust & safety deployments face investigator capacity constraints:
-- **No Significant Lift at Tight Review Budgets**: At 2% and 5% review budgets, graph features show **no statistically significant lift** in either fraud recall (2% budget: $-0.06\%$ lift, $p = 0.3648$; 5% budget: $+0.09\%$ lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
-- **Seller-Buyer Collusion at Chance**: Fraud discrimination on `seller_buyer_collusion` is strictly at chance (isolated ROC $0.5001$ baseline vs $0.4971$ graph).
+- **No Significant Lift at Tight Review Budgets**: At 2% and 5% review budgets, graph features show **no statistically significant lift** in either fraud recall (2% budget: -0.06% lift, $p = 0.3648$; 5% budget: +0.09% lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
+- **Seller-Buyer Collusion at Chance**: Fraud discrimination on `seller_buyer_collusion` is strictly at chance (isolated ROC $0.5001 \pm 0.0422$ baseline vs $0.4971 \pm 0.0384$ graph).
 - **Coordinated Fraud Near Random at 2% Budget**: At a 2% review budget, recall for `coordinated_fraud` is near random ($0.67\%$ baseline vs $0.68\%$ graph), catching fewer than 1% of coordinated fraud orders.
 - **Formal Retraction of Preliminary Per-Type Table**: The earlier per-type table reporting coordinated fraud ROC ~0.7494 was not produced by a committed script and is formally retracted across all project documentation. In the canonical 20-seed evaluation on the truncated test split (excluding the final 21 days for right-censoring), coordinated fraud isolated ROC is 0.6403 (b) vs 0.6872 (c).
 
@@ -165,14 +178,15 @@ While the global ROC lift of graph features is $\sim +0.011$, operational trust 
 
 1. **Does NOT show GNN superiority over tree models in the tested configuration (16-dim OOF GraphSAGE embeddings into XGBoost):** Incorporating out-of-fold GNN graph embeddings into gradient boosted trees resulted in negative lift ($-0.0263$ ROC-AUC, $p = 0.0083$). Tabular gradient boosting with hand-engineered graph aggregations significantly outperforms deep graph representations on this benchmark.
 2. **Does NOT show double-digit graph lift:** Graph features provide a modest, statistically significant ROC-AUC lift of $\sim +0.011$ ($+0.0114$ on truncated test, $p = 3.02 \times 10^{-5}$; $+0.0115$ on full test, $p = 4.73 \times 10^{-5}$) and $+0.0081$ PR-AUC ($p = 0.0022$) over tabular models that already include device sharing counts. Claims of massive double-digit graph gains in prior reports were caused by the generator first_seen timestamp bug or unadjusted baselines.
-3. **Does NOT show significant practical lift at operational review budgets:** At realistic manual review budgets of 2% and 5% of transaction volume, graph features show **no statistically significant lift** over the tabular baseline in either fraud recall (2% budget: $-0.06\%$ lift, $p = 0.3648$; 5% budget: $+0.09\%$ lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
-4. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** `seller_buyer_collusion` has no detectable signal in the current generator/features by construction because 98.78% of collusion orders sample distinct buyer-seller pairs without reusing earlier burst edges (the generator uses each pair once by construction). Model discrimination on collusion is strictly at chance (isolated ROC $0.5001$ baseline vs $0.4971$ graph). Furthermore, recall for `coordinated_fraud` at a 2% review budget is near random ($0.67\%$ baseline vs $0.68\%$ graph), detecting fewer than 1% of coordinated fraud orders.
-5. **Does NOT show that a 0.50 threshold yields <1% recall:** On the canonical pipeline, thresholding at 0.50 yields **31.83% ± 3.69% recall** on calibrated probabilities and **40.22% ± 3.30% recall** on raw XGBoost scores. Neither scale yields <1% recall.
+3. **Does NOT show significant practical lift at operational review budgets:** At realistic manual review budgets of 2% and 5% of transaction volume, graph features show **no statistically significant lift** over the tabular baseline in either fraud recall (2% budget: -0.06% lift, $p = 0.3648$; 5% budget: +0.09% lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
+4. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** `seller_buyer_collusion` has no detectable signal in the current generator/features by construction because 98.78% of collusion orders sample distinct buyer-seller pairs without reusing earlier burst edges (the generator uses each pair once by construction). Model discrimination on collusion is strictly at chance (isolated ROC $0.5001 \pm 0.0422$ baseline vs $0.4971 \pm 0.0384$ graph). Furthermore, recall for `coordinated_fraud` at a 2% review budget is near random ($0.67\%$ baseline vs $0.68\%$ graph), detecting fewer than 1% of coordinated fraud orders.
+5. **Does NOT show that a 0.50 threshold yields <1% recall:** On the canonical pipeline, thresholding at 0.50 yields **31.95% ± 3.74% recall** on calibrated probabilities and **39.22% ± 2.91% recall** on raw XGBoost scores. Neither scale yields <1% recall.
 6. **Does NOT show zero out-of-sample calibration error (ECE):** While in-sample validation ECE can reach $0.0000$ via isotonic regression, test-set ECE is strictly non-zero ($\sim 0.021 - 0.023$ calibrated, $\sim 0.054 - 0.063$ raw), even though in-sample isotonic validation achieves 0.0000.
 7. **Does NOT show production performance without live continuous monitoring:** Synthetic benchmark lifts reflect simulated attack mechanics. Production deployment requires live shadow scoring, continuous concept drift monitoring, and delayed chargeback reconciliation.
 8. **Graph Snapshot Lifecycle:** The graph feature snapshot is a training-time artifact and strictly requires periodic scheduled refresh in live production environments.
 
 *All evaluations enforce strict point-in-time snapshot graphs, out-of-fold embeddings, and out-of-time test splits (`order_date > VAL_END`). See [results/RESULTS.md](results/RESULTS.md) for Holm-Bonferroni multi-testing correction and design-rule ablations.*
+<!-- END GENERATED -->
 
 ---
 
@@ -210,7 +224,7 @@ trustshield_full_handoff/
 │   ├── model_loader.py               # Pre-trained artifact store and warm-cache manager
 │   ├── schemas.py                    # Strict Pydantic v2 schemas and validation bounds
 │   ├── services/                     # Isolated service modules (Redis, Neo4j, Metrics, SSE)
-│   └── test_*.py                     # Serving layer test suite (60 tests passed)
+│   └── test_*.py                     # Serving layer automated test suite
 │
 ├── frontend/                         # Next.js 16 Enterprise Console
 │   ├── src/app/                      # 14 App Router dashboard views
@@ -230,7 +244,7 @@ trustshield_full_handoff/
 │   ├── hetero_gnn.py                 # PyTorch Geometric heterogeneous GNN
 │   ├── multimodal_clip_faiss.py      # CLIP embeddings and FAISS similarity indexing
 │   ├── shap_explainer.py             # Sub-10ms TreeSHAP attribution engine
-│   └── test_*.py                     # Unit, security, and adversarial test suites (459 tests passed)
+│   └── test_*.py                     # Unit, security, and adversarial test suites
 │
 ├── scripts/                          # Automation, Reproduction & Benchmarking Harnesses
 │   ├── benchmark_scoring_http.py     # HTTP throughput, latency, and p50/p95 benchmarking
@@ -356,26 +370,26 @@ python scripts/benchmark_scoring_http.py --requests 20 --warmup 5
 ```powershell
 curl -X POST "http://127.0.0.1:8000/transaction/score" `
      -H "Content-Type: application/json" `
-     -d "{\"order_id\":\"DEMO_001\",\"buyer_id\":\"BUYER_000001\",\"seller_id\":\"SELLER_000001\",\"amount\":49.99,\"base_price\":49.99,\"category_median_price\":49.99,\"buyer_orders_before\":12,\"seller_total_listings_before\":25,\"buyer_age_days\":180,\"seller_age_days\":365,\"device_shared_buyer_count\":1}"
+     -d "{\"order_id\":\"DEMO_001\",\"buyer_id\":\"BUYER_000001\",\"seller_id\":\"SELLER_000001\",\"amount\":50.0,\"base_price\":50.0,\"category_median_price\":50.0,\"buyer_orders_before\":12,\"seller_total_listings_before\":25,\"buyer_age_days\":180,\"seller_age_days\":365,\"device_shared_buyer_count\":1}"
 ```
 
 ---
 
 ## 🧪 Verification & Automated Test Suite
 
-TrustShield is backed by **519 passing automated tests** with **100% pass rate** across all subsystems:
+TrustShield is backed by a comprehensive automated test suite across all subsystems:
 
 ```bash
-# 1. Run Core ML, GNN, Security & Evaluation Gate Test Suite (459 tests)
+# 1. Run Core ML, GNN, Security & Evaluation Gate Test Suite
 pytest trustshield_project/ -v
 
-# 2. Run FastAPI Backend Serving & Authentication Security Suite (60 tests)
+# 2. Run FastAPI Backend Serving & Authentication Security Suite
 pytest backend/ -v
 
-# 3. Verify Pyright Static Type Checking (0 Errors)
+# 3. Verify Pyright Static Type Checking
 pyright trustshield_project backend
 
-# 4. Verify Next.js Frontend Production Build & TypeScript Types (16/16 routes)
+# 4. Verify Next.js Frontend Production Build & TypeScript Types
 cd frontend
 npm run build
 npm run lint
@@ -383,15 +397,15 @@ npm run lint
 
 ### Verification Matrix Summary
 
-| Test Domain | Target Files | Tests | Result | Status |
-| :--- | :--- | :---: | :---: | :---: |
-| **Holdout Evaluation Gate Security** | `test_stage351` through `test_stage354` | 188 | 188 Passed | **PASS** |
-| **Model Policy & Protocol Reconciliation** | `test_stage32` through `test_stage34` | 74 | 74 Passed | **PASS** |
-| **Backend API & Role-Based Auth** | `backend/test_*.py` | 60 | 60 Passed | **PASS** |
-| **Graph Models, GNN & TreeSHAP** | `test_graph_and_models.py`, `test_shap_explainer.py` | 65 | 65 Passed | **PASS** |
-| **Temporal Anti-Leakage & Data Integrity**| `test_leakage.py`, `test_data_integrity.py` | 51 | 51 Passed | **PASS** |
-| **Synthetic Generators & Injection** | `test_synthetic_*.py`, `test_fraud_injection.py` | 81 | 81 Passed | **PASS** |
-| **Total Automated Tests** | **All 24 test suites** | **519** | **519 Passed** | **100% PASS** |
+| Test Domain | Target Files | Status |
+| :--- | :--- | :---: |
+| **Holdout Evaluation Gate Security** | `test_stage351` through `test_stage354` | **PASS** |
+| **Model Policy & Protocol Reconciliation** | `test_stage32` through `test_stage34` | **PASS** |
+| **Backend API & Role-Based Auth** | `backend/test_*.py` | **PASS** |
+| **Graph Models, GNN & TreeSHAP** | `test_graph_and_models.py`, `test_shap_explainer.py` | **PASS** |
+| **Temporal Anti-Leakage & Data Integrity**| `test_leakage.py`, `test_data_integrity.py` | **PASS** |
+| **Synthetic Generators & Injection** | `test_synthetic_*.py`, `test_fraud_injection.py` | **PASS** |
+| **All Automated Test Suites** | **Complete repository test coverage** | **PASS** |
 
 ---
 

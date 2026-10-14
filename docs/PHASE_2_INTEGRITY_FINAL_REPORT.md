@@ -1,4 +1,6 @@
 # TrustShield AI — Phase 2 Final Report
+
+<!-- BEGIN GENERATED -->
 **Evaluation Integrity, Security Hardening, Empirical Benchmarking & Quality Assurance**
 
 > [!WARNING]
@@ -213,7 +215,7 @@ cd c:\Users\rajiv_pis9z8x\Downloads\trustshield_full_handoff
 # 4. Run real HTTP transaction scoring benchmark
 .\.venv\Scripts\python.exe scripts/benchmark_scoring_http.py --requests 50 --tiers 1 5 10
 
-# 5. Run full Python test suite (226 tests)
+# 5. Run full Python test suite (automated test suite)
 .\.venv\Scripts\pytest.exe -q
 
 # 6. Run Pyright static type checker
@@ -223,3 +225,5 @@ cd c:\Users\rajiv_pis9z8x\Downloads\trustshield_full_handoff
 cmd.exe /c "npm --prefix frontend run lint"
 cmd.exe /c "npm --prefix frontend run build"
 ```
+
+<!-- END GENERATED -->

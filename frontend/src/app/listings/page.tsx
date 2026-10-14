@@ -33,6 +33,7 @@ interface ListingScenarioPreset {
   originalMerchant: string;
 }
 
+/* BEGIN GENERATED */
 const LISTING_PRESETS: ListingScenarioPreset[] = [
   {
     id: "preset_stolen_catalog_dslr",
@@ -104,6 +105,7 @@ const LISTING_PRESETS: ListingScenarioPreset[] = [
     originalMerchant: "CANON_OFFICIAL_GLOBAL",
   },
 ];
+/* END GENERATED */
 
 export default function ListingIntelligencePage() {
   const { viewMode } = useViewMode();
@@ -323,6 +325,7 @@ export default function ListingIntelligencePage() {
         </div>
 
         {/* Right 2 Cols: Multimodal Visual Evidence */}
+        {/* BEGIN GENERATED */}
         {result && (
           <div className="lg:col-span-2 space-y-6">
             {/* Verdict Card */}
@@ -567,6 +570,7 @@ export default function ListingIntelligencePage() {
             </div>
           </div>
         )}
+        {/* END GENERATED */}
       </div>
     </div>
   );

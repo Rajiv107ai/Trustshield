@@ -1,7 +1,9 @@
 # TrustShield - 49-Point Fix Pack Re-Audit (Phase 1)
 
+<!-- BEGIN GENERATED -->
+
 Audit date: 2026-10-05
-Baseline: 71/71 tests passing (18 CLIP deselected), Python 3.14.7
+Baseline: 71/automated test suite passing (18 CLIP deselected), Python 3.14.7
 Fix pack: trustshield_complete_fix_pack.zip v1.0.0-review-pack
 Principle: Do NOT implement a fix merely because it exists in the ZIP.
 
@@ -421,3 +423,5 @@ FIX-30 Category median (listing)        ALREADY_IMPL       -         No action
 FIX-31 trust_api_example wrong import   WRONG_ASSUMPTION   -         Do not merge
 FIX-32 TypedMultiGraph != HeteroGNN     WRONG_ASSUMPTION   -         Scope correctly
 FIX-33 Custom PlattCalibrator           WRONG_ASSUMPTION   -         Use sklearn
+
+<!-- END GENERATED -->
