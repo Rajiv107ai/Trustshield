@@ -1,3 +1,4 @@
+<!-- BEGIN GENERATED -->
 # TrustShield AI — Audited Evaluation Results & Scientific Benchmarks
 
 > **Provenance Notice**: Every metric in this document is dynamically generated from `results/results.json` via `scripts/generate_results_md.py`. No numbers are hard-coded.
@@ -39,6 +40,7 @@ Control Variant (d) attaches 6 month-lagged plain aggregates computed with ident
 ### Topological PageRank vs Plain Order Counts Correlation:
 - **`buyer_pagerank` vs `buyer_orders_before`**: Pearson r = 0.8430 +/- 0.0357 | Spearman rho = 0.7562 +/- 0.0258 (High correlation: PageRank is heavily driven by plain order counts)
 - **`seller_pagerank` vs seller ORDER COUNT**: Pearson r = 0.9899 +/- 0.0066 | Spearman rho = 0.9696 +/- 0.0082 (Near-perfect correlation: seller PageRank is collinear with total seller order volume)
+- **Scope & Attribution**: This conclusion is scoped strictly to bipartite PageRank (`buyer_pagerank` and `seller_pagerank`), where topological centrality heavily tracks raw activity. Furthermore, control (d) demonstrates that month-lagged plain activity aggregates provide zero predictive lift over baseline tabular features, confirming that the genuine graph lift originates from the sharing group (S: device and address clusters).
 
 ## 3. Group Ablation Analysis (Main Ablation over 20 Seeds)
 
@@ -134,7 +136,7 @@ In operational trust & safety operations, manual review capacity is constrained 
 ## 8. Horizon Audit: Right-Censoring Exclusion & Git Timeline
 
 - **Test-Period Mean Fraud Rate**: `8.85%`
-- **Git Timeline & Dec-31 Order Verification**: In earlier pre-audit commits (`d0465b335c`), burst orders clamped to `SIM_END` producing 49 fraud orders on Dec 31 for Seed 42. Following the burst window bounds fix, Dec-31 contains 411 total orders and 7 fraud orders (1.70% fraud rate), reflecting lower fraud volume in final days due to return delay constraints.
+- **Git Timeline & Dec-31 Order Verification**: The historical claim of '20 fraud orders on Dec-31' is not reproducible at any git commit. In pre-audit commits (`d0465b335c`), burst orders clamped to `SIM_END` producing 49 fraud orders on Dec 31 for Seed 42. Following the burst window bounds fix, Dec-31 contains 411 total orders and 7 fraud orders (1.70% fraud rate); this low final-days fraud-order rate is attributed to burst scheduling constraints (attacks require multiple days to unfold before SIM_END), not return-window truncation.
 - **Exclusion Policy**: To eliminate right-censoring in returns and late-horizon boundary effects, all benchmark models strictly exclude the final 21 days (`order_date > 2025-12-10`).
 
 ### Truncated Test Horizon Benchmark (Final 21 Days Excluded for All Models):
@@ -161,17 +163,52 @@ To simulate production operating conditions, threshold $\tau$ was chosen strictl
 > - **Calibrated Probability Scale** ($P(\text{fraud})$): The validation 5% budget threshold is $\tau = 0.5673 \pm 0.0553$ (baseline b) and $0.5794 \pm 0.0517$ (variant c). Fixed thresholding at $\tau = 0.50$ achieves **31.83% +/- 3.69% test recall**.
 > - **Raw Classifier Score Scale**: On uncalibrated XGBoost outputs, $\tau \approx 0.15$ captures a 5% budget, and thresholding at $\tau = 0.50$ achieves **40.22% +/- 3.30% test recall**.
 
+### Threshold Evaluation Grid: Volume% and Recall% across Fixed $\tau$
+
+Evaluated on the exact same test split for uncalibrated raw XGBoost scores vs isotonically calibrated probabilities ($P(\text{fraud})$):
+
+#### Seed 42:
+| Threshold $\tau$ | Raw Volume % | Raw Recall % | Calibrated Volume % | Calibrated Recall % | Monotonicity Check |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 0.050 | 76.74% | 87.94% | 16.20% | 58.34% | Non-increasing |
+| 0.100 | 48.07% | 75.64% | 9.87% | 51.28% | Non-increasing |
+| 0.150 | 31.16% | 66.63% | 6.25% | 44.46% | Non-increasing |
+| 0.250 | 15.34% | 57.61% | 4.85% | 39.71% | Non-increasing |
+| 0.350 | 9.66% | 51.04% | 4.36% | 37.27% | Non-increasing |
+| 0.500 | 5.92% | 44.09% | 2.97% | 28.14% | Non-increasing |
+| 0.567 | 5.08% | 40.80% | 2.90% | 27.41% | Non-increasing |
+| 0.650 | 4.37% | 37.27% | 2.15% | 20.83% | Non-increasing |
+
+#### Mean over 20 Seeds:
+| Threshold $\tau$ | Raw Volume % (mean +/- std) | Raw Recall % (mean +/- std) | Calibrated Volume % (mean +/- std) | Calibrated Recall % (mean +/- std) | Monotonicity Check |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 0.050 | 65.30% +/- 8.32% | 83.66% +/- 4.78% | 18.30% +/- 5.51% | 55.58% +/- 5.53% | Non-increasing |
+| 0.100 | 38.38% +/- 6.75% | 69.01% +/- 4.63% | 8.27% +/- 1.32% | 45.11% +/- 2.83% | Non-increasing |
+| 0.150 | 24.45% +/- 4.50% | 60.11% +/- 4.11% | 5.85% +/- 0.76% | 40.66% +/- 2.59% | Non-increasing |
+| 0.250 | 12.54% +/- 2.10% | 50.30% +/- 3.54% | 4.68% +/- 0.49% | 37.63% +/- 2.77% | Non-increasing |
+| 0.350 | 7.98% +/- 1.14% | 44.52% +/- 2.90% | 3.95% +/- 0.41% | 34.85% +/- 3.04% | Non-increasing |
+| 0.500 | 5.28% +/- 0.51% | 39.22% +/- 2.91% | 3.42% +/- 0.44% | 31.95% +/- 3.74% | Non-increasing |
+| 0.567 | 4.69% +/- 0.43% | 37.58% +/- 2.95% | 3.25% +/- 0.48% | 30.91% +/- 3.85% | Non-increasing |
+| 0.650 | 4.15% +/- 0.42% | 35.65% +/- 3.25% | 2.95% +/- 0.50% | 28.49% +/- 4.21% | Non-increasing |
+
+> **Resolution of Prior Threshold Contradiction**:
+> - Recall is strictly non-increasing across all $\tau$ thresholds on both raw and calibrated scales.
+> - At $\tau = 0.50$, recall is **39.22% +/- 2.91%** on raw XGBoost scores and **31.95% +/- 3.74%** on calibrated probabilities (Seed 42: 44.09% raw, 28.14% calibrated).
+> - Neither scale yields '<1% recall' at $\tau = 0.50$; the prior claim is formally retracted.
+
 ## 10. Fraud Ring Detection Recovery vs Baselines
 
 > **Retraction Notice**: RETRACTION: The previously reported figures (Precision 76.2%, Recall 48.9%, F1 0.595) were not produced by a committed script and are formally retracted across all project documentation. The reproducible figures produced by scripts/run_remediation_addendum_audit.py are Precision 89.25%, Recall 8.30%, F1 0.152.
 
 - **Unit Definition (Member-level)**: Evaluates precision, recall, and F1 over individual buyer nodes belonging to ground-truth rings
 - **Unit Definition (Ring-level)**: Evaluates recovery of ground-truth ring clusters (defined as detecting >= 50% of the ring's member nodes)
+- **Random Partition Baseline Definition**: Partitions the sharing graph into uniform random clusters whose sizes match the ground-truth rings.
+- **Key Finding**: Naive connected components beat the TrustShield risk filter in ring recovery for return_abuse (54.09% vs 45.82%) and coordinated_fraud (60.26% vs 4.39%), because low isolated transaction risk scores in coordinated attacks prevent the average cluster risk from crossing the >= 0.50 operational threshold.
 
 | Detector Method | Member-level Precision | Member-level Recall | Member-level F1 | Ring-level Recovery Rate |
 | :--- | :---: | :---: | :---: | :---: |
 | All Connected Components (size >= 2, no risk filter) | 37.40% | 36.42% | 0.3688 | 46.14% |
-| Random Cluster Baseline | 17.55% | 17.14% | 0.1734 | 23.16% |
+| Random Partition Baseline | 17.55% | 17.14% | 0.1734 | 23.16% |
 | TrustShield High-Risk Filter (risk >= 0.50) | 89.25% | 8.30% | 0.1517 | 15.07% |
 
 ### Ring Recovery Breakdown by Fraud Type:
@@ -189,6 +226,7 @@ To simulate production operating conditions, threshold $\tau$ was chosen strictl
 - **Mondrian Legit (Y=0) Test Coverage**: 95.30% +/- 0.58%
 - **Mondrian Fraud (Y=1) Test Coverage**: 93.14% +/- 2.15%
 - **Mondrian Mean Prediction Set Size**: 1.7430 +/- 0.0464 (abstains on ambiguous scores, returning {0, 1})
+- **Diagnostic Characterization**: A mean prediction set size of 1.74 indicates abstention on most orders, and fraud coverage (93.14% < 95.0%) falls short of nominal coverage; this mechanism is an offline diagnostic rather than an active product feature.
 - **Marginal Calibration Audit (Legacy)**: Overall 93.55%, but severe minority under-coverage on fraud (Y=1: 43.24%) with set size 1.02 (almost never abstaining).
 
 ## 12. Exploratory Diagnostic: Point-in-Time Order Counts and Generator Collusion Properties
@@ -202,7 +240,9 @@ To maintain scientific honesty and prevent over-interpretation of experimental r
 
 1. **Does NOT show GNN superiority over gradient boosted trees in the tested configuration (16-dim OOF GraphSAGE embeddings into XGBoost):** Integrating out-of-fold GNN embeddings into XGBoost results in net negative lift (-0.0263 ROC-AUC, p = 0.0083). Tabular trees with point-in-time graph features remain superior.
 2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0114 ROC-AUC, +0.0081 PR-AUC). Historical reports claiming double-digit lifts were caused by the generator first_seen timestamp bug or unadjusted baselines.
-3. **Does NOT show that a 0.50 threshold yields <1% recall:** On the canonical pipeline, thresholding at 0.50 yields **31.83% +/- 3.69% recall** on calibrated probabilities and **40.22% +/- 3.30% recall** on raw XGBoost scores. Neither scale yields <1% recall.
+3. **Does NOT show that a 0.50 threshold yields <1% recall:** Derived strictly from the threshold grid evaluation, thresholding at 0.50 yields **31.95% +/- 3.74% recall** on calibrated probabilities and **39.22% +/- 2.91% recall** on raw XGBoost scores across 20 seeds (Seed 42: 28.14% calibrated, 44.09% raw). Recall is strictly non-increasing across all thresholds and scales. Neither scale yields <1% recall.
 4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.021 - 0.023 calibrated, ~0.054 - 0.063 raw), even though in-sample isotonic validation achieves 0.0000.
 5. **Does NOT show significant practical lift at operational review budgets:** At 2% and 5% review budgets, graph features show no statistically significant lift in recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud value caught (2%: p = 0.9305; 5%: p = 0.2529).
 6. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** Seller-buyer collusion discrimination is strictly at chance (isolated ROC 0.5001 vs 0.4971) because the synthetic generator uses each buyer-seller pair once by construction. Coordinated fraud recall at a 2% review budget is near random (0.68%).
+
+<!-- END GENERATED -->

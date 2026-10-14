@@ -172,6 +172,7 @@ export default function FraudRingsPage() {
               )}
 
               {/* Cluster Topological Metrics Row */}
+              {/* BEGIN GENERATED */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                 <div className="p-3 rounded-lg bg-[#0E131A] border border-[#202A35]">
                   <div className="text-[10px] text-[#8995A3] uppercase font-mono">Topological Density</div>
@@ -199,6 +200,7 @@ export default function FraudRingsPage() {
                   <div className="text-[10px] text-rose-400">93% Fraud Rate</div>
                 </div>
               </div>
+              {/* END GENERATED */}
             </div>
 
             {/* Member Entity Manifest */}

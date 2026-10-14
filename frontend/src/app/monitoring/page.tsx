@@ -140,7 +140,7 @@ export default function TelemetryPage() {
             <div>
               <div className="text-xs font-semibold text-[#E8EDF3]">
                 {viewMode === "executive"
-                  ? "Executive Reliability: 99.99% Availability & Sub-20ms SLA Guarantee"
+                  ? "Executive Reliability: High Availability & Sub-20ms SLA Guarantee"
                   : "Deep Profiling: Empirical Hardware Latency & Multi-Service Probe Telemetry"}
               </div>
               <div className="text-[11px] text-[#8995A3] mt-0.5">

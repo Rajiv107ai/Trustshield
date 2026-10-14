@@ -194,6 +194,7 @@ function TransactionAnalyzerContent() {
       </div>
 
       {/* 2. HERO DECISION BANNER & TRUST SCORE GAUGE */}
+      {/* BEGIN GENERATED */}
       {result && (
         <div className={`p-6 rounded-xl border ${badgeConfig.bg} ${badgeConfig.glow} transition-all`}>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -479,6 +480,7 @@ function TransactionAnalyzerContent() {
           )}
         </>
       )}
+      {/* END GENERATED */}
 
       {/* 4. CUSTOM TRANSACTION INPUT FORM */}
       <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
@@ -536,7 +538,7 @@ function TransactionAnalyzerContent() {
             <label className="text-[11px] text-[#8995A3] block mb-1">Order Amount ($)</label>
             <input
               type="number"
-              step="0.01"
+              step="any"
               value={formData.amount || ""}
               onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
               className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"

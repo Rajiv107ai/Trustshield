@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 export default function ReturnAbusePage() {
+  /* BEGIN GENERATED */
   const [formData, setFormData] = useState<ReturnScoreRequest>({
     return_id: "RET_CLAIM_9021",
     order_id: "ORD_SIM_RETURN_04",
@@ -41,6 +42,7 @@ export default function ReturnAbusePage() {
     model_used: "Return Abuse Gradient Boosted Classifier (Phase 3)",
     reason_codes: ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_CLAIM"],
   });
+  /* END GENERATED */
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();

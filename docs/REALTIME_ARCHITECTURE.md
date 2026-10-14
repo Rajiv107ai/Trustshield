@@ -1,5 +1,7 @@
 # TrustShield Real-Time Streaming Architecture
 
+<!-- BEGIN GENERATED -->
+
 ## 1. Overview & Protocol Selection
 
 TrustShield ingests real-time transactions and streams decision telemetry directly to operations analysts and dashboard consoles.
@@ -77,3 +79,5 @@ The frontend client in `frontend/src/lib/api/client.ts` implements a resilient r
 - **`CONNECTING`:** Initial connection establishing.
 - **`RECONNECTING`:** Connection dropped; exponential backoff active with automatic retry after 3 seconds.
 - **`OFFLINE REPLAY`:** Backend gateway unreachable; UI gracefully displays frozen snapshot and indicates replay mode without crashing.
+
+<!-- END GENERATED -->

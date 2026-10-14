@@ -1,5 +1,7 @@
 # TrustShield AI — Full Project Audit Baseline
 
+<!-- BEGIN GENERATED -->
+
 **Document Revision:** 2026-10-07  
 **Role:** Master Project Audit, Bug Fix & Validation Agent  
 **Source Repository:** `https://github.com/Rajiv107ai/Trustshield`  
@@ -76,3 +78,5 @@ The repository contains 84 active files organized into the following functional 
 3. **Temporal Graph Cutoff Consistency:** Ensure all graph builders consistently isolate training graphs strictly before `TRAIN_END` and evaluation graphs before `VAL_END`.
 4. **Silent NaNs in GNN Feature Projections:** Ensure missing entity features (e.g. buyers with zero orders) are imputed cleanly without introducing NaNs into PyTorch tensors.
 5. **Trust Engine Aggregation Invariance:** Ensure no single component detector can crash the aggregator if an optional detector score is omitted.
+
+<!-- END GENERATED -->

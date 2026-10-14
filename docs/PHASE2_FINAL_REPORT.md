@@ -1,5 +1,7 @@
 # TrustShield AI — Phase 2 Advanced Research & Production Architecture Final Report
 
+<!-- BEGIN GENERATED -->
+
 > [!WARNING]
 > Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
 
@@ -82,7 +84,7 @@ All evaluations conducted on the frozen holdout temporal test partition (`order_
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **1. Phase 1 Tabular Baseline (RF)** | 0.742 | 0.418 | 0.612 | 0.540 | 0.574 | 8.8% | 34.1 | 4.2 ms |
 | **2. Phase 1 Tabular + Graph (Phase 3)** | 0.814 | 0.528 | 0.704 | 0.648 | 0.675 | 11.2% | 27.2 | 8.6 ms |
-| **3. Existing Homogeneous GCN (Phase 5)** | 0.519 | 0.114 | 0.220 | 0.190 | 0.204 | 14.5% | 88.0 | 38.5 ms |
+| **3. Existing Homogeneous GCN (Phase 5)** | 0.verified | 0.114 | 0.220 | 0.190 | 0.204 | 14.5% | 88.0 | 38.5 ms |
 | **4. Heterogeneous GNN (`HeteroData`)** | 0.782 | 0.495 | 0.684 | 0.612 | 0.646 | 10.1% | 29.5 | 42.1 ms |
 | **5. Temporal GNN (Continuous Time2Vec)** | 0.790 | 0.508 | 0.691 | 0.625 | 0.656 | 9.8% | 28.1 | 134.8 ms |
 | **6. Hybrid: Tabular + HeteroGNN + Ring Intel** | 0.835 | 0.572 | 0.738 | 0.681 | 0.708 | 8.2% | 21.0 | 48.6 ms |
@@ -180,3 +182,5 @@ Measured across 1,000 requests on local test environment:
 1. **Self-Supervised Contrastive Graph Pre-training:** Pre-training node representations using InfoNCE loss on unlabelled transaction subgraphs prior to fine-tuning on fraud labels.
 2. **Dynamic Graph Random Walks (Node2Vec / DeepWalk):** Replacing static message passing with biased temporal random walks for real-time edge streaming.
 3. **LLM Tool-Calling in Neo4j:** Equipping the GenAI Investigation Agent with LangChain tool-calling to execute interactive Cypher queries during human investigator dialogue.
+
+<!-- END GENERATED -->

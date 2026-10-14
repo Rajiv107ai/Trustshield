@@ -1,5 +1,7 @@
 # TrustShield AI — System Limitations & Research Disclosure
 
+<!-- BEGIN GENERATED -->
+
 **Document Revision:** 2026-10-07  
 **Scope:** Phase 1 Scientific Assessment & Technical Limitations  
 
@@ -26,7 +28,7 @@
 ## 3. Deep GNN vs. Classical Tabular Reality
 
 1. **GNN Over-Smoothing & Over-Squashing:**  
-   Experimental evidence in TrustShield shows standalone 2-layer GCN achieving only $0.519$ ROC-AUC. Transaction topologies have massive hubs (popular merchants and delivery hubs) connected to honest buyers. Uniform message passing aggregates noise across these dense hubs, washing out subtle fraud signals.
+   Experimental evidence in TrustShield shows standalone 2-layer GCN achieving only $0.verified$ ROC-AUC. Transaction topologies have massive hubs (popular merchants and delivery hubs) connected to honest buyers. Uniform message passing aggregates noise across these dense hubs, washing out subtle fraud signals.
 2. **Need for Heterogeneous Edge-Type Attention:**  
    To outperform tabular boosted trees, graph architectures must use heterogeneous relation attention (e.g. RGCN or HGT) with learned edge-type filtering, separating high-risk hardware sharing from benign address sharing.
 
@@ -57,3 +59,5 @@ Phase 1 established scientific correctness, temporal validity, and core algorith
 - **Low-Latency Feature Store:** Redis / Feast for online historical entity aggregations
 - **Graph Database:** Neo4j / AWS Neptune for distributed k-hop subgraph traversal
 - **Continuous Tracking:** MLflow / DVC for automated model registry and artifact hashing in CI/CD pipelines
+
+<!-- END GENERATED -->

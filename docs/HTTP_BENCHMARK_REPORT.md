@@ -1,5 +1,7 @@
 # TrustShield AI — HTTP Transaction Scoring Benchmark Report
 
+<!-- BEGIN GENERATED -->
+
 > **Phase 2 Empirical Verification**: This benchmark replaces the invalid microbenchmark
 > (in-memory `np.dot` dot product proxy) with true HTTP request-response performance testing
 > on the `/transaction/score` FastAPI endpoint.
@@ -56,3 +58,5 @@
 > 3. **GIL & Process Boundaries**: Python's GIL bounds CPU-heavy ML tree traversals to a single core per process.
 >    Scaling to production volumes requires multi-process Uvicorn workers behind an NGINX reverse proxy.
 
+
+<!-- END GENERATED -->

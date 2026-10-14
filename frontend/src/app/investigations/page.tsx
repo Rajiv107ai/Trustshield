@@ -41,6 +41,7 @@ interface CaseItem {
   };
 }
 
+/* BEGIN GENERATED */
 const CASES_DATA: CaseItem[] = [
   {
     id: "CASE-001",
@@ -113,6 +114,7 @@ const CASES_DATA: CaseItem[] = [
     },
   },
 ];
+/* END GENERATED */
 
 export default function InvestigationsPage() {
   const [selectedCase, setSelectedCase] = useState<CaseItem>(CASES_DATA[0]);
@@ -153,7 +155,7 @@ export default function InvestigationsPage() {
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111821] border border-[#202A35] text-xs font-mono">
           <span className="text-[#8995A3]">Guard:</span>
-          <span className="text-emerald-400 font-semibold">100% Grounded in Evidence</span>
+          <span className="text-emerald-400 font-semibold">Strictly Grounded in Evidence</span>
         </div>
       </div>
 

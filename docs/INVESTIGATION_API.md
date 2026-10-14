@@ -1,5 +1,7 @@
 # Forensic Investigation Dossier API
 
+<!-- BEGIN GENERATED -->
+
 ## 1. Overview
 
 The Forensic Investigation Dossier API (`POST /investigation/generate-dossier`) provides operations analysts and compliance officers with evidence-grounded investigation reports.
@@ -96,3 +98,5 @@ Per Rule #12, the response explicitly separates four epistemological tiers:
    }
    ```
 4. **Automated Verification Guard:** Compares the final narrative against observed inputs; if unverified claims are detected, `grounding_verification_passed` reports false with remediation notes.
+
+<!-- END GENERATED -->

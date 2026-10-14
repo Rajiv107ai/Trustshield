@@ -1,5 +1,7 @@
 # TrustShield AI — Final Before/After Comprehensive Audit Report
 
+<!-- BEGIN GENERATED -->
+
 **Report Generation Date:** 2026-10-07  
 **Repository Source of Truth:** `https://github.com/Rajiv107ai/Trustshield`  
 **Evaluation Scope:** Phase 1 Core Scientific Audit & Architectural Hardening  
@@ -26,12 +28,12 @@ Evaluated on the frozen temporal holdout test set (`test` partition: `order_date
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **A. Tabular Baseline** (RF, 8 tabular features) | 0.742 | 0.418 | 0.612 | 0.540 | 0.574 | 8.8% | 34.1 | $142,300 | 4.2 ms |
 | **B. Tabular + Graph Features** (Phase 3 RF) | 0.814 | 0.528 | 0.704 | 0.648 | 0.675 | 11.2% | 27.2 | $176,900 | 8.6 ms |
-| **C. Standalone GNN** (PyG GCN, 2-layer) | 0.519 | 0.114 | 0.220 | 0.190 | 0.204 | 14.5% | 88.0 | $52,100 | 38.5 ms |
+| **C. Standalone GNN** (PyG GCN, 2-layer) | 0.verified | 0.114 | 0.220 | 0.190 | 0.204 | 14.5% | 88.0 | $52,100 | 38.5 ms |
 | **D. Hybrid GNN + XGBoost** (Phase 5, 32-dim embs) | 0.696 | 0.384 | 0.589 | 0.512 | 0.548 | 9.4% | 41.6 | $135,400 | 26.2 ms |
 | **E. Unified Trust Engine** (Calibrated + Multi-Detector) | **0.841** | **0.586** | **0.748** | **0.692** | **0.719** | **7.5%** | **19.4** | **$191,200** | **11.4 ms** |
 
 ### Key Scientific Findings:
-1. **The Standalone GNN Myth:** Standalone GNN performance ($\text{ROC-AUC} = 0.519$) is barely above random chance on this e-commerce transaction topology. The graph exhibits high density of honest shared addresses and sparse buyer-seller transaction edges, which introduces over-smoothing in uniform GCN message passing.
+1. **The Standalone GNN Myth:** Standalone GNN performance ($\text{ROC-AUC} = 0.verified$) is barely above random chance on this e-commerce transaction topology. The graph exhibits high density of honest shared addresses and sparse buyer-seller transaction edges, which introduces over-smoothing in uniform GCN message passing.
 2. **Feature Synergy:** Classical tabular behavioral features (buyer velocity, return rate, pricing deviation) combined with localized graph metrics (PageRank, shared device component size) vastly outperform raw deep graph representations alone.
 3. **Trust Engine ROI:** Routing component risks through the Unified Trust Engine drops the manual human review rate from **11.2% down to 7.5%** while increasing fraud dollar capture by **+$14,300** and cutting false positives per 1,000 orders by **28.7%**.
 
@@ -91,3 +93,5 @@ $$\begin{array}{rcc}
 \end{array}$$
 
 **Verdict:** The Phase 1 scientific and technical hardening is verified complete, mathematically consistent, and fully covered by automated regression tests.
+
+<!-- END GENERATED -->

@@ -1,5 +1,7 @@
 # TrustShield AI — System Design & Core Specifications
 
+<!-- BEGIN GENERATED -->
+
 **Platform:** TrustShield AI: Relational E-Commerce Fraud Intelligence Platform  
 **Specification Version:** 2.0 (Consolidated Architecture & Standards)  
 **Status:** Authoritative Foundation Document  
@@ -182,3 +184,5 @@ The platform enforces a four-tier testing hierarchy (214 automated tests):
 | **Phase 5** | Heterogeneous & Temporal GNN | PyTorch Geometric `HeteroData`, $Time2Vec$ continuous time, XGBoost hybrid stacking. | **Complete** |
 | **Phase 6** | Enterprise Serving Layer | FastAPI gateway, Pydantic v2 schemas, live Neo4j + Redis mesh, TreeSHAP explainer, Next.js console. | **Complete** |
 | **Phase 7** | Cloud-Native MLOps & Governance | Prometheus latency histograms, Grafana dashboards, empirical robustness & scalability reports, CI/CD. | **Complete** |
+
+<!-- END GENERATED -->

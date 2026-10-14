@@ -1,5 +1,7 @@
 # TrustShield — Phase 2 Metric Reconciliation & Forensic Report
 
+<!-- BEGIN GENERATED -->
+
 > [!WARNING]
 > Metrics below were produced on a pre-audit dataset with known generator bugs and are NOT reproducible; see [results/results.json](file:///c:/Users/rajiv_pis9z8x/Downloads/trustshield_full_handoff/results/results.json).
 
@@ -223,3 +225,5 @@ Every discrepancy between the earlier Phase 2 report and the closure audit has b
 - [x] 100% test pass rate across all 231 unit/integration tests, 17 security tests, ESLint, Next.js build, and Pyright.
 
 **Phase 2 is formally approved with a decisive PASS.**
+
+<!-- END GENERATED -->

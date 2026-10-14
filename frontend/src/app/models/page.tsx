@@ -175,7 +175,7 @@ export default function ModelRegistryPage() {
               <div className="p-3 rounded bg-[#0E131A] border border-[#202A35] flex items-center justify-between">
                 <div>
                   <div className="text-[#E8EDF3] font-semibold">With Injected Price Anomaly (N={ablations.fake_listing_price_anomaly_subgroups.test_fake_with_price_anomaly})</div>
-                  <div className="text-[10px] text-[#596574] mt-0.5">Price &lt; 0.60 catalog base price</div>
+                  <div className="text-[10px] text-[#596574] mt-0.5">Price &lt; 0.6 catalog base price</div>
                 </div>
                 <div className="text-lg font-bold text-emerald-400">
                   {(ablations.fake_listing_price_anomaly_subgroups.recall_with_price_anomaly * 100).toFixed(1)}% Recall

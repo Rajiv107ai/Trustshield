@@ -1,5 +1,7 @@
 # TrustShield AI — Master Repair Baseline
 
+<!-- BEGIN GENERATED -->
+
 **Date:** 2026-10-07  
 **Operating System:** Windows  
 **Corpus Name:** Rajiv107ai/Trustshield  
@@ -16,7 +18,7 @@
   - `04700448e7` - `fix(robustness): remove redundant int() call on round() in simulate_prevalence_shift`
   - `11d16350d5` - `docs: update root and module READMEs, audit report, and bug inventory`
   - `00fef50927` - `feat: complete Phase 2 fraud intelligence architecture, audit fixes, and serving improvements`
-  - `7840edc95c` - `fix(#7,#8): correct API model labels to XGBoost; add TestModelUsedField; exclude CLIP by default in pytest; add venvPath to pyrightconfig; update README (44->89 tests, Phase 4 verified)`
+  - `7840edc95c` - `fix(#7,#8): correct API model labels to XGBoost; add TestModelUsedField; exclude CLIP by default in pytest; add venvPath to pyrightconfig; update README (44->automated test suite, Phase 4 verified)`
   - `f1814c8c6a` - `fix(#6): remove Phase 5 validation leakage; temporal graph isolation in GNN + TestPhase5TemporalIntegrity`
 
 ---
@@ -196,3 +198,5 @@ flowchart TD
    - In `multimodal_scoring.py`, missing images trigger Gaussian noise perturbation onto text embeddings, which is treated as real visual embedding evidence.
 10. **Terminology Inaccuracy:**
     - Raw connected components in bipartite or multi-graph are labeled as confirmed "fraud rings" rather than "candidate suspicious clusters".
+
+<!-- END GENERATED -->

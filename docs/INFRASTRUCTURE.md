@@ -1,5 +1,7 @@
 # TrustShield Production Infrastructure & Service Mesh
 
+<!-- BEGIN GENERATED -->
+
 ## 1. Overview & Service Mesh Topology
 
 TrustShield operates as a coordinated 5-container service mesh orchestrated via Docker Compose:
@@ -85,3 +87,5 @@ TrustShield is guaranteed to boot and score transactions even when all external 
 | **Neo4j** | Offline | Reads community rings from `models/fraud_rings.joblib` | `neo4j_status: "unavailable"`, counter inc |
 | **Prometheus** | Offline | Metrics accumulate in memory until scraped | Export available via `GET /metrics` |
 | **Core Models**| Missing | System halts at startup with descriptive error | `GET /ready` returns HTTP 503 |
+
+<!-- END GENERATED -->

@@ -1,5 +1,7 @@
 # TrustShield AI — Documentation & Governance Hub
 
+<!-- BEGIN GENERATED -->
+
 This directory serves as the centralized repository for all engineering audits, scientific research reports, regulatory model cards, architectural specifications, and bug tracking inventories across the **TrustShield AI** platform.
 
 ---
@@ -8,7 +10,7 @@ This directory serves as the centralized repository for all engineering audits, 
 
 ### 🛠️ 1. Technical Repair & Verification (Current State)
 - [**Master Technical Repair Report (`FINAL_REPAIR_REPORT.md`)**](FINAL_REPAIR_REPORT.md)  
-  *Authoritative record of the engineering repair campaign.* Documents the resolution of all 22 cataloged defects (`TS-001` to `TS-022`), temporal leakage elimination, production probability calibration, and empirical verification (192 passing tests across unit, regression, serving, and mesh seeder suites).
+  *Authoritative record of the engineering repair campaign.* Documents the resolution of all 22 cataloged defects (`TS-001` to `TS-022`), temporal leakage elimination, production probability calibration, and empirical verification (automated test suite across unit, regression, serving, and mesh seeder suites).
 - [**Repair Baseline State (`REPAIR_BASELINE.md`)**](REPAIR_BASELINE.md)  
   Pre-repair vulnerability baseline, checklist, and architectural baseline.
 - [**Tracked Bug Registry (`BUG_INVENTORY.json`)**](BUG_INVENTORY.json)  
@@ -76,3 +78,5 @@ This directory serves as the centralized repository for all engineering audits, 
   - `02_API_SCHEMAS_TYPESCRIPT.md`: TypeScript contracts mirroring 100% of Pydantic v2 schemas.
   - `03_SCENARIOS_AND_DUAL_MODE.md`: 4 interactive demo scenarios and plain-English reason translations.
 
+
+<!-- END GENERATED -->

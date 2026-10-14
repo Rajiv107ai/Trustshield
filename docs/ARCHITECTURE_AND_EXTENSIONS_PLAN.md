@@ -1,5 +1,7 @@
 # TrustShield AI — Production Architecture & Extensions Plan
 
+<!-- BEGIN GENERATED -->
+
 ## Executive Summary
 This document formalizes the production-grade extension of the TrustShield platform, integrating:
 1. **Live Neo4j + Redis Infrastructure Layer** with zero-crash offline fallbacks.
@@ -144,3 +146,5 @@ This document formalizes the production-grade extension of the TrustShield platf
 | **Phase C** | SSE Live Stream | `GET /stream/transactions`, keepalive, disconnect detection, live model scoring, Next.js UI integration |
 | **Phase D** | Prometheus & Grafana | `GET /metrics`, latency histograms, fallback counters, docker-compose orchestration, dashboard JSON |
 | **Phase E** | Full Integration & Tests | Zero regressions (174+ tests pass), new unit/integration/temporal tests, benchmarks, docs sync |
+
+<!-- END GENERATED -->

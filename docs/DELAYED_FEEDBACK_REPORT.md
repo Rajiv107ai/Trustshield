@@ -1,5 +1,7 @@
 # TrustShield AI — Chargeback Feedback Delay Simulation Report
 
+<!-- BEGIN GENERATED -->
+
 > **Experiment Date:** October 08, 2026 (07:41 UTC)  
 > **Simulation Purpose:** Quantify the performance penalty of delayed ground truth in production fraud operations.  
 > **Evaluation Split:** Months 11–12 Out-of-Time Test Set (16,886 orders)  
@@ -44,3 +46,5 @@ To mitigate delayed feedback in enterprise production:
 - **Positive-Unlabeled (PU) Learning:** Treat unflagged recent transactions as unlabeled rather than negative.
 - **Graph Proximity Label Propagation:** Semi-supervised graph diffusion from confirmed historic fraud seeds to unconfirmed recent neighbors.
 - **Dynamic Mature-Data Retraining Windows:** Train core behavioral models exclusively on data matured beyond 60 days, while utilizing online anomaly models for the volatile recent window.
+
+<!-- END GENERATED -->
