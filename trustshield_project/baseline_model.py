@@ -94,7 +94,7 @@ def _device_shared_buyer_count_asof(
     first_use = (
         orders_sub.groupby([device_col, buyer_col], as_index=False)[date_col]
         .min()
-        .sort_values(kind="mergesort")
+        .sort_values(by=date_col, kind="mergesort")
         .reset_index(drop=True)
     )
     # Running count of distinct buyers on device up to that first_use date

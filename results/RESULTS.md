@@ -40,7 +40,26 @@ Control Variant (d) attaches 6 month-lagged plain aggregates computed with ident
 ### Topological PageRank vs Plain Order Counts Correlation:
 - **`buyer_pagerank` vs `buyer_orders_before`**: Pearson r = 0.8430 +/- 0.0357 | Spearman rho = 0.7562 +/- 0.0258 (High correlation: PageRank is heavily driven by plain order counts)
 - **`seller_pagerank` vs seller ORDER COUNT**: Pearson r = 0.9899 +/- 0.0066 | Spearman rho = 0.9696 +/- 0.0082 (Near-perfect correlation: seller PageRank is collinear with total seller order volume)
-- **Scope & Attribution**: This conclusion is scoped strictly to bipartite PageRank (`buyer_pagerank` and `seller_pagerank`), where topological centrality heavily tracks raw activity. Furthermore, control (d) demonstrates that month-lagged plain activity aggregates provide zero predictive lift over baseline tabular features, confirming that the genuine graph lift originates from the sharing group (S: device and address clusters).
+- **Scope & Attribution**: This conclusion is scoped strictly to bipartite PageRank (`buyer_pagerank` and `seller_pagerank`), where topological centrality heavily tracks raw activity. Furthermore, control (d) demonstrates that month-lagged plain activity aggregates provide zero predictive lift over baseline tabular features, confirming that the genuine lift originates from sharing-based features (S: device and address clusters).
+
+## 2b. Canonical Controls & Cadence Evaluation: Plain Pairwise Counts vs Sharing Graph Topology
+
+**Evaluation Split**: Truncated Test Horizon (`2025-11-01` to `2025-12-10`, final 21 days excluded, $N=20$ independent seeds: 42, 101, 202, ..., 1910).
+
+> **Headline Finding: Plain Pairwise Sharing Counts Match or Beat Graph Topology Features**
+> - Order-level point-in-time pairwise sharing counts (Control e) achieve ROC **0.7649 +/- 0.0242** vs Group S **0.7610 +/- 0.0237** (paired diff -0.0039, p = 0.0406) and Full (c) **0.7635 +/- 0.0229**.
+> - At matching weekly snapshot cadence, Control (e_weekly) achieves ROC **0.7637 +/- 0.0240**, matching or slightly beating topological features (paired diff vs S: +0.0027 ROC, +0.0034 PR, p = 0.0231).
+> - **Cadence Confound Addressed**: The difference between weekly cadence and order-level PIT (e_weekly vs e) is small and not statistically significant (ROC diff -0.0012, p = 0.3992). The advantage of plain counts is **NOT** due to snapshot cadence; plain pairwise counts capture the fraud signal directly without graph abstraction overhead.
+
+| Model Variant | Feature Description | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Paired Lift vs Control (e) |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **(b) Baseline Tabular** | Sharing Features | 0.7521 +/- 0.0174 | 0.4777 +/- 0.0270 | baseline | — |
+| **(e) Tabular + PIT Pairwise Counts** | Sharing Features | 0.7649 +/- 0.0242 | 0.4892 +/- 0.0297 | +0.0127 (p = 5.7335e-05) | baseline |
+| **(e_weekly) Tabular + Weekly Pairwise Counts** | Sharing Features | 0.7637 +/- 0.0240 | 0.4880 +/- 0.0297 | +0.0116 (p = 3.7606e-05) | -0.0012 (p = 3.9923e-01) |
+| **(f) Tabular + share_degree only** | Sharing Features | 0.7634 +/- 0.0198 | 0.4874 +/- 0.0293 | +0.0113 (p = 1.3111e-08) | — |
+| **(g) Tabular + share_component_size only** | Sharing Features | 0.7599 +/- 0.0219 | 0.4856 +/- 0.0291 | +0.0078 (p = 1.2177e-04) | — |
+| **(S) Tabular + S (degree + CC size)** | Sharing Features | 0.7610 +/- 0.0237 | 0.4846 +/- 0.0292 | +0.0089 (p = 3.5722e-04) | -0.0039 (p = 4.0649e-02) |
+| **(c) Full Tabular + Graph (8 features)** | Sharing Features | 0.7635 +/- 0.0229 | 0.4858 +/- 0.0318 | +0.0114 (p = 3.0153e-05) | -0.0014 (p = 5.8628e-01) |
 
 ## 3. Group Ablation Analysis (Main Ablation over 20 Seeds)
 
@@ -76,30 +95,42 @@ Controls Family-Wise Error Rate (FWER <= 0.05) across all pre-registered explora
 
 | Rank | Multiplier | Exploratory Test | Raw p-value | Holm-Adjusted p-value | Significant at alpha=0.05 |
 | :---: | :---: | :--- | :---: | :---: | :---: |
-| 1 | 24x | Group Ablation: Tabular + S+B vs Tabular (ROC) | 3.7505e-06 | 9.0011e-05 | YES (p < 0.05) |
-| 2 | 23x | Group Ablation: Tabular + S+E vs Tabular (ROC) | 8.6438e-06 | 1.9881e-04 | YES (p < 0.05) |
-| 3 | 22x | Control (c vs d): Graph vs Plain Aggregates (ROC) | 4.6636e-05 | 1.0260e-03 | YES (p < 0.05) |
-| 4 | 21x | Group Ablation: Tabular + S vs Tabular (ROC) | 1.3257e-04 | 2.7840e-03 | YES (p < 0.05) |
-| 5 | 20x | Control (c vs d): Graph vs Plain Aggregates (PR) | 1.2662e-03 | 2.5324e-02 | YES (p < 0.05) |
-| 6 | 19x | Hybrid vs Tabular (Coherent N=5) | 3.9460e-03 | 7.4974e-02 | NO |
-| 7 | 18x | Hybrid vs Tabular (Standard N=5) | 8.3154e-03 | 1.4968e-01 | NO |
-| 8 | 17x | Group Ablation: Tabular + E vs Tabular (ROC) | 8.5518e-03 | 1.4968e-01 | NO |
-| 9 | 16x | Per-Type Graph Lift: Coordinated Ring (ROC) | 2.1000e-02 | 3.3600e-01 | NO |
-| 10 | 15x | Group Ablation: Tabular + B vs Tabular (ROC) | 3.1829e-02 | 4.7744e-01 | NO |
-| 11 | 14x | Tabular+Graph vs Tabular (Coherent Upper Bound N=5) | 3.4045e-02 | 4.7744e-01 | NO |
-| 12 | 13x | LOFO Loss: Drop buyer_pagerank | 4.5416e-02 | 5.9041e-01 | NO |
-| 13 | 12x | LOFO Loss: Drop seller_buyer_concentration_hhi | 1.0023e-01 | 1.0000e+00 | NO |
-| 14 | 11x | Per-Type Graph Lift: Fake Listing (ROC) | 1.8400e-01 | 1.0000e+00 | NO |
-| 15 | 10x | Group Ablation: Tabular + B+E vs Tabular (ROC) | 1.8628e-01 | 1.0000e+00 | NO |
-| 16 | 9x | LOFO Loss: Drop share_degree | 2.3811e-01 | 1.0000e+00 | NO |
-| 17 | 8x | Control (d vs b): Plain Aggregates vs Tabular (ROC) | 2.7292e-01 | 1.0000e+00 | NO |
-| 18 | 7x | Per-Type Graph Lift: Return Abuse (ROC) | 3.4200e-01 | 1.0000e+00 | NO |
-| 19 | 6x | LOFO Loss: Drop buyer_seller_degree | 3.7037e-01 | 1.0000e+00 | NO |
-| 20 | 5x | LOFO Loss: Drop seller_pagerank | 3.7401e-01 | 1.0000e+00 | NO |
-| 21 | 4x | LOFO Loss: Drop buyer_seller_edge_weight_before | 3.8836e-01 | 1.0000e+00 | NO |
-| 22 | 3x | LOFO Loss: Drop share_component_size | 4.5988e-01 | 1.0000e+00 | NO |
-| 23 | 2x | Control (d vs b): Plain Aggregates vs Tabular (PR) | 4.8370e-01 | 1.0000e+00 | NO |
-| 24 | 1x | LOFO Loss: Drop seller_buyer_degree | 7.4334e-01 | 1.0000e+00 | NO |
+| 1 | 36x | Control (f vs b): share_degree vs Tabular (ROC) | 1.3111e-08 | 4.7199e-07 | YES (p < 0.05) |
+| 2 | 35x | Control (f vs b): share_degree vs Tabular (PR) | 6.0304e-07 | 2.1106e-05 | YES (p < 0.05) |
+| 3 | 34x | Group Ablation: Tabular + S+B vs Tabular (ROC) | 3.7505e-06 | 1.2752e-04 | YES (p < 0.05) |
+| 4 | 33x | Control (e vs b): Plain Pairwise Counts vs Tabular (PR) | 7.1733e-06 | 2.3672e-04 | YES (p < 0.05) |
+| 5 | 32x | Group Ablation: Tabular + S+E vs Tabular (ROC) | 8.6438e-06 | 2.7660e-04 | YES (p < 0.05) |
+| 6 | 31x | Control (e_weekly vs b): Weekly Counts vs Tabular (PR) | 9.8191e-06 | 3.0439e-04 | YES (p < 0.05) |
+| 7 | 30x | Control (e_weekly vs b): Weekly Counts vs Tabular (ROC) | 3.7606e-05 | 1.1282e-03 | YES (p < 0.05) |
+| 8 | 29x | Control (c vs d): Graph vs Plain Aggregates (ROC) | 4.6636e-05 | 1.3524e-03 | YES (p < 0.05) |
+| 9 | 28x | Control (e vs b): Plain Pairwise Counts vs Tabular (ROC) | 5.7335e-05 | 1.6054e-03 | YES (p < 0.05) |
+| 10 | 27x | Control (g vs b): share_component_size vs Tabular (PR) | 6.7769e-05 | 1.8298e-03 | YES (p < 0.05) |
+| 11 | 26x | Control (g vs b): share_component_size vs Tabular (ROC) | 1.2177e-04 | 3.1661e-03 | YES (p < 0.05) |
+| 12 | 25x | Group Ablation: Tabular + S vs Tabular (ROC) | 1.3257e-04 | 3.3143e-03 | YES (p < 0.05) |
+| 13 | 24x | Control (c vs d): Graph vs Plain Aggregates (PR) | 1.2662e-03 | 3.0389e-02 | YES (p < 0.05) |
+| 14 | 23x | Group (S vs e): Topological S vs Plain Counts (PR) | 3.3787e-03 | 7.7710e-02 | NO |
+| 15 | 22x | Hybrid vs Tabular (Coherent N=5) | 3.9460e-03 | 8.6812e-02 | NO |
+| 16 | 21x | Hybrid vs Tabular (Standard N=5) | 8.3154e-03 | 1.7462e-01 | NO |
+| 17 | 20x | Group Ablation: Tabular + E vs Tabular (ROC) | 8.5518e-03 | 1.7462e-01 | NO |
+| 18 | 19x | Per-Type Graph Lift: Coordinated Ring (ROC) | 2.1000e-02 | 3.9900e-01 | NO |
+| 19 | 18x | Control (e_weekly vs S): Weekly Counts vs Topological S (PR) | 2.3099e-02 | 4.1577e-01 | NO |
+| 20 | 17x | Group Ablation: Tabular + B vs Tabular (ROC) | 3.1829e-02 | 5.4110e-01 | NO |
+| 21 | 16x | Tabular+Graph vs Tabular (Coherent Upper Bound N=5) | 3.4045e-02 | 5.4471e-01 | NO |
+| 22 | 15x | Group (S vs e): Topological S vs Plain Counts (ROC) | 4.0649e-02 | 6.0973e-01 | NO |
+| 23 | 14x | LOFO Loss: Drop buyer_pagerank | 4.5416e-02 | 6.3582e-01 | NO |
+| 24 | 13x | LOFO Loss: Drop seller_buyer_concentration_hhi | 1.0023e-01 | 1.0000e+00 | NO |
+| 25 | 12x | Per-Type Graph Lift: Fake Listing (ROC) | 1.8400e-01 | 1.0000e+00 | NO |
+| 26 | 11x | Group Ablation: Tabular + B+E vs Tabular (ROC) | 1.8628e-01 | 1.0000e+00 | NO |
+| 27 | 10x | LOFO Loss: Drop share_degree | 2.3811e-01 | 1.0000e+00 | NO |
+| 28 | 9x | Control (d vs b): Plain Aggregates vs Tabular (ROC) | 2.7292e-01 | 1.0000e+00 | NO |
+| 29 | 8x | Per-Type Graph Lift: Return Abuse (ROC) | 3.4200e-01 | 1.0000e+00 | NO |
+| 30 | 7x | LOFO Loss: Drop buyer_seller_degree | 3.7037e-01 | 1.0000e+00 | NO |
+| 31 | 6x | LOFO Loss: Drop seller_pagerank | 3.7401e-01 | 1.0000e+00 | NO |
+| 32 | 5x | LOFO Loss: Drop buyer_seller_edge_weight_before | 3.8836e-01 | 1.0000e+00 | NO |
+| 33 | 4x | LOFO Loss: Drop share_component_size | 4.5988e-01 | 1.0000e+00 | NO |
+| 34 | 3x | Control (d vs b): Plain Aggregates vs Tabular (PR) | 4.8370e-01 | 1.0000e+00 | NO |
+| 35 | 2x | Full (c vs e): Graph vs Plain Pairwise Counts (ROC) | 5.8628e-01 | 1.0000e+00 | NO |
+| 36 | 1x | LOFO Loss: Drop seller_buyer_degree | 7.4334e-01 | 1.0000e+00 | NO |
 
 ## 6. Practical Significance: Fraud Value Caught (INR) & Recall at Review Budgets (20 Seeds)
 
