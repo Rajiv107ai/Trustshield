@@ -139,6 +139,8 @@ def generate_results_markdown() -> str:
         md.append("| Group Configuration | ROC-AUC (mean +/- std) | ROC Lift vs Tabular (b) | 95% Confidence Interval | Paired t-stat | p-value |")
         md.append("| :--- | :---: | :---: | :---: | :---: | :---: |")
         for gk, g_info in data["group_ablation"].items():
+            if gk == "per_seed_arrays":
+                continue
             r = g_info.get("roc", {})
             l = g_info.get("roc_lift_vs_b", {})
             ci = l.get("ci_95", [0, 0])
@@ -385,10 +387,10 @@ def generate_results_markdown() -> str:
     md.append("## 13. What This Does NOT Show\n")
     md.append("To maintain scientific honesty and prevent over-interpretation of experimental results:\n")
     md.append("1. **Does NOT show GNN superiority over gradient boosted trees in the tested configuration (16-dim OOF GraphSAGE embeddings into XGBoost):** Integrating out-of-fold GNN embeddings into XGBoost results in net negative lift (-0.0263 ROC-AUC, p = 0.0083). Tabular trees with point-in-time graph features remain superior.")
-    md.append("2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true graph lift is modest (+0.0114 ROC-AUC, +0.0081 PR-AUC). Historical reports claiming double-digit lifts were caused by the generator first_seen timestamp bug or unadjusted baselines.")
+    md.append("2. **Does NOT show double-digit graph lifts:** On honest point-in-time temporal holdouts, true sharing-based feature lift is modest (+0.0114 ROC-AUC, +0.0081 PR-AUC). Historical reports claiming double-digit lifts were caused by the generator first_seen timestamp bug or unadjusted baselines.")
     md.append("3. **Does NOT show that a 0.50 threshold yields <1% recall:** Derived strictly from the threshold grid evaluation, thresholding at 0.50 yields **31.95% +/- 3.74% recall** on calibrated probabilities and **39.22% +/- 2.91% recall** on raw XGBoost scores across 20 seeds (Seed 42: 28.14% calibrated, 44.09% raw). Recall is strictly non-increasing across all thresholds and scales. Neither scale yields <1% recall.")
     md.append("4. **Does NOT show zero out-of-sample calibration error:** Out-of-sample test ECE is strictly non-zero (~0.021 - 0.023 calibrated, ~0.054 - 0.063 raw), even though in-sample isotonic validation achieves 0.0000.")
-    md.append("5. **Does NOT show significant practical lift at operational review budgets:** At 2% and 5% review budgets, graph features show no statistically significant lift in recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud value caught (2%: p = 0.9305; 5%: p = 0.2529).")
+    md.append("5. **Does NOT show significant practical lift at operational review budgets:** At 2% and 5% review budgets, sharing-based features show no statistically significant lift in recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud value caught (2%: p = 0.9305; 5%: p = 0.2529).")
     md.append("6. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** Seller-buyer collusion discrimination is strictly at chance (isolated ROC 0.5001 vs 0.4971) because the synthetic generator uses each buyer-seller pair once by construction. Coordinated fraud recall at a 2% review budget is near random (0.68%).\n")
 
     rendered = "\n".join(md)
