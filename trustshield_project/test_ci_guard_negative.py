@@ -1,60 +1,62 @@
 """Negative testing suite for TrustShield CI Guard (scripts/check_no_hardcoded_metrics.py).
 
-Verifies that the generic metric regex strictly catches and fails (exits non-zero) when:
-1. "ROC-AUC 0.912" is inserted in README.md.
-2. "ROC-AUC 0.912" is inserted in a docs/*.md file (e.g. docs/MODEL_CARD.md).
-3. "ROC-AUC 0.912" is inserted in a frontend .tsx file (e.g. frontend/src/app/models/page.tsx).
-4. "94.2%" is inserted in a frontend page (e.g. frontend/src/app/evaluation/page.tsx).
-5. results/results.json is corrupted or lacks required benchmark keys.
+Verifies that the allowlist CI Guard strictly catches and fails (exits non-zero) when:
+1. Any unapproved metric string is inserted outside a generated block across all 4 target file types:
+   - README.md
+   - docs/*.md (e.g. docs/MODEL_CARD.md)
+   - results/RESULTS.md
+   - frontend/src/**/*.tsx (e.g. frontend/src/app/models/page.tsx)
+2. Parametrized across the 10 required audit strings:
+   - "roc_auc: 0.912"
+   - "'roc_auc': 0.912"
+   - "ROC-AUC of 0.912"
+   - "<td>ROC-AUC</td><td>0.912</td>"
+   - "F-1 0.91"
+   - "ECE 0.021"
+   - "Brier 0.058"
+   - "lift +0.0115"
+   - "TPR 0.88"
+   - "94 %"
+3. frontend/public/results.json differs from results/results.json.
+4. results/results.json is corrupted or missing required schema keys.
 """
 
+from __future__ import annotations
 import os
 import sys
 import json
 import builtins
 import pytest
-from io import StringIO
+from io import StringIO, BytesIO
 
 _ROOT_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, _ROOT_DIR)
 
-from scripts.check_no_hardcoded_metrics import check_no_hardcoded_metrics, scan_text_for_metrics
+from scripts.check_no_hardcoded_metrics import check_no_hardcoded_metrics, scan_file_content
 
-UNGOUNDED_EXACT_STRINGS = [
-    "roc-auc 0.912",
-    "| ROC-AUC | 0.912 |",
-    "AUC 0.912",
-    "PR-AUC 0.912",
-    "ROC-AUC (test) 0.912",
-    "precision 0.912",
-    "F1 0.91",
-    "recall: 0.85",
-    "94.2%",
-    "Recall 94.2%",
-    "| 94.2% |",
-    "<td>94.2%</td>",
-    "accuracy: 94.2%.",
+REQUIRED_NEGATIVE_STRINGS = [
+    "roc_auc: 0.912",
+    "'roc_auc': 0.912",
+    "ROC-AUC of 0.912",
+    "<td>ROC-AUC</td><td>0.912</td>",
+    "F-1 0.91",
+    "ECE 0.021",
+    "Brier 0.058",
+    "lift +0.0115",
+    "TPR 0.88",
+    "94 %",
 ]
 
-GROUNDED_EXACT_STRINGS = [
-    "roc-auc 0.7410",
-    "| ROC-AUC | 0.7410 |",
-    "AUC 0.7410",
-    "PR-AUC 0.4461",
-    "ROC-AUC (test) 0.7410",
-    "precision 0.7410",
-    "F1 0.7410",
-    "recall: 0.7410",
-    "60.26%",
-    "Recall 60.26%",
-    "| 60.26% |",
-    "<td>60.26%</td>",
-    "accuracy: 60.26%.",
+TARGET_FILE_TYPES = [
+    ("README.md", "README.md"),
+    ("docs/MODEL_CARD.md", "docs/MODEL_CARD.md"),
+    ("results/RESULTS.md", "results/RESULTS.md"),
+    ("frontend/src/app/models/page.tsx", "frontend/src/app/models/page.tsx"),
 ]
 
 
 class TestCIGuardNegative:
-    """Negative tests asserting that CI guard fails on ungrounded metrics using generic regexes."""
+    """Negative testing suite ensuring zero tolerance for unapproved metric assertions."""
 
     def test_ci_guard_passes_on_clean_repository(self):
         """Baseline positive test: current repo passes CI guard cleanly."""
@@ -63,58 +65,44 @@ class TestCIGuardNegative:
         except SystemExit as exc:
             pytest.fail(f"CI guard unexpectedly failed on clean repo: {exc}")
 
-    def test_ci_guard_fails_on_roc_0_912_in_readme(self, monkeypatch):
-        """Negative test: fails when 'ROC-AUC 0.912' is inserted in README.md."""
+    @pytest.mark.parametrize("test_str", REQUIRED_NEGATIVE_STRINGS)
+    @pytest.mark.parametrize("file_relpath, file_key", TARGET_FILE_TYPES)
+    def test_ci_guard_fails_on_string_in_file_type(self, monkeypatch, test_str, file_relpath, file_key):
+        """Parametrized negative test: inserting test_str into file outside generated block fails CI."""
+        target_abs = os.path.normpath(os.path.join(_ROOT_DIR, file_relpath)).replace("\\", "/")
         orig_open = builtins.open
 
         def mock_open(file, *args, **kwargs):
-            if str(file).replace("\\", "/").endswith("README.md"):
-                return StringIO("Performance claim: Our new model achieves ROC-AUC 0.912 on test data.")
+            norm_file = os.path.normpath(str(file)).replace("\\", "/")
+            if norm_file == target_abs:
+                # Read genuine content and append test string outside any generated block
+                with orig_open(file, *args, **kwargs) as real_f:
+                    real_content = real_f.read()
+                corrupted_content = real_content + f"\n\n<!-- Unapproved Claim -->\nClaim: {test_str}\n"
+                return StringIO(corrupted_content)
             return orig_open(file, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "open", mock_open)
 
         with pytest.raises(SystemExit) as exc_info:
             check_no_hardcoded_metrics()
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 1, f"Expected CI guard to exit with code 1 for '{test_str}' in {file_relpath}"
 
-    def test_ci_guard_fails_on_roc_0_912_in_docs_model_card(self, monkeypatch):
-        """Negative test: fails when 'ROC-AUC 0.912' is inserted in docs/MODEL_CARD.md."""
+    @pytest.mark.parametrize("test_str", REQUIRED_NEGATIVE_STRINGS)
+    def test_scan_file_content_flags_each_required_string(self, test_str):
+        """Direct unit test verifying scan_file_content flags each required negative string."""
+        errs = scan_file_content(f"Performance result: {test_str}", "test_snippet")
+        assert len(errs) > 0, f"Expected scan_file_content to flag '{test_str}', but got 0 errors."
+
+    def test_ci_guard_fails_when_public_results_differs(self, monkeypatch):
+        """Negative test: fails when frontend/public/results.json differs from results/results.json."""
         orig_open = builtins.open
+        public_path = os.path.normpath(os.path.join(_ROOT_DIR, "frontend", "public", "results.json")).replace("\\", "/")
 
         def mock_open(file, *args, **kwargs):
-            if str(file).replace("\\", "/").endswith("docs/MODEL_CARD.md"):
-                return StringIO("Model Specification: Audited ROC-AUC 0.912 reported on holdout.")
-            return orig_open(file, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, "open", mock_open)
-
-        with pytest.raises(SystemExit) as exc_info:
-            check_no_hardcoded_metrics()
-        assert exc_info.value.code == 1
-
-    def test_ci_guard_fails_on_roc_0_912_in_frontend_tsx(self, monkeypatch):
-        """Negative test: fails when 'ROC-AUC 0.912' is inserted in a frontend .tsx file."""
-        orig_open = builtins.open
-
-        def mock_open(file, *args, **kwargs):
-            if str(file).replace("\\", "/").endswith("frontend/src/app/models/page.tsx"):
-                return StringIO('export default function Page() { return <div>ROC-AUC 0.912</div>; }')
-            return orig_open(file, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, "open", mock_open)
-
-        with pytest.raises(SystemExit) as exc_info:
-            check_no_hardcoded_metrics()
-        assert exc_info.value.code == 1
-
-    def test_ci_guard_fails_on_94_2_pct_in_frontend_page(self, monkeypatch):
-        """Negative test: fails when '94.2%' is inserted in a frontend page."""
-        orig_open = builtins.open
-
-        def mock_open(file, *args, **kwargs):
-            if str(file).replace("\\", "/").endswith("frontend/src/app/evaluation/page.tsx"):
-                return StringIO('export default function Page() { return <div>Fraud Rate: 94.2%</div>; }')
+            norm_file = os.path.normpath(str(file)).replace("\\", "/")
+            if norm_file == public_path and "rb" in args:
+                return BytesIO(b'{"corrupted": true}')
             return orig_open(file, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "open", mock_open)
@@ -141,7 +129,7 @@ class TestCIGuardNegative:
             check_no_hardcoded_metrics()
         assert exc_info.value.code == 1
 
-    def test_ci_guard_fails_on_corrupt_json_file(self, monkeypatch):
+    def test_ci_guard_fails_on_corrupt_json_syntax(self, monkeypatch):
         """Negative test: fails when results.json contains invalid JSON syntax."""
         def mock_load(fp):
             raise json.JSONDecodeError("Expecting value", "bad json", 0)
@@ -151,15 +139,3 @@ class TestCIGuardNegative:
         with pytest.raises(SystemExit) as exc_info:
             check_no_hardcoded_metrics()
         assert exc_info.value.code == 1
-
-    @pytest.mark.parametrize("target_str", UNGOUNDED_EXACT_STRINGS)
-    def test_ci_guard_flags_ungrounded_exact_string(self, target_str):
-        """Item 7: Parametrized test asserting each ungrounded string must be flagged."""
-        errs = scan_text_for_metrics(target_str, source_name="param_negative_test")
-        assert len(errs) > 0, f"Expected ungrounded string '{target_str}' to be flagged by CI Guard, but got zero errors."
-
-    @pytest.mark.parametrize("target_str", GROUNDED_EXACT_STRINGS)
-    def test_ci_guard_passes_grounded_exact_string(self, target_str):
-        """Item 7: Parametrized test asserting each grounded string built from real results.json values must pass."""
-        errs = scan_text_for_metrics(target_str, source_name="param_positive_test")
-        assert len(errs) == 0, f"Expected grounded string '{target_str}' to pass CI Guard cleanly, but got errors: {errs}"
