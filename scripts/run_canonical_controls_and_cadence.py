@@ -73,7 +73,7 @@ def attach_point_in_time_pairwise_counts(orders_df: pd.DataFrame, addr_log: pd.D
         pairs["first_seen_date"] = pd.to_datetime(pairs["first_seen_date"]).dt.as_unit("ns")
 
         earliest = pairs.groupby(["buyer_id", "shared_with_buyer_id"], as_index=False)["first_seen_date"].min()
-        earliest = earliest.sort_values("first_seen_date").reset_index(drop=True)
+        earliest = earliest.sort_values("first_seen_date").reset_index(drop=True)  # type: ignore[call-overload]
         earliest["_cum_buyers"] = earliest.groupby("buyer_id").cumcount() + 1
 
         ord_sub = df[["buyer_id", "order_date"]].copy()
