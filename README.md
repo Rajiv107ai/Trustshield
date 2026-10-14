@@ -135,6 +135,9 @@ frontend/src/app/
 > All metrics reported below are canonical benchmarks produced under strict independent audit controls across 20 pre-registered data seeds on the Standard dataset. Raw and calibrated metrics are serialized in [results/results.json](results/results.json) and [results/RESULTS.md](results/RESULTS.md).
 
 <!-- BEGIN GENERATED -->
+### Headline Benchmark: Standard Dataset (Full Horizon: 2025-11-01 to 2025-12-31, 20 Independent Seeds)
+*Evaluated on the full temporal holdout test period across seeds: 42, 101, 202, 303, 404, 505, 606, 707, 808, 909, 1001, 1102, 1203, 1304, 1405, 1506, 1607, 1708, 1809, 1910.*
+
 | Model / Variant | Feature Set | Test ROC-AUC (mean ± std) | Test PR-AUC (mean ± std) | Paired Lift vs Tabular Baseline [95% CI] | $p$-value |
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **(a) Tabular (No Device)** | 9 Tabular (no device count) | 0.7021 ± 0.0186 | 0.4179 ± 0.0202 | -0.0274 | $p = 1.0000$ |
@@ -147,7 +150,9 @@ frontend/src/app/
 - **Confirmatory 15 Seeds (c vs b Lift)**: $+0.0112$ ($p = 2.15 \times 10^{-4}$).
 - **Exploratory 5 Seeds (c vs b Lift)**: $+0.0123$ ($p = 0.1145$).
 
-### Truncated Test Horizon Benchmark (Final 21 Days Excluded for All Models):
+### Truncated Test Horizon Benchmark (2025-11-01 to 2025-12-10, Final 21 Days Excluded, 20 Independent Seeds):
+*Evaluated on truncated holdout across seeds: 42, 101, 202, 303, 404, 505, 606, 707, 808, 909, 1001, 1102, 1203, 1304, 1405, 1506, 1607, 1708, 1809, 1910.*
+
 | Model Variant | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Two-Sided p-value |
 | :--- | :---: | :---: | :---: | :---: |
 | (a) Tabular (without device) | 0.7223 ± 0.0165 | 0.4545 ± 0.0226 | -0.0298 | — |
@@ -155,21 +160,37 @@ frontend/src/app/
 | (d) Plain Aggregates Control | 0.7487 ± 0.0197 | 0.4736 ± 0.0266 | -0.0034 | $p = 0.1070$ |
 | (c) Tabular + Graph Features | 0.7635 ± 0.0229 | 0.4856 ± 0.0318 | **+0.0114** | **$p = 3.02 \times 10^{-5}$** |
 
-### Sensitivity Analysis: Standard vs. Coherent Variants
+### Canonical Controls & Cadence Evaluation: Plain Pairwise Counts vs Sharing Graph Topology (Truncated Horizon, 20 Seeds):
+> **Headline Finding: Plain Pairwise Sharing Counts Match or Beat Graph Topology Features**
+> - Order-level point-in-time pairwise sharing counts (Control e) achieve ROC **0.7649 ± 0.0242** vs Group S **0.7610 ± 0.0237** and Full (c) **0.7635 ± 0.0229**.
+> - At matching weekly snapshot cadence, Control (e_weekly) achieves ROC **0.7637 ± 0.0240**, matching or slightly beating topological features (+0.0027 ROC, +0.0034 PR, $p = 0.0231$).
+> - **Cadence Confound Addressed**: The difference between weekly cadence and order-level PIT (e_weekly vs e) is small and not statistically significant (ROC diff -0.0012, $p = 0.3992$). The advantage of plain counts is **NOT** due to snapshot cadence; plain pairwise counts capture the fraud signal directly without graph abstraction overhead.
 
-Graph lift is framed as a sensitivity analysis between two temporal relationship generation regimes:
+| Model Variant | Feature Description | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Two-Sided p-value |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **(e) Tabular + PIT Counts** | Plain Device & Address Pairwise Counts | 0.7649 ± 0.0242 | 0.4892 ± 0.0297 | +0.0127 | $p = 5.73 \times 10^{-5}$ |
+| **(e_weekly) Weekly Counts** | Weekly Snapshot Pairwise Counts | 0.7637 ± 0.0240 | 0.4880 ± 0.0297 | +0.0116 | $p = 3.76 \times 10^{-5}$ |
+| **(f) Tabular + share_degree** | degree only | 0.7634 ± 0.0198 | 0.4874 ± 0.0293 | +0.0113 | $p = 1.31 \times 10^{-8}$ |
+| **(g) Tabular + CC size** | component size only | 0.7599 ± 0.0219 | 0.4856 ± 0.0291 | +0.0078 | $p = 1.22 \times 10^{-4}$ |
+| **(S) Tabular + Sharing S** | degree + component size | 0.7610 ± 0.0237 | 0.4846 ± 0.0292 | +0.0089 | $p = 3.57 \times 10^{-4}$ |
+| **(c) Tabular + Graph Features** | All 8 Graph Features | 0.7635 ± 0.0229 | 0.4856 ± 0.0318 | +0.0114 | $p = 3.02 \times 10^{-5}$ |
+| **(b) Tabular Baseline** | 10 Tabular Features | 0.7521 ± 0.0174 | 0.4775 ± 0.0271 | Baseline | — |
+
+### Sensitivity Analysis: Standard vs. Coherent Variants (Full Horizon, Seeds: 42, 101, 202, 303, 404)
+
+Sharing-based feature lift is framed as a sensitivity analysis between two temporal relationship generation regimes:
 
 | Regime | Definition | Tabular Baseline (b) | Tabular + Graph (c) | Paired Lift [95% CI] | $p$-value |
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **Standard Dataset** | `first_seen` independent of order timing | $0.7295 \pm 0.0193$ | $\mathbf{0.7410 \pm 0.0229}$ | $\mathbf{+0.0115}$ [$+0.0069, +0.0161$] | $p = 4.73 \times 10^{-5}$ |
 | **Coherent Variant** | `first_seen` tied to first order using device | $0.7935 \pm 0.0405$ | $\mathbf{0.8001 \pm 0.0380}$ | $\mathbf{+0.0066}$ [$+0.0008, +0.0124$] | $p = 0.0340$ |
 
-*Sensitivity Context:* Under the Standard generator, entity relationships are generated independently of transaction bursts, yielding a conservative paired lift of $+0.0115$ ROC-AUC ($p = 4.73 \times 10^{-5}$). When relationship timestamps are tightly synchronized with transaction bursts (Coherent variant), baseline tabular performance rises to $0.7935$, and marginal graph lift is $+0.0066$ ($p = 0.0340$).
+*Sensitivity Context:* Under the Standard generator, entity relationships are generated independently of transaction bursts, yielding a conservative paired lift of $+0.0115$ ROC-AUC ($p = 4.73 \times 10^{-5}$). When relationship timestamps are tightly synchronized with transaction bursts (Coherent variant), baseline tabular performance rises to $0.7935$, and marginal sharing-based lift is $+0.0066$ ($p = 0.0340$).
 
-### Operational Conclusions & Review Budgets
+### Operational Conclusions & Review Budgets (Full Horizon, 20 Seeds)
 
-While the global ROC lift of graph features is $\sim +0.011$, operational trust & safety deployments face investigator capacity constraints:
-- **No Significant Lift at Tight Review Budgets**: At 2% and 5% review budgets, graph features show **no statistically significant lift** in either fraud recall (2% budget: -0.06% lift, $p = 0.3648$; 5% budget: +0.09% lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
+While the global ROC lift of sharing-based features is $\sim +0.011$, operational trust & safety deployments face investigator capacity constraints:
+- **No Significant Lift at Tight Review Budgets**: At 2% and 5% review budgets, sharing-based features show **no statistically significant lift** in either fraud recall (2% budget: -0.06% lift, $p = 0.3648$; 5% budget: +0.09% lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
 - **Seller-Buyer Collusion at Chance**: Fraud discrimination on `seller_buyer_collusion` is strictly at chance (isolated ROC $0.5001 \pm 0.0422$ baseline vs $0.4971 \pm 0.0384$ graph).
 - **Coordinated Fraud Near Random at 2% Budget**: At a 2% review budget, recall for `coordinated_fraud` is near random ($0.67\%$ baseline vs $0.68\%$ graph), catching fewer than 1% of coordinated fraud orders.
 - **Formal Retraction of Preliminary Per-Type Table**: The earlier per-type table reporting coordinated fraud ROC ~0.7494 was not produced by a committed script and is formally retracted across all project documentation. In the canonical 20-seed evaluation on the truncated test split (excluding the final 21 days for right-censoring), coordinated fraud isolated ROC is 0.6403 (b) vs 0.6872 (c).
@@ -177,8 +198,8 @@ While the global ROC lift of graph features is $\sim +0.011$, operational trust 
 ### What This Does NOT Show
 
 1. **Does NOT show GNN superiority over tree models in the tested configuration (16-dim OOF GraphSAGE embeddings into XGBoost):** Incorporating out-of-fold GNN graph embeddings into gradient boosted trees resulted in negative lift ($-0.0263$ ROC-AUC, $p = 0.0083$). Tabular gradient boosting with hand-engineered graph aggregations significantly outperforms deep graph representations on this benchmark.
-2. **Does NOT show double-digit graph lift:** Graph features provide a modest, statistically significant ROC-AUC lift of $\sim +0.011$ ($+0.0114$ on truncated test, $p = 3.02 \times 10^{-5}$; $+0.0115$ on full test, $p = 4.73 \times 10^{-5}$) and $+0.0081$ PR-AUC ($p = 0.0022$) over tabular models that already include device sharing counts. Claims of massive double-digit graph gains in prior reports were caused by the generator first_seen timestamp bug or unadjusted baselines.
-3. **Does NOT show significant practical lift at operational review budgets:** At realistic manual review budgets of 2% and 5% of transaction volume, graph features show **no statistically significant lift** over the tabular baseline in either fraud recall (2% budget: -0.06% lift, $p = 0.3648$; 5% budget: +0.09% lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
+2. **Does NOT show double-digit graph lift:** Sharing-based features provide a modest, statistically significant ROC-AUC lift of $\sim +0.011$ ($+0.0114$ on truncated test, $p = 3.02 \times 10^{-5}$; $+0.0115$ on full test, $p = 4.73 \times 10^{-5}$) and $+0.0081$ PR-AUC ($p = 0.0022$) over tabular models that already include device sharing counts. Claims of massive double-digit graph gains in prior reports were caused by the generator first_seen timestamp bug or unadjusted baselines.
+3. **Does NOT show significant practical lift at operational review budgets:** At realistic manual review budgets of 2% and 5% of transaction volume, sharing-based features show **no statistically significant lift** over the tabular baseline in either fraud recall (2% budget: -0.06% lift, $p = 0.3648$; 5% budget: +0.09% lift, $p = 0.4688$) or fraud monetary value caught (2% budget: $-\text{INR } 792$, $p = 0.9305$; 5% budget: $+\text{INR } 6,943$, $p = 0.2529$).
 4. **Does NOT show detection of seller-buyer collusion or low-budget coordinated rings:** `seller_buyer_collusion` has no detectable signal in the current generator/features by construction because 98.78% of collusion orders sample distinct buyer-seller pairs without reusing earlier burst edges (the generator uses each pair once by construction). Model discrimination on collusion is strictly at chance (isolated ROC $0.5001 \pm 0.0422$ baseline vs $0.4971 \pm 0.0384$ graph). Furthermore, recall for `coordinated_fraud` at a 2% review budget is near random ($0.67\%$ baseline vs $0.68\%$ graph), detecting fewer than 1% of coordinated fraud orders.
 5. **Does NOT show that a 0.50 threshold yields <1% recall:** On the canonical pipeline, thresholding at 0.50 yields **31.95% ± 3.74% recall** on calibrated probabilities and **39.22% ± 2.91% recall** on raw XGBoost scores. Neither scale yields <1% recall.
 6. **Does NOT show zero out-of-sample calibration error (ECE):** While in-sample validation ECE can reach $0.0000$ via isotonic regression, test-set ECE is strictly non-zero ($\sim 0.021 - 0.023$ calibrated, $\sim 0.054 - 0.063$ raw), even though in-sample isotonic validation achieves 0.0000.

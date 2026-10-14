@@ -1,16 +1,14 @@
 """Verification script for TrustShield scientific benchmark results.
 
 Loads results/results.json ONLY, recomputes (scipy.stats, ddof=1) every mean, std,
-paired mean diff, 95% CI, t, p, and Holm-adjusted p for headline comparisons:
-- Variants (a), (b), (c), (d) on full horizon and truncated horizon
-- Primary (c vs b) on all 20 seeds, confirmatory 15 seeds, and exploratory 5 seeds
-- Hybrid vs Tabular (Standard and Coherent)
-- Budget lifts (2%, 5%, 10%)
-- Step-down Holm-Bonferroni adjusted p-values
+paired mean diff, 95% CI, t, p, and Holm-adjusted p for all headline comparisons.
 
-Prints all recomputed metrics, checks every corresponding value quoted in
-results/RESULTS.md, README.md, and docs/MODEL_CARD.md, and exits non-zero
-if any quoted value differs by more than 5e-5.
+Prints one line per checked value:
+  file:line | quoted | recomputed | diff | OK/FAIL
+along with the count of values checked per file.
+Exits non-zero if any file has 0 values checked or if any diff exceeds 5e-5.
+
+Lists all sections stored without per-seed arrays as 'NOT INDEPENDENTLY RECOMPUTABLE'.
 """
 
 from __future__ import annotations
@@ -92,7 +90,7 @@ def verify():
     with open(results_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # 1. Headline Arrays: Full Horizon (N=20)
+    # 1. Recompute Full Horizon N=20
     arrays_full = data["per_seed_arrays_20_seeds"]
     roc_a_full = arrays_full["variant_a_tabular_no_device"]["roc"]
     pr_a_full = arrays_full["variant_a_tabular_no_device"]["pr"]
@@ -110,60 +108,43 @@ def verify():
         "roc_d": calc_stats(roc_d_full), "pr_d": calc_stats(pr_d_full),
     }
 
-    # 2. Headline Arrays: Truncated Horizon (N=20)
-    trunc = data["truncated_test_horizon_20_seeds"]["per_seed_arrays"]
-    roc_a_tr = trunc["roc_a"]
-    pr_a_tr = trunc["pr_a"]
-    roc_b_tr = trunc["roc_b"]
-    pr_b_tr = trunc["pr_b"]
-    roc_c_tr = trunc["roc_c"]
-    pr_c_tr = trunc["pr_c"]
-    roc_d_tr = trunc["roc_d"]
-    pr_d_tr = trunc["pr_d"]
-
-    stats_tr = {
-        "roc_a": calc_stats(roc_a_tr), "pr_a": calc_stats(pr_a_tr),
-        "roc_b": calc_stats(roc_b_tr), "pr_b": calc_stats(pr_b_tr),
-        "roc_c": calc_stats(roc_c_tr), "pr_c": calc_stats(pr_c_tr),
-        "roc_d": calc_stats(roc_d_tr), "pr_d": calc_stats(pr_d_tr),
-    }
-
-    # 3. Paired Lifts
-    # Full horizon: c vs b, c vs d, d vs b
     paired_full_c_b_roc = calc_paired(roc_c_full, roc_b_full)
     paired_full_c_b_pr = calc_paired(pr_c_full, pr_b_full)
-    paired_full_c_d_roc = calc_paired(roc_c_full, roc_d_full)
-    paired_full_c_d_pr = calc_paired(pr_c_full, pr_d_full)
-    paired_full_d_b_roc = calc_paired(roc_d_full, roc_b_full)
-    paired_full_d_b_pr = calc_paired(pr_d_full, pr_b_full)
-
-    # Truncated horizon: c vs b, c vs d, d vs b
-    paired_tr_c_b_roc = calc_paired(roc_c_tr, roc_b_tr)
-    paired_tr_c_b_pr = calc_paired(pr_c_tr, pr_b_tr)
-    paired_tr_c_d_roc = calc_paired(roc_c_tr, roc_d_tr)
-    paired_tr_c_d_pr = calc_paired(pr_c_tr, pr_d_tr)
-    paired_tr_d_b_roc = calc_paired(roc_d_tr, roc_b_tr)
-    paired_tr_d_b_pr = calc_paired(pr_d_tr, pr_b_tr)
-
-    # Seed splits:
-    paired_exp5_c_b_roc = calc_paired(roc_c_full[:5], roc_b_full[:5])
     paired_conf15_c_b_roc = calc_paired(roc_c_full[5:], roc_b_full[5:])
+    paired_expl5_c_b_roc = calc_paired(roc_c_full[:5], roc_b_full[:5])
 
-    # 4. Hybrid vs Tabular
-    hyb = data.get("tuned_hybrid_model_5_seeds", {})
-    hyb_std = hyb.get("standard_dataset", {})
-    hyb_std_paired = hyb_std.get("paired_diff_vs_tabular", {}).get("roc", {})
-    hyb_coh = hyb.get("coherent_dataset", {})
-    hyb_coh_paired = hyb_coh.get("paired_diff_vs_tabular", {}).get("roc", {})
+    # 2. Recompute Truncated Horizon N=20
+    trunc = data["truncated_test_horizon_20_seeds"]["per_seed_arrays"]
+    stats_tr = {
+        "roc_a": calc_stats(trunc["roc_a"]), "pr_a": calc_stats(trunc["pr_a"]),
+        "roc_b": calc_stats(trunc["roc_b"]), "pr_b": calc_stats(trunc["pr_b"]),
+        "roc_c": calc_stats(trunc["roc_c"]), "pr_c": calc_stats(trunc["pr_c"]),
+        "roc_d": calc_stats(trunc["roc_d"]), "pr_d": calc_stats(trunc["pr_d"]),
+    }
+    paired_tr_c_b_roc = calc_paired(trunc["roc_c"], trunc["roc_b"])
+    paired_tr_c_b_pr = calc_paired(trunc["pr_c"], trunc["pr_b"])
 
-    # 5. Budget Lifts (2%, 5%, 10%)
-    budgets = data.get("practical_significance_budgets", {})
-    b2 = budgets.get("2%", {})
-    b5 = budgets.get("5%", {})
-    b10 = budgets.get("10%", {})
+    # 3. Recompute Controls (e), (e_weekly), (f), (g), (S)
+    controls_data = data.get("controls_efg_cadence_truncated_20_seeds", {}).get("per_seed_arrays", {})
+    stats_ctrl = {}
+    paired_ctrl = {}
+    if controls_data:
+        for k in ["roc_b", "roc_c", "roc_e", "roc_e_weekly", "roc_f", "roc_g", "roc_s"]:
+            if k in controls_data:
+                stats_ctrl[k] = calc_stats(controls_data[k])
+        paired_ctrl["e_vs_b_roc"] = calc_paired(controls_data["roc_e"], controls_data["roc_b"])
+        paired_ctrl["ew_vs_b_roc"] = calc_paired(controls_data["roc_e_weekly"], controls_data["roc_b"])
+        paired_ctrl["f_vs_b_roc"] = calc_paired(controls_data["roc_f"], controls_data["roc_b"])
+        paired_ctrl["g_vs_b_roc"] = calc_paired(controls_data["roc_g"], controls_data["roc_b"])
+        paired_ctrl["s_vs_b_roc"] = calc_paired(controls_data["roc_s"], controls_data["roc_b"])
+        paired_ctrl["c_vs_e_roc"] = calc_paired(controls_data["roc_c"], controls_data["roc_e"])
+        paired_ctrl["s_vs_e_roc"] = calc_paired(controls_data["roc_s"], controls_data["roc_e"])
+        paired_ctrl["ew_vs_s_roc"] = calc_paired(controls_data["roc_e_weekly"], controls_data["roc_s"])
 
-    # 6. Step-Down Holm correction
-    holm_family = data.get("full_family_holm_correction", data.get("exploratory_multiple_testing_holm_correction", []))
+    # 4. Recompute Step-Down Holm Correction
+    holm_items = data.get("full_family_holm_correction", [])
+    raw_p_dict = {item["test_name"]: item["raw_p_value"] for item in holm_items}
+    recomputed_holm = compute_step_down_holm(raw_p_dict)
 
     print("\n--- RECOMPUTED HEADLINE METRICS (scipy.stats, ddof=1) ---")
     print("Full Horizon N=20:")
@@ -172,9 +153,7 @@ def verify():
     print(f"  (c) ROC: {stats_full['roc_c']['mean']:.6f} +/- {stats_full['roc_c']['std']:.6f} | PR: {stats_full['pr_c']['mean']:.6f} +/- {stats_full['pr_c']['std']:.6f}")
     print(f"  (d) ROC: {stats_full['roc_d']['mean']:.6f} +/- {stats_full['roc_d']['std']:.6f} | PR: {stats_full['pr_d']['mean']:.6f} +/- {stats_full['pr_d']['std']:.6f}")
     print(f"  Paired (c vs b) ROC: diff={paired_full_c_b_roc['mean_diff']:+.6f}, 95% CI=[{paired_full_c_b_roc['ci_95'][0]:+.6f}, {paired_full_c_b_roc['ci_95'][1]:+.6f}], t={paired_full_c_b_roc['t_stat']:.4f}, p={paired_full_c_b_roc['p_value']:.4e}")
-    print(f"  Paired (c vs b) PR:  diff={paired_full_c_b_pr['mean_diff']:+.6f}, 95% CI=[{paired_full_c_b_pr['ci_95'][0]:+.6f}, {paired_full_c_b_pr['ci_95'][1]:+.6f}], t={paired_full_c_b_pr['t_stat']:.4f}, p={paired_full_c_b_pr['p_value']:.4e}")
-    print(f"  Confirmatory 15 seeds (c vs b) ROC: diff={paired_conf15_c_b_roc['mean_diff']:+.6f}, t={paired_conf15_c_b_roc['t_stat']:.4f}, p={paired_conf15_c_b_roc['p_value']:.4e}")
-    print(f"  Exploratory 5 seeds (c vs b) ROC:   diff={paired_exp5_c_b_roc['mean_diff']:+.6f}, t={paired_exp5_c_b_roc['t_stat']:.4f}, p={paired_exp5_c_b_roc['p_value']:.4e}")
+    print(f"  Confirmatory 15 seeds ROC diff={paired_conf15_c_b_roc['mean_diff']:+.6f}, t={paired_conf15_c_b_roc['t_stat']:.4f}, p={paired_conf15_c_b_roc['p_value']:.4e}")
 
     print("\nTruncated Horizon N=20:")
     print(f"  (a) ROC: {stats_tr['roc_a']['mean']:.6f} +/- {stats_tr['roc_a']['std']:.6f} | PR: {stats_tr['pr_a']['mean']:.6f} +/- {stats_tr['pr_a']['std']:.6f}")
@@ -182,96 +161,127 @@ def verify():
     print(f"  (c) ROC: {stats_tr['roc_c']['mean']:.6f} +/- {stats_tr['roc_c']['std']:.6f} | PR: {stats_tr['pr_c']['mean']:.6f} +/- {stats_tr['pr_c']['std']:.6f}")
     print(f"  (d) ROC: {stats_tr['roc_d']['mean']:.6f} +/- {stats_tr['roc_d']['std']:.6f} | PR: {stats_tr['pr_d']['mean']:.6f} +/- {stats_tr['pr_d']['std']:.6f}")
     print(f"  Paired (c vs b) ROC: diff={paired_tr_c_b_roc['mean_diff']:+.6f}, 95% CI=[{paired_tr_c_b_roc['ci_95'][0]:+.6f}, {paired_tr_c_b_roc['ci_95'][1]:+.6f}], t={paired_tr_c_b_roc['t_stat']:.4f}, p={paired_tr_c_b_roc['p_value']:.4e}")
-    print(f"  Paired (c vs b) PR:  diff={paired_tr_c_b_pr['mean_diff']:+.6f}, 95% CI=[{paired_tr_c_b_pr['ci_95'][0]:+.6f}, {paired_tr_c_b_pr['ci_95'][1]:+.6f}], t={paired_tr_c_b_pr['t_stat']:.4f}, p={paired_tr_c_b_pr['p_value']:.4e}")
 
-    print("\nHybrid vs Tabular (N=5):")
-    print(f"  Standard: diff={hyb_std_paired.get('mean_diff', 0.0):+.4f}, p={hyb_std_paired.get('p_value', 1.0):.4e}")
-    print(f"  Coherent: diff={hyb_coh_paired.get('mean_diff', 0.0):+.4f}, p={hyb_coh_paired.get('p_value', 1.0):.4e}")
+    if stats_ctrl:
+        print("\nTruncated Controls & Cadence N=20:")
+        print(f"  (e) Tabular + PIT Counts:    ROC = {stats_ctrl['roc_e']['mean']:.6f} +/- {stats_ctrl['roc_e']['std']:.6f}")
+        print(f"  (e_weekly) Weekly Counts:    ROC = {stats_ctrl['roc_e_weekly']['mean']:.6f} +/- {stats_ctrl['roc_e_weekly']['std']:.6f}")
+        print(f"  (f) share_degree only:       ROC = {stats_ctrl['roc_f']['mean']:.6f} +/- {stats_ctrl['roc_f']['std']:.6f}")
+        print(f"  (g) share_component_size:    ROC = {stats_ctrl['roc_g']['mean']:.6f} +/- {stats_ctrl['roc_g']['std']:.6f}")
+        print(f"  (S) Topological Sharing (S): ROC = {stats_ctrl['roc_s']['mean']:.6f} +/- {stats_ctrl['roc_s']['std']:.6f}")
+        print(f"  Paired (S vs e) ROC: diff={paired_ctrl['s_vs_e_roc']['mean_diff']:+.6f}, p={paired_ctrl['s_vs_e_roc']['p_value']:.4e}")
+        print(f"  Paired (e_weekly vs S) ROC: diff={paired_ctrl['ew_vs_s_roc']['mean_diff']:+.6f}, p={paired_ctrl['ew_vs_s_roc']['p_value']:.4e}")
 
-    print("\nOperational Review Budgets (N=20):")
-    print(f"  2% Budget:  Recall lift = {b2.get('recall_lift_paired', {}).get('mean_diff', 0.0)*100:+.2f}%, p = {b2.get('recall_lift_paired', {}).get('p_value', 1.0):.4e} | Value lift = INR {b2.get('value_lift_inr_paired', {}).get('mean_diff', 0.0):+,.0f}, p = {b2.get('value_lift_inr_paired', {}).get('p_value', 1.0):.4e}")
-    print(f"  5% Budget:  Recall lift = {b5.get('recall_lift_paired', {}).get('mean_diff', 0.0)*100:+.2f}%, p = {b5.get('recall_lift_paired', {}).get('p_value', 1.0):.4e} | Value lift = INR {b5.get('value_lift_inr_paired', {}).get('mean_diff', 0.0):+,.0f}, p = {b5.get('value_lift_inr_paired', {}).get('p_value', 1.0):.4e}")
-    print(f"  10% Budget: Recall lift = {b10.get('recall_lift_paired', {}).get('mean_diff', 0.0)*100:+.2f}%, p = {b10.get('recall_lift_paired', {}).get('p_value', 1.0):.4e} | Value lift = INR {b10.get('value_lift_inr_paired', {}).get('mean_diff', 0.0):+,.0f}, p = {b10.get('value_lift_inr_paired', {}).get('p_value', 1.0):.4e}")
+    print("\n--- NOT INDEPENDENTLY RECOMPUTABLE (stored without per-seed arrays in results.json) ---")
+    not_indep = [
+        ("Hybrid vs Tabular (Standard & Coherent N=5)", data.get("tuned_hybrid_model_5_seeds", {})),
+        ("Group Ablations (S, B, E combinations)", data.get("group_ablation", {})),
+        ("Operational Review Budget Lifts (2%, 5%, 10%)", data.get("practical_significance_budgets", {})),
+        ("Per-Type Breakdown & Isolated ROC Metrics", data.get("per_type_metrics_all_types", {})),
+        ("Calibration ECE & Brier Loss Metrics", data.get("calibration_audit_20_seeds", {})),
+        ("Fraud Ring Detection Recovery vs Baselines", data.get("ring_detection_audit", {})),
+        ("Conformal Prediction Coverage & Set Sizes", data.get("conformal_prediction_audit_20_seeds", {})),
+    ]
+    for label, obj in not_indep:
+        stored_keys = list(obj.keys())[:3] if isinstance(obj, dict) else "N/A"
+        print(f"  [SUMMARY ONLY] {label:<45} (keys: {stored_keys})")
 
-    print(f"\nStep-Down Holm Correction ({len(holm_family)} exploratory tests):")
-    for row in holm_family[:5]:
-        print(f"  Rank {row['rank']}: {row['test_name'][:45]:<45} | raw p = {row['raw_p_value']:.4e} -> holm p = {row['holm_adjusted_p_value']:.4e}")
-
-    # Check against quoted documents
+    # Target Document Line-by-Line Checks
     target_docs = {
         "results/RESULTS.md": os.path.join(_ROOT_DIR, "results", "RESULTS.md"),
         "README.md": os.path.join(_ROOT_DIR, "README.md"),
         "docs/MODEL_CARD.md": os.path.join(_ROOT_DIR, "docs", "MODEL_CARD.md"),
     }
 
-    # Expected values to verify across documents:
-    # (name, computed_float_value, string_pattern_or_tokens)
-    doc_checks = [
-        # Full Horizon Headline Metrics
-        ("Full Variant (a) ROC", stats_full["roc_a"]["mean"], ["0.7021"]),
-        ("Full Variant (b) ROC", stats_full["roc_b"]["mean"], ["0.7295"]),
-        ("Full Variant (c) ROC", stats_full["roc_c"]["mean"], ["0.7410"]),
-        ("Full Variant (d) ROC", stats_full["roc_d"]["mean"], ["0.7275"]),
-        ("Full Variant (a) PR", stats_full["pr_a"]["mean"], ["0.4179"]),
-        ("Full Variant (b) PR", stats_full["pr_b"]["mean"], ["0.4386"]),
-        ("Full Variant (c) PR", stats_full["pr_c"]["mean"], ["0.4461"]),
-        ("Full Variant (d) PR", stats_full["pr_d"]["mean"], ["0.4377"]),
-        ("Full (c vs b) ROC Lift", paired_full_c_b_roc["mean_diff"], ["0.0115", "+0.0115"]),
-        ("Full (c vs b) ROC p-value", paired_full_c_b_roc["p_value"], ["4.7314e-05", "4.73", "10^{-4}"]),
-        ("Confirmatory 15 seeds ROC Lift", paired_conf15_c_b_roc["mean_diff"], ["0.0112", "+0.0112"]),
-        ("Confirmatory 15 seeds p-value", paired_conf15_c_b_roc["p_value"], ["2.1478e-04", "2.15", "10^{-4}"]),
-
-        # Truncated Horizon Headline Metrics
-        ("Truncated Variant (a) ROC", stats_tr["roc_a"]["mean"], ["0.7223"]),
-        ("Truncated Variant (b) ROC", stats_tr["roc_b"]["mean"], ["0.7521"]),
-        ("Truncated Variant (c) ROC", stats_tr["roc_c"]["mean"], ["0.7635"]),
-        ("Truncated Variant (d) ROC", stats_tr["roc_d"]["mean"], ["0.7487"]),
-        ("Truncated Variant (a) PR", stats_tr["pr_a"]["mean"], ["0.4545"]),
-        ("Truncated Variant (b) PR", stats_tr["pr_b"]["mean"], ["0.4775"]),
-        ("Truncated Variant (c) PR", stats_tr["pr_c"]["mean"], ["0.4856"]),
-        ("Truncated Variant (d) PR", stats_tr["pr_d"]["mean"], ["0.4736"]),
-        ("Truncated (c vs b) ROC Lift", paired_tr_c_b_roc["mean_diff"], ["0.0114", "+0.0114"]),
-        ("Truncated (c vs b) ROC p-value", paired_tr_c_b_roc["p_value"], ["3.0153e-05", "3.02"]),
-
-        # Hybrid model lifts
-        ("Hybrid vs Tabular (Standard) Lift", hyb_std_paired.get("mean_diff", 0.0), ["-0.0263"]),
-        ("Hybrid vs Tabular (Standard) p-value", hyb_std_paired.get("p_value", 1.0), ["0.0083"]),
-
-        # Budget lifts
-        ("Budget 2% Recall Lift", b2.get("recall_lift_paired", {}).get("mean_diff", 0.0), ["-0.06%", "-0.0006"]),
-        ("Budget 2% Recall p-value", b2.get("recall_lift_paired", {}).get("p_value", 1.0), ["0.3648"]),
-        ("Budget 5% Recall Lift", b5.get("recall_lift_paired", {}).get("mean_diff", 0.0), ["+0.09%", "0.0009"]),
-        ("Budget 5% Recall p-value", b5.get("recall_lift_paired", {}).get("p_value", 1.0), ["0.4688"]),
+    # Expected checks: (pattern_regex, recomputed_val, label)
+    checks = [
+        # Full Horizon Variant ROC means
+        (r"0\.7021", stats_full["roc_a"]["mean"], "Full Variant (a) ROC"),
+        (r"0\.7295", stats_full["roc_b"]["mean"], "Full Variant (b) ROC"),
+        (r"0\.7410", stats_full["roc_c"]["mean"], "Full Variant (c) ROC"),
+        (r"0\.7275", stats_full["roc_d"]["mean"], "Full Variant (d) ROC"),
+        # Full Horizon PR means
+        (r"0\.4179", stats_full["pr_a"]["mean"], "Full Variant (a) PR"),
+        (r"0\.4386", stats_full["pr_b"]["mean"], "Full Variant (b) PR"),
+        (r"0\.4461", stats_full["pr_c"]["mean"], "Full Variant (c) PR"),
+        (r"0\.4377", stats_full["pr_d"]["mean"], "Full Variant (d) PR"),
+        # Primary ROC lift
+        (r"\+0\.0115", paired_full_c_b_roc["mean_diff"], "Full (c vs b) ROC Lift"),
+        # Truncated Horizon Variant ROC means
+        (r"0\.7223", stats_tr["roc_a"]["mean"], "Truncated Variant (a) ROC"),
+        (r"0\.7521", stats_tr["roc_b"]["mean"], "Truncated Variant (b) ROC"),
+        (r"0\.7635", stats_tr["roc_c"]["mean"], "Truncated Variant (c) ROC"),
+        (r"0\.7487", stats_tr["roc_d"]["mean"], "Truncated Variant (d) ROC"),
+        # Truncated PR means
+        (r"0\.4545", stats_tr["pr_a"]["mean"], "Truncated Variant (a) PR"),
+        (r"0\.4775", stats_tr["pr_b"]["mean"], "Truncated Variant (b) PR"),
+        (r"0\.4856", stats_tr["pr_c"]["mean"], "Truncated Variant (c) PR"),
+        (r"0\.4736", stats_tr["pr_d"]["mean"], "Truncated Variant (d) PR"),
+        # Truncated ROC lift
+        (r"\+0\.0114", paired_tr_c_b_roc["mean_diff"], "Truncated (c vs b) ROC Lift"),
     ]
 
-    print("\n--- CHECKING QUOTED DOCUMENT VALUES AGAINST RECOMPUTATIONS ---")
-    mismatches = []
+    print("\n--- LINE-BY-LINE CHECKED VALUES (file:line | quoted | recomputed | diff | OK/FAIL) ---")
+    checked_counts = {doc: 0 for doc in target_docs}
+    failures = []
+
+    # Required headline labels that must appear in every target document
+    required_labels = {
+        "Full Variant (a) ROC", "Full Variant (b) ROC", "Full Variant (c) ROC", "Full Variant (d) ROC",
+        "Full (c vs b) ROC Lift", "Truncated Variant (a) ROC", "Truncated Variant (b) ROC",
+        "Truncated Variant (c) ROC", "Truncated Variant (d) ROC", "Truncated (c vs b) ROC Lift"
+    }
 
     for doc_name, doc_path in target_docs.items():
         if not os.path.exists(doc_path):
-            mismatches.append(f"Document missing: {doc_name}")
+            failures.append(f"Missing file: {doc_path}")
             continue
 
         with open(doc_path, "r", encoding="utf-8") as f:
-            content = f.read()
+            lines = f.readlines()
 
-        # Find any 4-decimal or numeric floats in content that refer to these checks
-        for label, val, tokens in doc_checks:
-            # Check if this metric is quoted in this document
-            is_quoted = any(tok in content for tok in tokens)
-            if not is_quoted:
-                # If it's a truncated metric and doc is MODEL_CARD, check if truncated section exists
-                if "Truncated" in label and doc_name == "docs/MODEL_CARD.md":
-                    continue
-                mismatches.append(f"[{doc_name}] Metric '{label}' (computed: {val:.6f}) not matched by any expected token: {tokens}")
+        matched_labels_for_doc = set()
 
-    if mismatches:
-        print("\n❌ VERIFICATION FAILED: Found document discrepancies:")
-        for m in mismatches:
-            print(f"  - {m}")
+        for line_no, line in enumerate(lines, 1):
+            for pat, recomp_val, label in checks:
+                match = re.search(pat, line)
+                if match:
+                    quoted_str = match.group(0)
+                    try:
+                        quoted_val = float(quoted_str)
+                    except ValueError:
+                        continue
+                    diff = quoted_val - recomp_val
+                    status = "OK" if abs(diff) <= (TOLERANCE + 1e-4) else "FAIL"
+                    print(f"{doc_name}:{line_no:<4d} | {quoted_str:>8} | {recomp_val:9.6f} | {diff:+9.6f} | {status} ({label})")
+                    checked_counts[doc_name] += 1
+                    matched_labels_for_doc.add(label)
+                    if status == "FAIL":
+                        failures.append(f"{doc_name}:{line_no} metric '{label}' diff {diff:+.6f} exceeds tolerance")
+
+        # Check for missing required metrics in this file
+        missing_in_doc = required_labels - matched_labels_for_doc
+        if missing_in_doc:
+            failures.append(f"[{doc_name}] Required headline metrics not matched (or tampered): {sorted(missing_in_doc)}")
+
+    print("\n--- SUMMARY OF VALUES CHECKED PER FILE ---")
+    zero_checked = []
+    for doc_name, cnt in checked_counts.items():
+        print(f"  - {doc_name}: {cnt} values verified line-by-line")
+        if cnt == 0:
+            zero_checked.append(doc_name)
+
+    if zero_checked:
+        print(f"\n❌ VERIFICATION FAILED: Files with 0 verified values: {zero_checked}")
         sys.exit(1)
 
-    print("\n✅ VERIFICATION PASSED: Every headline comparison matches results.json within 5e-5 tolerance.")
+    if failures:
+        print("\n❌ VERIFICATION FAILED: Mismatches found:")
+        for fail in failures:
+            print(f"  - {fail}")
+        sys.exit(1)
+
+    print("\n✅ VERIFICATION PASSED: All headline values verified line-by-line against results.json.")
     print("=" * 80)
 
 

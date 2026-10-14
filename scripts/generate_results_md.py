@@ -74,7 +74,45 @@ def generate_results_markdown() -> str:
         md.append("### Topological PageRank vs Plain Order Counts Correlation:")
         md.append(f"- **`buyer_pagerank` vs `buyer_orders_before`**: Pearson r = {b_corr.get('pearson_r', {}).get('mean', 0):.4f} +/- {b_corr.get('pearson_r', {}).get('std', 0):.4f} | Spearman rho = {b_corr.get('spearman_rho', {}).get('mean', 0):.4f} +/- {b_corr.get('spearman_rho', {}).get('std', 0):.4f} (High correlation: PageRank is heavily driven by plain order counts)")
         md.append(f"- **`seller_pagerank` vs seller ORDER COUNT**: Pearson r = {s_corr.get('pearson_r', {}).get('mean', 0):.4f} +/- {s_corr.get('pearson_r', {}).get('std', 0):.4f} | Spearman rho = {s_corr.get('spearman_rho', {}).get('mean', 0):.4f} +/- {s_corr.get('spearman_rho', {}).get('std', 0):.4f} (Near-perfect correlation: seller PageRank is collinear with total seller order volume)")
-        md.append("- **Scope & Attribution**: This conclusion is scoped strictly to bipartite PageRank (`buyer_pagerank` and `seller_pagerank`), where topological centrality heavily tracks raw activity. Furthermore, control (d) demonstrates that month-lagged plain activity aggregates provide zero predictive lift over baseline tabular features, confirming that the genuine graph lift originates from the sharing group (S: device and address clusters).\n")
+        md.append("- **Scope & Attribution**: This conclusion is scoped strictly to bipartite PageRank (`buyer_pagerank` and `seller_pagerank`), where topological centrality heavily tracks raw activity. Furthermore, control (d) demonstrates that month-lagged plain activity aggregates provide zero predictive lift over baseline tabular features, confirming that the genuine lift originates from sharing-based features (S: device and address clusters).\n")
+
+    # 2b. Canonical Controls & Cadence Evaluation (Truncated Horizon, N=20)
+    if "controls_efg_cadence_truncated_20_seeds" in data:
+        ce = data["controls_efg_cadence_truncated_20_seeds"]
+        ms = ce.get("models_summary", {})
+        pc = ce.get("paired_comparisons", {})
+        md.append("## 2b. Canonical Controls & Cadence Evaluation: Plain Pairwise Counts vs Sharing Graph Topology\n")
+        md.append("**Evaluation Split**: Truncated Test Horizon (`2025-11-01` to `2025-12-10`, final 21 days excluded, $N=20$ independent seeds: 42, 101, 202, ..., 1910).\n")
+        md.append("> **Headline Finding: Plain Pairwise Sharing Counts Match or Beat Graph Topology Features**")
+        md.append("> - Order-level point-in-time pairwise sharing counts (Control e) achieve ROC **0.7649 +/- 0.0242** vs Group S **0.7610 +/- 0.0237** (paired diff -0.0039, p = 0.0406) and Full (c) **0.7635 +/- 0.0229**.")
+        md.append("> - At matching weekly snapshot cadence, Control (e_weekly) achieves ROC **0.7637 +/- 0.0240**, matching or slightly beating topological features (paired diff vs S: +0.0027 ROC, +0.0034 PR, p = 0.0231).")
+        md.append("> - **Cadence Confound Addressed**: The difference between weekly cadence and order-level PIT (e_weekly vs e) is small and not statistically significant (ROC diff -0.0012, p = 0.3992). The advantage of plain counts is **NOT** due to snapshot cadence; plain pairwise counts capture the fraud signal directly without graph abstraction overhead.\n")
+        md.append("| Model Variant | Feature Description | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Paired Lift vs Control (e) |")
+        md.append("| :--- | :--- | :---: | :---: | :---: | :---: |")
+        for m_name, info in ms.items():
+            r_str = f"{info['roc_mean']:.4f} +/- {info['roc_std']:.4f}"
+            p_str = f"{info['pr_mean']:.4f} +/- {info['pr_std']:.4f}"
+            lift_b = "baseline"
+            lift_e = "—"
+            if m_name == "(e) Tabular + PIT Pairwise Counts":
+                lift_b = f"{pc.get('Control (e) vs Baseline (b)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Control (e) vs Baseline (b)', {}).get('roc', {}).get('p_value', 1):.4e})"
+                lift_e = "baseline"
+            elif m_name == "(e_weekly) Tabular + Weekly Pairwise Counts":
+                lift_b = f"{pc.get('Control (e_weekly) vs Baseline (b)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Control (e_weekly) vs Baseline (b)', {}).get('roc', {}).get('p_value', 1):.4e})"
+                lift_e = f"{pc.get('Control (e_weekly) vs Control (e)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Control (e_weekly) vs Control (e)', {}).get('roc', {}).get('p_value', 1):.4e})"
+            elif m_name == "(f) Tabular + share_degree only":
+                lift_b = f"{pc.get('Control (f) vs Baseline (b)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Control (f) vs Baseline (b)', {}).get('roc', {}).get('p_value', 1):.4e})"
+            elif m_name == "(g) Tabular + share_component_size only":
+                lift_b = f"{pc.get('Control (g) vs Baseline (b)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Control (g) vs Baseline (b)', {}).get('roc', {}).get('p_value', 1):.4e})"
+            elif m_name == "(S) Tabular + S (degree + CC size)":
+                lift_b = f"{pc.get('Group (S) vs Baseline (b)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Group (S) vs Baseline (b)', {}).get('roc', {}).get('p_value', 1):.4e})"
+                lift_e = f"{pc.get('Group (S) vs Control (e)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Group (S) vs Control (e)', {}).get('roc', {}).get('p_value', 1):.4e})"
+            elif m_name == "(c) Full Tabular + Graph (8 features)":
+                lift_b = f"{pc.get('Full (c) vs Baseline (b)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Full (c) vs Baseline (b)', {}).get('roc', {}).get('p_value', 1):.4e})"
+                lift_e = f"{pc.get('Full (c) vs Control (e)', {}).get('roc', {}).get('mean_diff', 0):+.4f} (p = {pc.get('Full (c) vs Control (e)', {}).get('roc', {}).get('p_value', 1):.4e})"
+            md.append(f"| **{m_name}** | Sharing Features | {r_str} | {p_str} | {lift_b} | {lift_e} |")
+        md.append("")
+
 
     # 3. Group Ablation Table
     if "group_ablation" in data:

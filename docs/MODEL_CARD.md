@@ -53,9 +53,9 @@ The models are trained and validated on synthetic marketplace transactions gener
 ## 4. Quantitative Performance Metrics
 
 <!-- BEGIN GENERATED -->
-### Audited Canonical 20-Seed Benchmark (from `results/results.json`)
+### Audited Canonical 20-Seed Benchmark (Full Horizon: 2025-11-01 to 2025-12-31, 20 Seeds)
 
-All metrics below are computed across $N=20$ data seeds on the Standard dataset under strict audit remediation controls:
+All metrics below are computed across $N=20$ data seeds (42, 101, 202, ..., 1910) on the Standard dataset under strict audit remediation controls:
 
 $$\begin{array}{lcccc}
 \hline
@@ -74,7 +74,7 @@ p\text{-value (Paired t-test)} & p = 1.0000 & — & p = 0.2729 & \mathbf{p = 4.7
 - **Tuned Hybrid Model (Standard, $N=5$)**: Test ROC-AUC $0.7014 \pm 0.0387$, Test PR-AUC $0.4006 \pm 0.0464$ (paired difference vs Tabular: $-0.0263$, $p=0.0083$; underperforms tabular baseline).
 - **Coherent Variant (Upper Bound, $N=5$)**: Tabular $0.7935 \pm 0.0405$, Tabular+Graph $0.8001 \pm 0.0380$ (paired lift: $+0.0066$, $p=0.0340$).
 
-### Truncated Test Horizon Benchmark (Final 21 Days Excluded for All Models):
+### Truncated Test Horizon Benchmark (2025-11-01 to 2025-12-10, Final 21 Days Excluded, 20 Seeds):
 | Model Variant | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Two-Sided p-value |
 | :--- | :---: | :---: | :---: | :---: |
 | (a) Tabular (without device) | 0.7223 ± 0.0165 | 0.4545 ± 0.0226 | -0.0298 | — |
@@ -82,16 +82,32 @@ p\text{-value (Paired t-test)} & p = 1.0000 & — & p = 0.2729 & \mathbf{p = 4.7
 | (d) Plain Aggregates Control | 0.7487 ± 0.0197 | 0.4736 ± 0.0266 | -0.0034 | $p = 0.1070$ |
 | (c) Tabular + Graph Features | 0.7635 ± 0.0229 | 0.4856 ± 0.0318 | **+0.0114** | **$p = 3.02 \times 10^{-5}$** |
 
-### Sensitivity Analysis: Standard vs. Coherent Variants
+### Canonical Controls & Cadence Evaluation: Plain Pairwise Counts vs Sharing Graph Topology (Truncated Horizon, 20 Seeds):
+> **Headline Finding: Plain Pairwise Sharing Counts Match or Beat Graph Topology Features**
+> - Order-level point-in-time pairwise sharing counts (Control e) achieve ROC **0.7649 ± 0.0242** vs Group S **0.7610 ± 0.0237** and Full (c) **0.7635 ± 0.0229**.
+> - At matching weekly snapshot cadence, Control (e_weekly) achieves ROC **0.7637 ± 0.0240**, matching or slightly beating topological features (+0.0027 ROC, +0.0034 PR, $p = 0.0231$).
+> - **Cadence Confound Addressed**: The difference between weekly cadence and order-level PIT (e_weekly vs e) is small and not statistically significant (ROC diff -0.0012, $p = 0.3992$). The advantage of plain counts is **NOT** due to snapshot cadence; plain pairwise counts capture the fraud signal directly without graph abstraction overhead.
 
-Graph lift is evaluated under two synthetic generator configurations to assess sensitivity to entity timing alignment:
+| Model Variant | Feature Description | Truncated Test ROC-AUC | Truncated Test PR-AUC | Paired Lift vs Baseline (b) | Two-Sided p-value |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **(e) Tabular + PIT Counts** | Plain Device & Address Pairwise Counts | 0.7649 ± 0.0242 | 0.4892 ± 0.0297 | +0.0127 | $p = 5.73 \times 10^{-5}$ |
+| **(e_weekly) Weekly Counts** | Weekly Snapshot Pairwise Counts | 0.7637 ± 0.0240 | 0.4880 ± 0.0297 | +0.0116 | $p = 3.76 \times 10^{-5}$ |
+| **(f) Tabular + share_degree** | degree only | 0.7634 ± 0.0198 | 0.4874 ± 0.0293 | +0.0113 | $p = 1.31 \times 10^{-8}$ |
+| **(g) Tabular + CC size** | component size only | 0.7599 ± 0.0219 | 0.4856 ± 0.0291 | +0.0078 | $p = 1.22 \times 10^{-4}$ |
+| **(S) Tabular + Sharing S** | degree + component size | 0.7610 ± 0.0237 | 0.4846 ± 0.0292 | +0.0089 | $p = 3.57 \times 10^{-4}$ |
+| **(c) Tabular + Graph Features** | All 8 Graph Features | 0.7635 ± 0.0229 | 0.4856 ± 0.0318 | +0.0114 | $p = 3.02 \times 10^{-5}$ |
+| **(b) Tabular Baseline** | 10 Tabular Features | 0.7521 ± 0.0174 | 0.4775 ± 0.0271 | Baseline | — |
+
+### Sensitivity Analysis: Standard vs. Coherent Variants (Full Horizon, Seeds: 42, 101, 202, 303, 404)
+
+Sharing-based feature lift is evaluated under two synthetic generator configurations to assess sensitivity to entity timing alignment:
 
 | Regime | Definition | Tabular Baseline (b) | Tabular + Graph (c) | Paired Lift [95% CI] | $p$-value |
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **Standard Dataset** | `first_seen` independent of order timing | $0.7295 \pm 0.0193$ | $\mathbf{0.7410 \pm 0.0229}$ | $\mathbf{+0.0115}$ [$+0.0069, +0.0161$] | $p = 4.73 \times 10^{-5}$ |
 | **Coherent Variant** | `first_seen` tied to first order using device | $0.7935 \pm 0.0405$ | $\mathbf{0.8001 \pm 0.0380}$ | $\mathbf{+0.0066}$ [$+0.0008, +0.0124$] | $p = 0.0340$ |
 
-*Sensitivity Context:* Under the Standard generator, entity relationships are populated independently of transaction bursts, yielding a conservative paired lift of $+0.0115$ ROC-AUC ($p = 4.73 \times 10^{-5}$). When relationship timestamps are tightly synchronized with transaction bursts (Coherent variant), baseline tabular performance rises to $0.7935$, and marginal graph lift is $+0.0066$ ($p = 0.0340$).
+*Sensitivity Context:* Under the Standard generator, entity relationships are populated independently of transaction bursts, yielding a conservative paired lift of $+0.0115$ ROC-AUC ($p = 4.73 \times 10^{-5}$). When relationship timestamps are tightly synchronized with transaction bursts (Coherent variant), baseline tabular performance rises to $0.7935$, and marginal sharing-based lift is $+0.0066$ ($p = 0.0340$).
 
 > **Audit Note on Metric Discrepancies & Retractions:**
 > - **Retraction of Preliminary Per-Type Table**: The earlier per-type table reporting coordinated fraud ROC ~0.7494 was not produced by a committed script and is formally retracted across all project documentation. In the canonical 20-seed evaluation on the truncated test split, coordinated fraud isolated ROC is 0.6403 (b) vs 0.6872 (c), and seller-buyer collusion operates strictly at chance (ROC 0.50).
