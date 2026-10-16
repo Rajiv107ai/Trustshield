@@ -6,7 +6,6 @@ import { useViewMode } from "@/context/ViewModeContext";
 import {
   Share2,
   Search,
-  Filter,
   Clock,
   User,
   Store,
@@ -18,16 +17,8 @@ import {
   Unlock,
   Radio,
   Layers,
-  Sparkles,
-  Microscope,
   CheckCircle2,
-  AlertTriangle,
-  RotateCcw,
   PlusCircle,
-  Eye,
-  Sliders,
-  ShieldCheck,
-  ShieldAlert,
 } from "lucide-react";
 
 // ============================================================================

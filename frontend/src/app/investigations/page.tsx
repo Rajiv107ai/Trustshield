@@ -4,23 +4,14 @@ import React, { useState } from "react";
 import {
   FileSearch,
   CheckCircle2,
-  AlertTriangle,
-  Clock,
   ShieldAlert,
-  ArrowRight,
-  Layers,
   Network,
-  Tag,
-  RotateCcw,
-  User,
-  Smartphone,
-  Lock,
   Sparkles,
   RefreshCw,
   Cpu,
   BookOpen,
 } from "lucide-react";
-import { TrustShieldApi } from "@/lib/api/client";
+import { TrustShieldApi, ApiError } from "@/lib/api/client";
 import { DossierResponse } from "@/lib/types/api";
 
 interface CaseItem {
@@ -121,9 +112,11 @@ export default function InvestigationsPage() {
   const [liveDossier, setLiveDossier] = useState<DossierResponse | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isLive, setIsLive] = useState<boolean>(false);
+  const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
 
   const handleSynthesizeDossier = async () => {
     setIsGenerating(true);
+    setErrorState(null);
     try {
       const res = await TrustShieldApi.generateDossier({
         entity_type: "transaction",
@@ -132,8 +125,14 @@ export default function InvestigationsPage() {
       });
       setLiveDossier(res.data);
       setIsLive(res.isLive);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Dossier generation error:", err);
+      setLiveDossier(null);
+      setIsLive(false);
+      const isAuth = err instanceof ApiError ? err.isAuthError : false;
+      const status = err instanceof ApiError ? err.status : undefined;
+      const message = err instanceof Error ? err.message : String(err);
+      setErrorState({ message, isAuth, status });
     } finally {
       setIsGenerating(false);
     }
@@ -262,6 +261,35 @@ export default function InvestigationsPage() {
           </div>
 
           {/* Live Grounded Dossier Synthesis Output */}
+          {errorState && (
+            <div className="p-5 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
+              <div className="flex items-center gap-2 text-rose-400 font-bold">
+                <ShieldAlert className="w-5 h-5" />
+                <span>
+                  {errorState.isAuth
+                    ? "Authentication Required (HTTP 401 / 403)"
+                    : errorState.status
+                    ? `Dossier Generation Failed (HTTP ${errorState.status})`
+                    : "Forensic Gateway Unavailable"}
+                </span>
+              </div>
+              <p className="text-xs text-[#E8EDF3] font-mono leading-relaxed">{errorState.message}</p>
+              {errorState.isAuth ? (
+                <p className="text-[11px] text-[#8995A3]">
+                  Authentication credentials were not provided or were rejected. Please configure your API key in{" "}
+                  <a href="/settings" className="text-blue-400 underline font-semibold">
+                    Settings
+                  </a>{" "}
+                  or switch to Demo Mode.
+                </p>
+              ) : (
+                <p className="text-[11px] text-[#8995A3]">
+                  The forensic dossier generation service is currently unreachable. No fabricated case files will be produced.
+                </p>
+              )}
+            </div>
+          )}
+
           {liveDossier && (
             <div className="p-5 rounded-xl border border-blue-500/40 bg-[#0E1521] space-y-4">
               <div className="flex items-center justify-between border-b border-[#202A35] pb-3">
@@ -270,9 +298,13 @@ export default function InvestigationsPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
                     Live Grounded Forensic Synthesis ({liveDossier.case_id})
                   </span>
-                  {isLive && (
+                  {isLive ? (
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                       Live FastAPI Gateway
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      Offline Demo Dossier
                     </span>
                   )}
                 </div>

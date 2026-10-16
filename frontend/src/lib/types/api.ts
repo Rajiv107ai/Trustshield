@@ -70,7 +70,12 @@ export interface TransactionScoreResponse {
   overall_fraud_probability: number;
   raw_fraud_probability?: number;
   calibrated_fraud_probability?: number;
+  policy_risk_score?: number;
   canonical_trust_engine_risk?: number;
+  conformal_prediction_set?: number[];
+  conformal_is_calibrated?: boolean;
+  conformal_coverage_guarantee?: number;
+  conformal_q_hat?: number;
   risk_label: RiskLabel;
   model_used: string;
   model_version: string;
@@ -236,6 +241,7 @@ export interface StreamTransactionEvent {
   amount: number;
   risk_score: number;
   calibrated_risk: number;
+  policy_risk_score?: number;
   risk_level: RiskLabel;
   decision: OperationalDecision;
   trust_score: number;

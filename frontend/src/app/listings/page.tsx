@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TrustShieldApi } from "@/lib/api/client";
+import { TrustShieldApi, ApiError } from "@/lib/api/client";
 import { ListingScoreRequest, ListingScoreResponse } from "@/lib/types/api";
 import { useViewMode } from "@/context/ViewModeContext";
 import {
@@ -11,12 +11,8 @@ import {
   XCircle,
   Layers,
   Zap,
-  Sparkles,
-  Microscope,
   Check,
   ShieldAlert,
-  ArrowRight,
-  ExternalLink,
 } from "lucide-react";
 
 interface ListingScenarioPreset {
@@ -108,21 +104,28 @@ const LISTING_PRESETS: ListingScenarioPreset[] = [
 /* END GENERATED */
 
 export default function ListingIntelligencePage() {
-  const { viewMode } = useViewMode();
+  const { viewMode, isLive } = useViewMode();
   const [activePreset, setActivePreset] = useState<ListingScenarioPreset>(LISTING_PRESETS[0]);
   const [formData, setFormData] = useState<ListingScoreRequest>(LISTING_PRESETS[0].payload);
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<ListingScoreResponse | null>(null);
+  const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const executeAudit = async (payload: ListingScoreRequest) => {
     setLoading(true);
     setActionSuccess(null);
+    setErrorState(null);
     try {
       const res = await TrustShieldApi.analyzeListing(payload);
       setResult(res.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Listing analysis failed:", err);
+      setResult(null);
+      const isAuth = err instanceof ApiError ? err.isAuthError : false;
+      const status = err instanceof ApiError ? err.status : undefined;
+      const message = err instanceof Error ? err.message : String(err);
+      setErrorState({ message, isAuth, status });
     } finally {
       setLoading(false);
     }
@@ -132,10 +135,20 @@ export default function ListingIntelligencePage() {
     let active = true;
     TrustShieldApi.analyzeListing(LISTING_PRESETS[0].payload)
       .then((res) => {
-        if (active) setResult(res.data);
+        if (active) {
+          setResult(res.data);
+          setErrorState(null);
+        }
       })
-      .catch((err) => {
-        console.error("Listing analysis failed:", err);
+      .catch((err: unknown) => {
+        if (active) {
+          console.error("Listing analysis failed:", err);
+          setResult(null);
+          const isAuth = err instanceof ApiError ? err.isAuthError : false;
+          const status = err instanceof ApiError ? err.status : undefined;
+          const message = err instanceof Error ? err.message : String(err);
+          setErrorState({ message, isAuth, status });
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -325,6 +338,35 @@ export default function ListingIntelligencePage() {
         </div>
 
         {/* Right 2 Cols: Multimodal Visual Evidence */}
+        {errorState && (
+          <div className="lg:col-span-2 p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
+            <div className="flex items-center gap-2 text-rose-400 font-bold">
+              <ShieldAlert className="w-5 h-5" />
+              <span>
+                {errorState.isAuth
+                  ? "Authentication Required (HTTP 401 / 403)"
+                  : errorState.status
+                  ? `Listing Analysis Failed (HTTP ${errorState.status})`
+                  : "Backend Service Unavailable"}
+              </span>
+            </div>
+            <p className="text-xs text-[#E8EDF3] font-mono leading-relaxed">{errorState.message}</p>
+            {errorState.isAuth ? (
+              <p className="text-[11px] text-[#8995A3]">
+                Authentication credentials were not provided or were rejected. Please configure your API key in{" "}
+                <a href="/settings" className="text-cyan-400 underline font-semibold">
+                  Settings
+                </a>{" "}
+                or switch to Demo Mode.
+              </p>
+            ) : (
+              <p className="text-[11px] text-[#8995A3]">
+                The multimodal analysis endpoint is unreachable or experienced a server error. No fabricated scores will be displayed.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* BEGIN GENERATED */}
         {result && (
           <div className="lg:col-span-2 space-y-6">
@@ -354,7 +396,9 @@ export default function ListingIntelligencePage() {
                   </div>
                   <div className="text-xs text-[#8995A3] mt-1.5 font-mono">
                     Model: <span className="text-cyan-400">{result.model_used}</span> · CLIP Engine:{" "}
-                    <span className="text-emerald-400 font-bold">{result.clip_scored ? "ViT-B/32 Active" : "TF-IDF Fallback"}</span>
+                    <span className={result.clip_scored && isLive ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                      {result.clip_scored && isLive ? "ViT-B/32 Active" : "TF-IDF / Heuristic Fallback"}
+                    </span>
                   </div>
                 </div>
 

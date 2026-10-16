@@ -1,21 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Cpu,
-  Layers,
-  Activity,
-  CheckCircle2,
-  TrendingDown,
-  ShieldAlert,
-  ArrowRight,
-  Database,
-  FileCheck,
-} from "lucide-react";
+import { Cpu } from "lucide-react";
+
+interface RegistryResultsData {
+  pre_registered_primary_analysis_20_seeds?: any;
+  graph_free_baseline_comparisons_20_seeds?: any;
+  tuned_hybrid_model_5_seeds?: any;
+  design_rule_ablations?: any;
+  [key: string]: any;
+}
 
 export default function ModelRegistryPage() {
   const [selectedModel, setSelectedModel] = useState("tabular_graph");
-  const [resultsData, setResultsData] = useState<any>(null);
+  const [resultsData, setResultsData] = useState<RegistryResultsData | null>(null);
 
   useEffect(() => {
     fetch("/results.json")
@@ -191,7 +189,7 @@ export default function ModelRegistryPage() {
                 </div>
               </div>
               <div className="text-[11px] text-[#596574] italic">
-                * Note: Demonstrates that the tabular listing detector primarily recovers the generator's explicit price anomaly rule rather than general counterfeit semantics.
+                * Note: Demonstrates that the tabular listing detector primarily recovers the generator&apos;s explicit price anomaly rule rather than general counterfeit semantics.
               </div>
             </div>
           </div>

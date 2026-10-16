@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from trustshield_project.trust_engine import TrustEngine, Decision
+from trustshield_project.advanced_trust_engine import CanonicalTrustEngine as TrustEngine, OperationalDecision as Decision
 
 from trustshield_project.calibration import (
     ProbabilityCalibrator,
@@ -41,9 +41,9 @@ from trustshield_project.versioning import sha256_file, create_model_metadata, F
 class TestTrustEngine:
     def test_default_initialization(self):
         engine = TrustEngine()
-        assert math.isclose(sum(engine.weights.values()), 1.0, rel_tol=1e-5)
+        assert math.isclose(sum(engine.norm_weights.values()), 1.0, rel_tol=1e-5)
         assert engine.allow_cutoff == 0.25
-        assert engine.review_cutoff == 0.60
+        assert engine.review_cutoff == 0.55
         assert engine.hold_cutoff == 0.85
 
     def test_invalid_weights_raise_error(self):
@@ -99,7 +99,7 @@ class TestTrustEngine:
         # High disagreement between tabular (0.1) and graph (0.9)
         res = engine.score({"tabular_risk": 0.10, "graph_risk": 0.90})
         assert res.model_disagreement == 0.80
-        assert "HIGH_DETECTOR_DISAGREEMENT" in res.reason_codes
+        assert any("HIGH_DETECTOR_DISAGREEMENT" in r for r in res.reason_codes)
 
     def test_feedback_loop_guard(self):
         # Forbidden model outputs must trigger validation error
@@ -302,3 +302,80 @@ class TestReadyEndpoint:
         assert data["status"] in ("ready", "degraded", "not_ready")
         assert "models_ready" in data
         assert "details" in data
+
+
+# ===========================================================================
+# 8. Audit Fixes Regression Tests (TS-AUD-04 & TS-AUD-05)
+# ===========================================================================
+
+class TestAuditFixes:
+    """Regression tests for derived return rate clipping and zero base price protection."""
+
+    def test_derived_return_rate_capped_at_one(self):
+        """TS-AUD-04: Returns > orders must be clipped to 1.0 rather than exceeding 1.0."""
+        from backend.features import _build_feature_row
+        from backend.schemas import TransactionScoreRequest
+
+        req = TransactionScoreRequest(
+            buyer_orders_before=2,
+            buyer_returns_before=10,
+        )
+        row = _build_feature_row(req, ["buyer_return_rate_before"])
+        assert row["buyer_return_rate_before"] == 1.0, (
+            f"TS-AUD-04 regression: buyer_return_rate_before should be clipped to 1.0, got {row['buyer_return_rate_before']}"
+        )
+
+    def test_derived_return_rate_normal_ratio(self):
+        """Normal return ratio must be calculated correctly."""
+        from backend.features import _build_feature_row
+        from backend.schemas import TransactionScoreRequest
+
+        req = TransactionScoreRequest(
+            buyer_orders_before=10,
+            buyer_returns_before=2,
+        )
+        row = _build_feature_row(req, ["buyer_return_rate_before"])
+        assert row["buyer_return_rate_before"] == pytest.approx(0.20)
+
+    def test_zero_base_price_produces_no_infs(self):
+        """TS-AUD-05: When base_price is 0 or NaN, price_vs_base_price_ratio must be 0, not inf."""
+        from trustshield_project.baseline_model import build_features
+
+        orders_df = pd.DataFrame([{
+            "order_id": "ORD_ZERO_PRICE",
+            "listing_id": "LIST_ZERO",
+            "order_date": pd.Timestamp("2025-05-01"),
+            "amount": 50.0,
+            "buyer_id": "BUYER_01",
+            "seller_id": "SELLER_01",
+            "device_id": "DEV_01",
+        }])
+        listings_df = pd.DataFrame([{
+            "listing_id": "LIST_ZERO",
+            "seller_id": "SELLER_01",
+            "product_id": "PROD_ZERO",
+            "category": "Electronics",
+            "listing_date": pd.Timestamp("2025-04-01"),
+        }])
+        returns_df = pd.DataFrame(columns=["buyer_id", "return_date"])
+        buyers_df = pd.DataFrame([{
+            "buyer_id": "BUYER_01",
+            "signup_date": pd.Timestamp("2025-01-01"),
+        }])
+        sellers_df = pd.DataFrame([{
+            "seller_id": "SELLER_01",
+            "signup_date": pd.Timestamp("2025-01-01"),
+        }])
+        products_df = pd.DataFrame([{
+            "product_id": "PROD_ZERO",
+            "base_price": 0.0,  # Zero base price!
+        }])
+
+        df, feature_cols = build_features(
+            orders_df, listings_df, returns_df, buyers_df, sellers_df, products_df
+        )
+
+        val = df.loc[0, "price_vs_base_price_ratio"]
+        assert not np.isinf(val), f"TS-AUD-05 regression: inf found in price_vs_base_price_ratio: {val}"
+        assert not np.isnan(val), f"TS-AUD-05 regression: NaN found in price_vs_base_price_ratio: {val}"
+        assert val == 0.0

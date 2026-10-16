@@ -1,18 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrustShieldApi } from "@/lib/api/client";
+import { TrustShieldApi, ApiError } from "@/lib/api/client";
 import { ReturnScoreRequest, ReturnScoreResponse } from "@/lib/types/api";
 import {
   RotateCcw,
   Zap,
-  CheckCircle2,
   AlertTriangle,
-  XCircle,
-  HelpCircle,
   ShieldAlert,
-  ArrowRight,
-  TrendingDown,
 } from "lucide-react";
 
 export default function ReturnAbusePage() {
@@ -44,14 +39,22 @@ export default function ReturnAbusePage() {
   });
   /* END GENERATED */
 
+  const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
+
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorState(null);
     try {
       const res = await TrustShieldApi.analyzeReturn(formData);
       setResult(res.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Return analysis failed:", err);
+      setResult(null);
+      const isAuth = err instanceof ApiError ? err.isAuthError : false;
+      const status = err instanceof ApiError ? err.status : undefined;
+      const message = err instanceof Error ? err.message : String(err);
+      setErrorState({ message, isAuth, status });
     } finally {
       setLoading(false);
     }
@@ -177,6 +180,35 @@ export default function ReturnAbusePage() {
         </div>
 
         {/* Results Overview */}
+        {errorState && (
+          <div className="lg:col-span-2 p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
+            <div className="flex items-center gap-2 text-rose-400 font-bold">
+              <ShieldAlert className="w-5 h-5" />
+              <span>
+                {errorState.isAuth
+                  ? "Authentication Required (HTTP 401 / 403)"
+                  : errorState.status
+                  ? `Return Analysis Failed (HTTP ${errorState.status})`
+                  : "Backend Service Unavailable"}
+              </span>
+            </div>
+            <p className="text-xs text-[#E8EDF3] font-mono leading-relaxed">{errorState.message}</p>
+            {errorState.isAuth ? (
+              <p className="text-[11px] text-[#8995A3]">
+                Authentication credentials were not provided or were rejected. Please configure your API key in{" "}
+                <a href="/settings" className="text-orange-400 underline font-semibold">
+                  Settings
+                </a>{" "}
+                or switch to Demo Mode.
+              </p>
+            ) : (
+              <p className="text-[11px] text-[#8995A3]">
+                The return abuse analysis endpoint is unreachable or experienced a server error. No fabricated scores will be displayed.
+              </p>
+            )}
+          </div>
+        )}
+
         {result && (
           <div className="lg:col-span-2 space-y-6">
             <div

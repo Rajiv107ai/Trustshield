@@ -67,7 +67,7 @@ from graph_features import (
     compute_relationship_features,
 )
 from multimodal_scoring import compute_multimodal_similarity
-from trust_engine import Decision, TrustEngine
+from advanced_trust_engine import CanonicalTrustEngine as TrustEngine, OperationalDecision as Decision
 
 TRAIN_END = pd.Timestamp("2025-08-31 23:59:59")
 VAL_END = pd.Timestamp("2025-10-31 23:59:59")

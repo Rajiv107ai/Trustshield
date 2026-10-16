@@ -2,10 +2,10 @@
 
 import React from "react";
 import { useViewMode } from "@/context/ViewModeContext";
-import { Search, Sparkles, Microscope, CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Search, Sparkles, Microscope, RefreshCw } from "lucide-react";
 
 export function Header() {
-  const { viewMode, setViewMode, isLive, apiUrl, refreshHealth, setSearchOpen } = useViewMode();
+  const { viewMode, setViewMode, isLive, isDemo, setDemo, apiUrl, refreshHealth, setSearchOpen } = useViewMode();
 
   return (
     <header className="h-16 border-b border-[#202A35] bg-[#0E131A] px-6 flex items-center justify-between sticky top-0 z-30 select-none">
@@ -13,15 +13,32 @@ export function Header() {
       <div className="flex items-center gap-4">
         {/* Backend Connectivity Status */}
         <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#151D27] border border-[#202A35] text-xs">
-          {isLive ? (
+          {isDemo ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="text-amber-400 font-medium">Demo Mode (Simulation)</span>
+              <button
+                onClick={() => setDemo(false)}
+                className="text-[10px] text-cyan-400 hover:underline ml-1 font-mono"
+              >
+                [Live]
+              </button>
+            </>
+          ) : isLive ? (
             <>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-emerald-400 font-medium">Gateway Live</span>
             </>
           ) : (
             <>
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span className="text-amber-400 font-medium">Offline Simulation</span>
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              <span className="text-rose-400 font-medium">Backend Offline</span>
+              <button
+                onClick={() => setDemo(true)}
+                className="text-[10px] text-amber-400 hover:underline ml-1 font-mono"
+              >
+                [Demo]
+              </button>
             </>
           )}
           <span className="text-[#596574]">|</span>

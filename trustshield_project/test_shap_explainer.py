@@ -30,9 +30,12 @@ from backend.main import app, store
 from fastapi.testclient import TestClient
 
 
+VALID_API_KEY = "dev-operator-api-key-32chars-long"
+
+
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"X-API-Key": VALID_API_KEY}) as test_client:
         yield test_client
 
 
