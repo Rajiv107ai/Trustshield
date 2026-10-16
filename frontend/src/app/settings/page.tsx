@@ -8,22 +8,37 @@ import {
   Cpu,
   CheckCircle2,
   Save,
-  RefreshCw,
   Sliders,
   Sparkles,
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { apiUrl, updateApiUrl, isLive, refreshHealth, viewMode, setViewMode } = useViewMode();
+  const { apiUrl, updateApiUrl, isLive, viewMode, setViewMode, isDemo, setDemo, sessionApiKey, updateSessionApiKey } = useViewMode();
   const [inputUrl, setInputUrl] = useState(apiUrl);
+  const [inputKey, setInputKey] = useState(sessionApiKey);
   const [modelVersion, setModelVersion] = useState("phase5-hybrid");
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [keySavedSuccess, setKeySavedSuccess] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateApiUrl(inputUrl);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleSaveKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateSessionApiKey(inputKey);
+    setKeySavedSuccess(true);
+    setTimeout(() => setKeySavedSuccess(false), 3000);
+  };
+
+  const handleClearKey = () => {
+    setInputKey("");
+    updateSessionApiKey("");
+    setKeySavedSuccess(true);
+    setTimeout(() => setKeySavedSuccess(false), 3000);
   };
 
   return (
@@ -37,6 +52,103 @@ export default function SettingsPage() {
         <p className="text-xs text-[#8995A3] mt-1">
           Configure backend API URLs, active machine learning model versions, and console display parameters.
         </p>
+      </div>
+
+      {/* Operating Mode Selection */}
+      <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3] flex items-center gap-2">
+          <Sliders className="w-4 h-4 text-emerald-400" />
+          <span>Console Operating Mode</span>
+        </h3>
+
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setDemo(false)}
+            className={`p-3.5 rounded-lg border text-left transition-all ${
+              !isDemo
+                ? "bg-emerald-600/10 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500/30"
+                : "bg-[#0E131A] border-[#202A35] text-[#8995A3] hover:text-[#E8EDF3]"
+            }`}
+          >
+            <div className="font-semibold text-[#E8EDF3] flex items-center gap-2">
+              <Server className="w-4 h-4 text-emerald-400" />
+              <span>Live Gateway Mode</span>
+            </div>
+            <div className="text-[11px] text-[#8995A3] mt-1 font-normal font-sans">
+              Connects directly to FastAPI endpoints with authentic models, live GNN embeddings, and strict failure alerts.
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDemo(true)}
+            className={`p-3.5 rounded-lg border text-left transition-all ${
+              isDemo
+                ? "bg-amber-600/10 border-amber-500 text-amber-300 font-bold ring-1 ring-amber-500/30"
+                : "bg-[#0E131A] border-[#202A35] text-[#8995A3] hover:text-[#E8EDF3]"
+            }`}
+          >
+            <div className="font-semibold text-[#E8EDF3] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Demo Simulation Mode</span>
+            </div>
+            <div className="text-[11px] text-[#8995A3] mt-1 font-normal font-sans">
+              Runs client-side deterministic simulation engines. Honest visual labeling indicates simulated evidence.
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Session Authentication API Key */}
+      <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3] flex items-center gap-2">
+          <Server className="w-4 h-4 text-cyan-400" />
+          <span>Active Session API Key (Authentication)</span>
+        </h3>
+
+        <form onSubmit={handleSaveKey} className="space-y-3 text-xs font-mono">
+          <div>
+            <label className="text-[11px] text-[#8995A3] block mb-1">
+              Operator / Admin API Key (sent via X-API-Key header)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={inputKey}
+                onChange={(e) => setInputKey(e.target.value)}
+                placeholder="Enter API key (e.g. dev-secret-key-change-me)"
+                className="flex-1 bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-2 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-md bg-cyan-600 hover:bg-cyan-500 font-bold text-white transition-colors flex items-center gap-2"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Set Key</span>
+              </button>
+              {sessionApiKey && (
+                <button
+                  type="button"
+                  onClick={handleClearKey}
+                  className="px-3 py-2 rounded-md bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-[#596574] mt-1 font-sans">
+              Security note: This key is held strictly in browser memory for the active session. It is never persisted to localStorage or exposed in client bundles.
+            </p>
+          </div>
+
+          {keySavedSuccess && (
+            <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-300 font-mono flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Session API Key updated. Requests will now include the X-API-Key header.</span>
+            </div>
+          )}
+        </form>
       </div>
 
       {/* API Gateway Configuration */}
@@ -67,7 +179,13 @@ export default function SettingsPage() {
             </div>
             <p className="text-[11px] text-[#596574] mt-1">
               Current active connection: <span className="text-[#8995A3]">{apiUrl}</span> (
-              {isLive ? <span className="text-emerald-400 font-semibold">Live</span> : <span className="text-amber-400 font-semibold">Offline Simulation</span>}
+              {isDemo ? (
+                <span className="text-amber-400 font-semibold">Demo Simulation Mode</span>
+              ) : isLive ? (
+                <span className="text-emerald-400 font-semibold">Live</span>
+              ) : (
+                <span className="text-rose-400 font-semibold">Backend Offline</span>
+              )}
               )
             </p>
           </div>

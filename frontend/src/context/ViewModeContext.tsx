@@ -1,10 +1,16 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useSyncExternalStore } from "react";
-import { setBaseApiUrl, TrustShieldApi } from "@/lib/api/client";
+import { setBaseApiUrl, TrustShieldApi, isDemoMode, setDemoMode, getSessionApiKey, setSessionApiKey } from "@/lib/api/client";
 import { ReadyResponse } from "@/lib/types/api";
 
 const emptySubscribe = () => () => {};
+
+const subscribeDemoMode = (callback: () => void) => {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("trustshield:mode-change", callback);
+  return () => window.removeEventListener("trustshield:mode-change", callback);
+};
 
 export type ViewMode = "executive" | "inspector";
 
@@ -20,17 +26,23 @@ interface ViewModeContextType {
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   isMounted: boolean;
+  isDemo: boolean;
+  setDemo: (enabled: boolean) => void;
+  sessionApiKey: string;
+  updateSessionApiKey: (key: string) => void;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+  const isDemo = useSyncExternalStore(subscribeDemoMode, isDemoMode, () => false);
   const [viewMode, setViewModeState] = useState<ViewMode>("executive");
   const [apiUrl, setApiUrlState] = useState<string>(
     (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "")
   );
   const [isLive, setIsLive] = useState<boolean>(false);
+  const [sessionApiKey, setSessionApiKeyState] = useState<string>(() => getSessionApiKey());
   const [readyInfo, setReadyInfo] = useState<ReadyResponse | null>(null);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
 
@@ -88,6 +100,17 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const setDemo = (enabled: boolean) => {
+    setDemoMode(enabled);
+    refreshHealth();
+  };
+
+  const updateSessionApiKey = (key: string) => {
+    setSessionApiKey(key);
+    setSessionApiKeyState(key.trim());
+    refreshHealth();
+  };
+
   const setViewMode = (mode: ViewMode) => {
     setViewModeState(mode);
     try {
@@ -122,6 +145,10 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
         searchOpen,
         setSearchOpen,
         isMounted,
+        isDemo,
+        setDemo,
+        sessionApiKey,
+        updateSessionApiKey,
       }}
     >
       {children}

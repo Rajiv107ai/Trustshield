@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useViewMode } from "@/context/ViewModeContext";
-import { TrustShieldApi } from "@/lib/api/client";
+import { TrustShieldApi, ApiError } from "@/lib/api/client";
 import {
   SCENARIO_PRESETS,
   REASON_CODE_TRANSLATIONS,
@@ -22,20 +22,16 @@ import {
   HelpCircle,
   Sparkles,
   Microscope,
-  Info,
-  Clock,
-  ArrowRight,
   RefreshCw,
   Server,
   Layers,
-  ChevronDown,
   Check,
 } from "lucide-react";
 import { Suspense } from "react";
 
 function TransactionAnalyzerContent() {
   const searchParams = useSearchParams();
-  const { viewMode, isLive } = useViewMode();
+  const { viewMode } = useViewMode();
 
   const presetParam = searchParams.get("preset");
   const initialPreset = (presetParam && SCENARIO_PRESETS.find((p) => p.id === presetParam)) || SCENARIO_PRESETS[0];
@@ -49,16 +45,23 @@ function TransactionAnalyzerContent() {
   );
   const [loading, setLoading] = useState<boolean>(true);
   const [result, setResult] = useState<TransactionScoreResponse | null>(null);
+  const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
   const [operatorActionSuccess, setOperatorActionSuccess] = useState<string | null>(null);
 
   const executeScore = async (payload: TransactionScoreRequest) => {
     setLoading(true);
     setOperatorActionSuccess(null);
+    setErrorState(null);
     try {
       const res = await TrustShieldApi.scoreTransaction(payload);
       setResult(res.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Scoring failed:", err);
+      setResult(null);
+      const isAuth = err instanceof ApiError ? err.isAuthError : false;
+      const status = err instanceof ApiError ? err.status : undefined;
+      const message = err instanceof Error ? err.message : String(err);
+      setErrorState({ message, isAuth, status });
     } finally {
       setLoading(false);
     }
@@ -70,12 +73,18 @@ function TransactionAnalyzerContent() {
       .then((res) => {
         if (mounted) {
           setResult(res.data);
+          setErrorState(null);
           setLoading(false);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (mounted) {
           console.error("Scoring failed:", err);
+          setResult(null);
+          const isAuth = err instanceof ApiError ? err.isAuthError : false;
+          const status = err instanceof ApiError ? err.status : undefined;
+          const message = err instanceof Error ? err.message : String(err);
+          setErrorState({ message, isAuth, status });
           setLoading(false);
         }
       });
@@ -192,6 +201,35 @@ function TransactionAnalyzerContent() {
           })}
         </div>
       </div>
+
+      {errorState && (
+        <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
+          <div className="flex items-center gap-2 text-rose-400 font-bold">
+            <ShieldAlert className="w-5 h-5" />
+            <span>
+              {errorState.isAuth
+                ? "Authentication Required (HTTP 401 / 403)"
+                : errorState.status
+                ? `Transaction Scoring Failed (HTTP ${errorState.status})`
+                : "Backend Service Unavailable"}
+            </span>
+          </div>
+          <p className="text-xs text-[#E8EDF3] font-mono leading-relaxed">{errorState.message}</p>
+          {errorState.isAuth ? (
+            <p className="text-[11px] text-[#8995A3]">
+              Authentication credentials were not provided or were rejected. Please configure your API key in{" "}
+              <a href="/settings" className="text-blue-400 underline font-semibold">
+                Settings
+              </a>{" "}
+              or switch to Demo Mode.
+            </p>
+          ) : (
+            <p className="text-[11px] text-[#8995A3]">
+              The scoring gateway is unreachable or returned an unhandled server error. No fabricated scores will be displayed.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 2. HERO DECISION BANNER & TRUST SCORE GAUGE */}
       {/* BEGIN GENERATED */}
@@ -393,7 +431,7 @@ function TransactionAnalyzerContent() {
                 </div>
                 <div className="space-y-2 text-xs pt-1">
                   <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Raw XGBoost Prob:</span>
+                    <span className="text-[#8995A3]">Raw Model Score:</span>
                     <span className="text-[#E8EDF3] font-semibold">
                       {((result.raw_fraud_probability ?? result.overall_fraud_probability) * 100).toFixed(2)}%
                     </span>
@@ -401,20 +439,22 @@ function TransactionAnalyzerContent() {
                   <div className="flex justify-between py-1 border-b border-[#202A35]">
                     <span className="text-[#8995A3]">Isotonic Calibrated Prob:</span>
                     <span className="text-emerald-400 font-semibold">
-                      {(result.overall_fraud_probability * 100).toFixed(2)}%
+                      {((result.calibrated_fraud_probability ?? result.overall_fraud_probability) * 100).toFixed(2)}%
                     </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Brier Score Contribution:</span>
-                    <span className="text-[#E8EDF3]">0.0392</span>
+                    <span className="text-[#8995A3]">Composite Policy Risk:</span>
+                    <span className="text-amber-400 font-semibold">
+                      {((result.policy_risk_score ?? result.canonical_trust_engine_risk ?? result.overall_fraud_probability) * 100).toFixed(2)}%
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-[#202A35]">
                     <span className="text-[#8995A3]">Model Disagreement Spread:</span>
                     <span className="text-amber-400">{(result.model_disagreement * 100).toFixed(2)}%</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-[#8995A3]">Decision Boundary:</span>
-                    <span className="text-blue-400">&tau; = 0.20 / 0.45 / 0.70</span>
+                    <span className="text-[#8995A3]">Policy Thresholds:</span>
+                    <span className="text-blue-400">&tau; = 0.25 / 0.55 / 0.85</span>
                   </div>
                 </div>
               </div>
@@ -429,10 +469,12 @@ function TransactionAnalyzerContent() {
                   <div className="flex justify-between py-1 border-b border-[#202A35]">
                     <span className="text-[#8995A3]">Prediction Set C(X):</span>
                     <span className="text-white font-bold bg-white/10 px-2 py-0.5 rounded">
-                      {result.overall_fraud_probability > 0.70
-                        ? "{ 1 } (Guaranteed Fraud)"
-                        : result.overall_fraud_probability < 0.15
-                        ? "{ 0 } (Guaranteed Legitimate)"
+                      {result.conformal_prediction_set && result.conformal_prediction_set.length > 0
+                        ? `{ ${result.conformal_prediction_set.join(", ")} }`
+                        : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) > 0.65
+                        ? "{ 1 } (High Risk)"
+                        : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) < 0.35
+                        ? "{ 0 } (Low Risk)"
                         : "{ 0, 1 } (Ambiguous / Review)"}
                     </span>
                   </div>
@@ -441,12 +483,18 @@ function TransactionAnalyzerContent() {
                     <span className="text-[#E8EDF3]">0.05 (95% Coverage)</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Empirical Val Coverage:</span>
-                    <span className="text-emerald-400 font-semibold">95.84%</span>
+                    <span className="text-[#8995A3]">Calibration Status:</span>
+                    <span className={result.conformal_is_calibrated ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
+                      {result.conformal_is_calibrated ? "Calibrated (Val Split)" : "Fallback (Uncalibrated)"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-[#8995A3]">Shannon Entropy $H_2(p)$:</span>
-                    <span className="text-[#E8EDF3]">{result.predictive_uncertainty ?? 0.08}</span>
+                    <span className="text-[#8995A3]">Conformal Quantile (q̂):</span>
+                    <span className="text-[#E8EDF3]">
+                      {result.conformal_q_hat !== undefined && result.conformal_q_hat !== null
+                        ? `q̂ = ${result.conformal_q_hat.toFixed(4)}`
+                        : "q̂ = 0.5000 (Default)"}
+                    </span>
                   </div>
                 </div>
               </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Activity, Search, Filter, ArrowUpRight, CheckCircle2, AlertTriangle, XCircle, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Activity, Search, ArrowUpRight, CheckCircle2, AlertTriangle, XCircle, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { TrustShieldApi } from "@/lib/api/client";
 import { StreamTransactionEvent } from "@/lib/types/api";
 

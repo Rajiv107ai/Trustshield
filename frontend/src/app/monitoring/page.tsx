@@ -2,17 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { useViewMode } from "@/context/ViewModeContext";
-import { TrustShieldApi } from "@/lib/api/client";
+import { TrustShieldApi, ApiError } from "@/lib/api/client";
 import { SystemBenchmarkResponse } from "@/lib/types/api";
 import {
   Server,
-  Activity,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Layers,
-  Database,
-  Cpu,
+  ShieldAlert,
   RefreshCw,
   Zap,
   ExternalLink,
@@ -23,10 +17,12 @@ import {
 } from "lucide-react";
 
 export default function TelemetryPage() {
-  const { viewMode, isLive, readyInfo, refreshHealth } = useViewMode();
+  const { viewMode, readyInfo, refreshHealth } = useViewMode();
   const [loading, setLoading] = useState(false);
   const [benchmarking, setBenchmarking] = useState(true);
   const [benchmark, setBenchmark] = useState<SystemBenchmarkResponse | null>(null);
+
+  const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
 
   const handleRefresh = async () => {
     setLoading(true);
@@ -36,11 +32,16 @@ export default function TelemetryPage() {
 
   const runBenchmark = async () => {
     setBenchmarking(true);
+    setErrorState(null);
     try {
       const res = await TrustShieldApi.getBenchmark();
       setBenchmark(res.data);
-    } catch {
-      // Handled gracefully
+    } catch (err: unknown) {
+      setBenchmark(null);
+      const isAuth = err instanceof ApiError ? err.isAuthError : false;
+      const status = err instanceof ApiError ? err.status : undefined;
+      const message = err instanceof Error ? err.message : String(err);
+      setErrorState({ message, isAuth, status });
     } finally {
       setBenchmarking(false);
     }
@@ -50,9 +51,20 @@ export default function TelemetryPage() {
     let mounted = true;
     TrustShieldApi.getBenchmark()
       .then((res) => {
-        if (mounted) setBenchmark(res.data);
+        if (mounted) {
+          setBenchmark(res.data);
+          setErrorState(null);
+        }
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (mounted) {
+          setBenchmark(null);
+          const isAuth = err instanceof ApiError ? err.isAuthError : false;
+          const status = err instanceof ApiError ? err.status : undefined;
+          const message = err instanceof Error ? err.message : String(err);
+          setErrorState({ message, isAuth, status });
+        }
+      })
       .finally(() => {
         if (mounted) setBenchmarking(false);
       });
@@ -117,6 +129,35 @@ export default function TelemetryPage() {
           </button>
         </div>
       </div>
+
+      {errorState && (
+        <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
+          <div className="flex items-center gap-2 text-rose-400 font-bold">
+            <ShieldAlert className="w-5 h-5" />
+            <span>
+              {errorState.isAuth
+                ? "Authentication Required (HTTP 401 / 403)"
+                : errorState.status
+                ? `System Benchmark Failed (HTTP ${errorState.status})`
+                : "Telemetry Service Unavailable"}
+            </span>
+          </div>
+          <p className="text-xs text-[#E8EDF3] font-mono leading-relaxed">{errorState.message}</p>
+          {errorState.isAuth ? (
+            <p className="text-[11px] text-[#8995A3]">
+              Authentication credentials were not provided or were rejected. Note: System Benchmark requires OPERATOR/ADMIN permissions. Please configure your API key in{" "}
+              <a href="/settings" className="text-cyan-400 underline font-semibold">
+                Settings
+              </a>{" "}
+              or switch to Demo Mode.
+            </p>
+          ) : (
+            <p className="text-[11px] text-[#8995A3]">
+              The telemetry and benchmark endpoint could not be reached. No fabricated benchmark latencies will be reported.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Dual Perspective Telemetry Banner */}
       <div

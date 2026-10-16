@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Search, X, ArrowRight } from "lucide-react";
 import { useViewMode } from "@/context/ViewModeContext";
-import { Search, X, Zap, Network, Tag, RotateCcw, FileSearch, ArrowRight } from "lucide-react";
 
 interface SearchResult {
   id: string;

@@ -1,20 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TrustShieldApi } from "@/lib/api/client";
-import { FraudRingItem, FraudRingsResponse } from "@/lib/types/api";
+import { TrustShieldApi, ApiError } from "@/lib/api/client";
+import { FraudRingItem } from "@/lib/types/api";
 import {
   Network,
   ShieldAlert,
-  Users,
-  Layers,
-  ArrowRight,
   Lock,
   CheckCircle2,
-  AlertTriangle,
-  Flame,
-  Activity,
-  Cpu,
 } from "lucide-react";
 
 export default function FraudRingsPage() {
@@ -23,16 +16,26 @@ export default function FraudRingsPage() {
   const [loading, setLoading] = useState(true);
   const [freezeMessage, setFreezeMessage] = useState<string | null>(null);
 
+  const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
+
   useEffect(() => {
     async function loadRings() {
+      setLoading(true);
+      setErrorState(null);
       try {
         const res = await TrustShieldApi.getFraudRings(0.0, 50);
         setRings(res.data.rings);
         if (res.data.rings.length > 0) {
           setSelectedRing(res.data.rings[0]);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Failed to load fraud rings:", err);
+        setRings([]);
+        setSelectedRing(null);
+        const isAuth = err instanceof ApiError ? err.isAuthError : false;
+        const status = err instanceof ApiError ? err.status : undefined;
+        const message = err instanceof Error ? err.message : String(err);
+        setErrorState({ message, isAuth, status });
       } finally {
         setLoading(false);
       }
@@ -78,13 +81,42 @@ export default function FraudRingsPage() {
         </div>
       </div>
 
+      {errorState && (
+        <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
+          <div className="flex items-center gap-2 text-rose-400 font-bold">
+            <ShieldAlert className="w-5 h-5" />
+            <span>
+              {errorState.isAuth
+                ? "Authentication Required (HTTP 401 / 403)"
+                : errorState.status
+                ? `Failed to Load Fraud Rings (HTTP ${errorState.status})`
+                : "Backend Graph Service Unavailable"}
+            </span>
+          </div>
+          <p className="text-xs text-[#E8EDF3] font-mono leading-relaxed">{errorState.message}</p>
+          {errorState.isAuth ? (
+            <p className="text-[11px] text-[#8995A3]">
+              Authentication credentials were not provided or were rejected. Please configure your API key in{" "}
+              <a href="/settings" className="text-purple-400 underline font-semibold">
+                Settings
+              </a>{" "}
+              or switch to Demo Mode.
+            </p>
+          ) : (
+            <p className="text-[11px] text-[#8995A3]">
+              The live fraud rings endpoint is currently unreachable. No fabricated rings will be displayed.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Col: Rings Directory */}
         <div className="p-4 rounded-xl border border-[#202A35] bg-[#111821] space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
-              Ranked Collusion Clusters ({rings.length})
+              Ranked Collusion Clusters ({loading ? "Loading..." : rings.length})
             </span>
             <span className="text-[10px] font-mono text-[#8995A3]">Sorted by Risk</span>
           </div>

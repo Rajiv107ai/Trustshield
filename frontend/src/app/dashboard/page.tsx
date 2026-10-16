@@ -9,16 +9,11 @@ import {
   Zap,
   Activity,
   Layers,
-  Cpu,
   Clock,
   ArrowUpRight,
   CheckCircle2,
-  AlertTriangle,
-  XCircle,
   Sparkles,
   Microscope,
-  TrendingDown,
-  Users,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -39,6 +34,8 @@ export default function DashboardPage() {
       id: "ORD_78910",
       buyer: "BUYER_RING_MEMBER_04",
       amount: "₹890.00",
+      calibratedProb: 0.938,
+      policyRisk: 0.942,
       risk: 0.942,
       decision: "BLOCK",
       reason: "Shared hardware across 9 buyer accounts in 24h",
@@ -48,6 +45,8 @@ export default function DashboardPage() {
       id: "ORD_78909",
       buyer: "BUYER_REFUND_ABUSER",
       amount: "₹320.00",
+      calibratedProb: 0.760,
+      policyRisk: 0.785,
       risk: 0.785,
       decision: "HOLD",
       reason: "Historical return rate exceeds 80%",
@@ -57,6 +56,8 @@ export default function DashboardPage() {
       id: "ORD_78908",
       buyer: "BUYER_NEWBIE_99",
       amount: "₹450.00",
+      calibratedProb: 0.375,
+      policyRisk: 0.380,
       risk: 0.380,
       decision: "REVIEW",
       reason: "Account created 1 day ago ordering at 3.5x category median",
@@ -66,6 +67,8 @@ export default function DashboardPage() {
       id: "ORD_78907",
       buyer: "BUYER_VERIFIED_77",
       amount: "₹65.50",
+      calibratedProb: 0.031,
+      policyRisk: 0.042,
       risk: 0.042,
       decision: "ALLOW",
       reason: "180 days active, 15 prior successful orders, zero returns",
@@ -83,7 +86,9 @@ export default function DashboardPage() {
             id: event.order_id,
             buyer: event.buyer_id,
             amount: `₹${event.amount.toFixed(2)}`,
-            risk: event.risk_score,
+            calibratedProb: event.calibrated_risk,
+            policyRisk: event.policy_risk_score ?? event.risk_score,
+            risk: event.policy_risk_score ?? event.risk_score,
             decision: event.decision,
             reason: event.reason_codes.length > 0 ? event.reason_codes.join(", ") : "Standard baseline scoring",
             timestamp: "Just now",
@@ -199,13 +204,13 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="text-right">
-                  <div className="text-[#8995A3] text-[10px]">CONFORMAL COVERAGE</div>
-                  <div className="text-emerald-400 font-semibold text-sm">&ge; 95.0% Guaranteed</div>
+                  <div className="text-[#8995A3] text-[10px]">CONFORMAL GUARANTEE</div>
+                  <div className="text-emerald-400 font-semibold text-sm">&ge; 95.0% Nominal</div>
                 </div>
                 <div className="h-8 w-px bg-[#202A35]" />
                 <div className="text-right">
-                  <div className="text-[#8995A3] text-[10px]">CALIBRATION ECE</div>
-                  <div className="text-purple-400 font-semibold text-sm">0.0142 Isotonic</div>
+                  <div className="text-[#8995A3] text-[10px]">CALIBRATION STATUS</div>
+                  <div className="text-[#8995A3] font-semibold text-sm">Offline Eval Only</div>
                 </div>
               </>
             )}
@@ -345,16 +350,16 @@ export default function DashboardPage() {
           <div className="p-4 rounded-xl border border-indigo-500/20 bg-[#111821]">
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
               <div className="flex items-center gap-1.5">
-                <span className="font-medium text-indigo-300">Conformal Coverage C(X)</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+                <span className="font-medium text-indigo-300">Conformal Guarantee C(X)</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">MATHEMATICAL BOUND</span>
               </div>
               <Layers className="w-4 h-4 text-indigo-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
-              95.84%
+              &ge; 95.0%
             </div>
-            <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-              <span>&alpha; = 0.05 finite-sample guarantee</span>
+            <div className="text-[11px] text-[#8995A3] mt-1 flex items-center gap-1">
+              <span>Nominal guarantee (&alpha; = 0.05) &middot; Empirical: Not available in live feed</span>
             </div>
           </div>
 
@@ -362,15 +367,15 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between text-xs text-[#8995A3]">
               <div className="flex items-center gap-1.5">
                 <span className="font-medium text-cyan-300">Expected Calibration Error</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#202A35] text-[#8995A3] border border-[#202A35]">OFFLINE METRIC</span>
               </div>
               <Microscope className="w-4 h-4 text-cyan-400" />
             </div>
-            <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
-              0.0142
+            <div className="text-2xl font-bold font-mono text-[#8995A3] mt-2">
+              Not available
             </div>
-            <div className="text-[11px] text-[#8995A3] mt-1 font-mono">
-              Brier: 0.0392 | Isotonic fit
+            <div className="text-[11px] text-[#596574] mt-1 font-mono">
+              Requires ground-truth labels &middot; See Evaluation tab
             </div>
           </div>
 
@@ -657,6 +662,7 @@ export default function DashboardPage() {
                   <th className="py-2 px-3">Entity Node</th>
                   <th className="py-2 px-3">Amount</th>
                   <th className="py-2 px-3">Calibrated P(Fraud)</th>
+                  <th className="py-2 px-3">Policy Risk</th>
                   <th className="py-2 px-3">Model Ensemble</th>
                   <th className="py-2 px-3">Top SHAP Feature Driver</th>
                   <th className="py-2 px-3">Conformal Set C(X)</th>
@@ -673,16 +679,25 @@ export default function DashboardPage() {
                     <td className="py-3 px-3">
                       <span
                         className={`font-semibold ${
-                          tx.risk > 0.7 ? "text-rose-400" : tx.risk > 0.3 ? "text-amber-400" : "text-emerald-400"
+                          tx.calibratedProb > 0.7 ? "text-rose-400" : tx.calibratedProb > 0.3 ? "text-amber-400" : "text-emerald-400"
                         }`}
                       >
-                        {(tx.risk * 100).toFixed(2)}%
+                        {(tx.calibratedProb * 100).toFixed(2)}%
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`font-semibold ${
+                          tx.policyRisk > 0.7 ? "text-rose-400" : tx.policyRisk > 0.3 ? "text-amber-400" : "text-emerald-400"
+                        }`}
+                      >
+                        {(tx.policyRisk * 100).toFixed(2)}%
                       </span>
                     </td>
                     <td className="py-3 px-3 text-[11px] text-[#8995A3]">
-                      {tx.risk > 0.7
+                      {tx.policyRisk > 0.7
                         ? "XGB: 0.96 · GNN: 0.92"
-                        : tx.risk > 0.3
+                        : tx.policyRisk > 0.3
                         ? "XGB: 0.42 · GNN: 0.34"
                         : "XGB: 0.04 · GNN: 0.03"}
                     </td>

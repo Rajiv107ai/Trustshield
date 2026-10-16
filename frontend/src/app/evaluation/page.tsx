@@ -1,19 +1,55 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  BarChart3,
-  TrendingUp,
-  Sliders,
-  CheckCircle2,
-  Layers,
-  ArrowRight,
-  ShieldAlert,
-} from "lucide-react";
+import { BarChart3 } from "lucide-react";
+
+interface MetricItem {
+  roc_mean: number;
+  pr_mean: number;
+}
+interface DiffItem {
+  roc: { mean_diff: number; p_value: number };
+}
+interface PrimaryAnalysis {
+  tabular_with_device: MetricItem;
+  tabular_plus_graph: MetricItem;
+  primary_roc_lift_paired: { mean_diff: number; p_value: number };
+}
+interface GraphFree {
+  tabular_without_device: MetricItem;
+  device_lift_b_vs_a_paired: DiffItem;
+}
+interface CoherentAnalysis {
+  tabular_plus_graph: MetricItem;
+  graph_lift_paired: DiffItem;
+}
+interface HybridModel {
+  roc_mean: number;
+  pr_mean: number;
+  paired_diff_vs_tabular: DiffItem;
+}
+interface PerTypeItem {
+  isolated_roc_tabular_mean: number;
+  isolated_roc_graph_mean: number;
+  isolated_roc_paired: { mean_diff: number; p_value: number };
+  recall_2pct_tabular_mean: number;
+  recall_2pct_graph_mean: number;
+  recall_5pct_tabular_mean: number;
+  recall_5pct_graph_mean: number;
+  recall_10pct_tabular_mean: number;
+  recall_10pct_graph_mean: number;
+}
+interface EvaluationResultsData {
+  pre_registered_primary_analysis_20_seeds?: PrimaryAnalysis;
+  graph_free_baseline_comparisons_20_seeds?: GraphFree;
+  coherent_variant_sensitivity_analysis_5_seeds?: CoherentAnalysis;
+  tuned_hybrid_model_5_seeds?: { standard_dataset?: HybridModel };
+  per_type_metrics_standard_20_seeds?: Record<string, PerTypeItem>;
+}
 
 export default function EvaluationStudioPage() {
   const [threshold, setThreshold] = useState<number>(0.5);
-  const [resultsData, setResultsData] = useState<any>(null);
+  const [resultsData, setResultsData] = useState<EvaluationResultsData | null>(null);
 
   useEffect(() => {
     fetch("/results.json")
