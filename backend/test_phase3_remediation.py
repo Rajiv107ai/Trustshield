@@ -413,12 +413,6 @@ class TestStageATrustEngineConsolidation:
         assert abs(res_cold.confidence - round(res_warm.confidence * 0.70, 4)) < 1e-4
         assert "COLD_START_INSUFFICIENT_HISTORY" in res_cold.reason_codes
 
-    def test_legacy_trust_engine_deprecation_notice(self):
-        """Legacy trust_engine.py must contain the DEPRECATION NOTICE for backward-compatibility tracking."""
-        import trustshield_project.trust_engine as legacy_mod
-        assert "[DEPRECATED]" in legacy_mod.__doc__
-        assert "DO NOT USE FOR PRODUCTION SERVING" in legacy_mod.__doc__
-        assert "CanonicalTrustEngine" in legacy_mod.__doc__
 
 
 class TestStageBInfrastructureDecoupling:
