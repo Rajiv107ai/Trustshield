@@ -186,6 +186,22 @@ async def transaction_event_generator(
             score_req = TransactionScoreRequest(**template)
             score_res = scoring_fn(score_req)
 
+            cal_prob = (
+                score_res.calibrated_fraud_probability
+                if score_res.calibrated_fraud_probability is not None
+                else score_res.overall_fraud_probability
+            )
+            policy_risk = (
+                score_res.policy_risk_score
+                if score_res.policy_risk_score is not None
+                else score_res.overall_fraud_probability
+            )
+            raw_risk = (
+                score_res.raw_fraud_probability
+                if score_res.raw_fraud_probability is not None
+                else score_res.overall_fraud_probability
+            )
+
             event = StreamTransactionEvent(
                 event_id=f"EVT_{order_counter}",
                 timestamp=datetime.now(timezone.utc).strftime("%H:%M:%S"),
@@ -193,8 +209,9 @@ async def transaction_event_generator(
                 buyer_id=template["buyer_id"],
                 seller_id=template["seller_id"],
                 amount=template["amount"],
-                risk_score=score_res.raw_fraud_probability or score_res.overall_fraud_probability,
-                calibrated_risk=score_res.overall_fraud_probability,
+                risk_score=raw_risk,
+                calibrated_risk=cal_prob,
+                policy_risk_score=policy_risk,
                 risk_level=score_res.risk_label,
                 decision=score_res.decision,
                 trust_score=score_res.trust_score,

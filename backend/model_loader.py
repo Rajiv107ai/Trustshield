@@ -34,13 +34,16 @@ import joblib
 import pandas as pd
 from typing import Optional, Any
 
+_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+)
 _PROJECT_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "trustshield_project")
+    os.path.join(_ROOT, "trustshield_project")
 )
 if _PROJECT_DIR not in sys.path:
     sys.path.insert(0, _PROJECT_DIR)
 
-MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models")
+MODELS_DIR = os.path.join(_ROOT, "models")
 
 _REQUIRED = [
     "combined_graph_model.joblib",
@@ -76,9 +79,13 @@ class ModelStore:
         self._clip_loaded: bool = False
         self._tfidf_scorer: Any = None        # Cached MultimodalScorer surrogate
 
-        # --- Calibration (Phase 6) ---
+        # --- Calibration (Phase 6) & Conformal Uncertainty ---
         self.calibrator: Any = None
         self.phase5_calibrator: Any = None
+        self.conformal_predictor: Any = None
+
+        # --- Point-in-Time Transaction History Store ---
+        self.transaction_history: Any = None
 
         # --- Graph Snapshot (API Parity) ---
         self.graph_snapshot: Optional[dict] = None
@@ -131,6 +138,42 @@ class ModelStore:
             self.graph_snapshot = joblib.load(snap_path)
             print(f"[model_loader] Loaded graph snapshot from {snap_path}")
 
+        # Point-in-time transaction history store (for causal edge weight calculation)
+        try:
+            from point_in_time_history import PointInTimeHistoryStore
+            data_dir = os.path.join(_ROOT, "data", "synthetic_v2_1")
+            orders_path = os.path.join(data_dir, "orders.csv")
+            self.transaction_history = PointInTimeHistoryStore(orders_csv_path=orders_path if os.path.isfile(orders_path) else None)
+        except Exception as _pit_exc:
+            print(f"[model_loader] PointInTimeHistoryStore initialization failed: {_pit_exc}")
+            self.transaction_history = None
+
+        # Conformal Predictor: Load held-out validation calibration data if available
+        # Prioritize Phase 3 calibration arrays; fallback to Stage 3.4 validation arrays if missing
+        val_pred_path = os.path.join(MODELS_DIR, "phase3_val_predictions.npy")
+        val_label_path = os.path.join(MODELS_DIR, "phase3_val_labels.npy")
+        if not (os.path.isfile(val_pred_path) and os.path.isfile(val_label_path)):
+            val_pred_path = os.path.join(MODELS_DIR, "stage34", "stage342_val_predictions.npy")
+            val_label_path = os.path.join(MODELS_DIR, "stage34", "stage342_val_labels.npy")
+
+        if os.path.isfile(val_pred_path) and os.path.isfile(val_label_path):
+            try:
+                import numpy as _np
+                from advanced_trust_engine import ConformalPredictor
+                _p_val = _np.load(val_pred_path)
+                _y_val = _np.load(val_label_path)
+                cal_src = os.path.basename(val_pred_path)
+                self.conformal_predictor = ConformalPredictor(alpha=0.05).calibrate(_p_val, _y_val, source=cal_src)
+                print(
+                    f"[model_loader] ConformalPredictor calibrated on validation data from {cal_src} "
+                    f"({len(_y_val):,} samples, q_hat_0={self.conformal_predictor.q_hat_0:.4f}, q_hat_1={self.conformal_predictor.q_hat_1:.4f})"
+                )
+            except Exception as _c_exc:
+                print(f"[model_loader] ConformalPredictor validation init failed: {_c_exc}")
+                self.conformal_predictor = None
+        else:
+            self.conformal_predictor = None
+
         self._loaded = True
         print(f"[model_loader] Loaded Phase 3 models from {MODELS_DIR}")
         if self.rings_df is not None:
@@ -156,10 +199,14 @@ class ModelStore:
             print(f"[model_loader] TreeSHAP Phase 3 explainer init failed: {exc}")
             self.shap_explainer = None
 
-        # ---- Phase 4: CLIP embedding cache (optional) ----
+        # ---- Phase 4: CLIP embedding cache (optional — feature flag controlled) ----
+        clip_enabled = os.getenv("CLIP_ENABLED", "true").lower() in ("true", "1", "yes")
         clip_cache_dir = os.path.join(MODELS_DIR, "clip_cache")
         clip_meta_path = os.path.join(clip_cache_dir, "clip_meta.npz")
-        if os.path.isfile(clip_meta_path):
+        if not clip_enabled:
+            print("[model_loader] Phase 4 CLIP scorer disabled via CLIP_ENABLED=false.")
+            self._clip_loaded = False
+        elif os.path.isfile(clip_meta_path):
             try:
                 import sys
                 _project_dir = os.path.normpath(
@@ -212,12 +259,16 @@ class ModelStore:
                 "run scripts/build_clip_embeddings.py to enable real CLIP scoring."
             )
 
-        # ---- Phase 5 (optional — graceful skip if absent) ----
-        phase5_present = all(
+        # ---- Phase 5 (optional — graceful skip if absent or disabled) ----
+        phase5_enabled = os.getenv("PHASE5_ENABLED", "true").lower() in ("true", "1", "yes")
+        phase5_present = phase5_enabled and all(
             os.path.exists(os.path.join(MODELS_DIR, f))
             for f in _PHASE5_OPTIONAL
         )
-        if phase5_present:
+        if not phase5_enabled:
+            print("[model_loader] Phase 5 hybrid model disabled via PHASE5_ENABLED=false. Serving Phase 3 predictions.")
+            self._phase5_loaded = False
+        elif phase5_present:
             self.hybrid_model       = joblib.load(
                 os.path.join(MODELS_DIR, "hybrid_model.joblib")
             )

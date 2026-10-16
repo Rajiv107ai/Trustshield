@@ -222,8 +222,19 @@ class CLIPMultimodalScorer:
         self.text_embeddings: np.ndarray = np.empty((0, 512))
         self.image_embeddings: np.ndarray = np.empty((0, 512))
 
-        import torch
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        # Stage B Simplification: Safe PyTorch isolation
+        try:
+            import torch
+            has_torch = True
+        except ImportError:
+            has_torch = False
+
+        if device is not None:
+            self.device = device
+        elif has_torch:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = "cpu"
 
     # ------------------------------------------------------------------
     # Internal batch-encoding helpers

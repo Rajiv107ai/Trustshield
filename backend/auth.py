@@ -42,24 +42,30 @@ class AuthUser(BaseModel):
 def is_auth_enabled() -> bool:
     """
     Check if authentication is enforced.
-    Fails closed:
-    - If TRUSTSHIELD_ENV or ENV is 'production', auth is MANDATORY. Attempting to disable raises RuntimeError.
-    - If TRUSTSHIELD_AUTH_ENABLED is explicitly set to 'true'/'1', auth is active.
-    - In dev/test without explicit setting, auth is optional for development velocity.
+    Secure by default:
+    - If TRUSTSHIELD_ENV or ENV is 'production', auth is MANDATORY. Attempting to bypass raises RuntimeError.
+    - Only TRUSTSHIELD_DEV_INSECURE_BYPASS=true may enable the development bypass in non-production.
+    - If a bypass or auth disable is attempted in production, raises RuntimeError.
+    - In all default configurations, authentication is strictly enabled.
     """
     env = os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower()
     is_prod = env == "production"
 
-    explicit = os.getenv("TRUSTSHIELD_AUTH_ENABLED")
-    if explicit is not None:
-        enabled = explicit.lower() in ("true", "1", "yes")
-        if is_prod and not enabled:
-            raise RuntimeError(
-                "CRITICAL SECURITY: Cannot disable authentication when running in production environment."
-            )
-        return enabled
+    bypass_str = os.getenv("TRUSTSHIELD_DEV_INSECURE_BYPASS", "").strip().lower()
+    is_bypass = bypass_str in ("true", "1", "yes")
 
-    return is_prod
+    auth_enabled_str = os.getenv("TRUSTSHIELD_AUTH_ENABLED", "").strip().lower()
+    is_explicit_disable = auth_enabled_str in ("false", "0", "no")
+
+    if is_prod and (is_bypass or is_explicit_disable):
+        raise RuntimeError(
+            "CRITICAL SECURITY: Cannot disable authentication when running in production environment."
+        )
+
+    if is_bypass:
+        return False
+
+    return True
 
 
 def get_configured_keys() -> dict[str, tuple[str, Role]]:
@@ -133,8 +139,8 @@ def authenticate_request(
     Returns AuthUser or raises HTTP 401.
     """
     if not is_auth_enabled():
-        # In unauthenticated dev/test mode
-        return AuthUser(username="dev_unauthenticated", role=Role.ADMIN, is_authenticated=False)
+        # In explicit dev bypass mode, grant OPERATOR for routine dev scoring, NEVER ADMIN
+        return AuthUser(username="dev_unauthenticated", role=Role.OPERATOR, is_authenticated=False)
 
     token = None
     if api_key:
@@ -176,9 +182,6 @@ def require_role(min_role: Role) -> Callable[[AuthUser], AuthUser]:
     }
 
     def role_checker(user: AuthUser = Depends(authenticate_request)) -> AuthUser:
-        if not is_auth_enabled():
-            return user
-
         user_level = role_hierarchy.get(user.role, 0)
         required_level = role_hierarchy.get(min_role, 0)
 

@@ -43,6 +43,10 @@ class TransactionScoreRequest(BaseModel):
     buyer_id: Optional[str] = None
     seller_id: Optional[str] = None
     listing_id: Optional[str] = None
+    order_date: Optional[str] = Field(
+        default=None,
+        description="ISO-8601 transaction order timestamp for point-in-time historical replay",
+    )
 
     # --- Tabular features (exact model feature column names) ---
     price_vs_base_price_ratio: float = Field(
@@ -106,6 +110,10 @@ class TransactionScoreRequest(BaseModel):
         le=1.0,
         description="Cosine similarity between listing image and text [0, 1]. When supplied, drives multimodal_risk in the trust engine.",
     )
+    model_version: Optional[str] = Field(
+        default=None,
+        description="Explicit model version to score with ('phase3' or 'phase5-hybrid'). Available to authenticated callers.",
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -129,18 +137,40 @@ class TransactionScoreRequest(BaseModel):
 
 class TransactionScoreResponse(BaseModel):
     order_id: Optional[str] = None
-    overall_fraud_probability: float
+    overall_fraud_probability: float = Field(
+        description="Composite operational risk score for backward compatibility. Use calibrated_fraud_probability for the statistical model probability, or policy_risk_score for the policy decision score.",
+    )
     raw_fraud_probability: Optional[float] = Field(
         default=None,
         description="Raw uncalibrated classifier probability output from active ML model.",
     )
     calibrated_fraud_probability: Optional[float] = Field(
         default=None,
-        description="Isotonically calibrated probability from primary predictive model.",
+        description="Isotonically calibrated statistical probability from primary predictive model.",
+    )
+    policy_risk_score: Optional[float] = Field(
+        default=None,
+        description="Canonical Trust Engine composite operational risk score governing decision routing.",
     )
     canonical_trust_engine_risk: Optional[float] = Field(
         default=None,
-        description="Canonical Trust Engine composite risk score governing decision routing.",
+        description="Canonical Trust Engine composite risk score governing decision routing (alias of policy_risk_score).",
+    )
+    conformal_prediction_set: Optional[List[int]] = Field(
+        default=None,
+        description="Authoritative server conformal prediction set: [0], [1], or [0, 1].",
+    )
+    conformal_is_calibrated: bool = Field(
+        default=False,
+        description="True if conformal prediction set is calibrated on held-out validation data; False if using fallback bounds.",
+    )
+    conformal_coverage_guarantee: Optional[float] = Field(
+        default=0.95,
+        description="Target coverage guarantee level 1 - alpha (e.g. 0.95).",
+    )
+    conformal_q_hat: Optional[float] = Field(
+        default=None,
+        description="Empirically computed non-conformity score quantile q_hat from held-out validation split.",
     )
     risk_label: str                  # "low" | "medium" | "high"
     model_used: str
@@ -341,6 +371,10 @@ class ListingScoreRequest(BaseModel):
             "Used directly when product_id is not supplied. "
             "0.80+ = normal, <0.65 = moderate concern, <0.45 = severe mismatch."
         ),
+    )
+    synthetic_mismatch_score: Optional[float] = Field(
+        default=None,
+        description="Optional alias for multimodal_similarity_score used in specialized model training.",
     )
 
     model_config = ConfigDict(
@@ -549,6 +583,7 @@ class StreamTransactionEvent(BaseModel):
     amount: float
     risk_score: float
     calibrated_risk: float
+    policy_risk_score: Optional[float] = None
     risk_level: str
     decision: str
     trust_score: float

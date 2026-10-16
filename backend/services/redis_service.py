@@ -66,8 +66,9 @@ class RedisService:
         self.connect_timeout = connect_timeout
         self.socket_timeout = socket_timeout
 
-        # Explicit toggle support via env
-        env_enabled = os.getenv("REDIS_ENABLED", "true").lower() in ("true", "1", "yes")
+        # Stage B Simplification: Redis is strictly optional infrastructure.
+        # Safe default is False unless explicitly enabled via REDIS_ENABLED=true or enabled=True.
+        env_enabled = os.getenv("REDIS_ENABLED", "false").lower() in ("true", "1", "yes")
         self.enabled = env_enabled if enabled is None else enabled
 
         self._client: Any = None
@@ -79,6 +80,14 @@ class RedisService:
 
         if self.enabled:
             self._init_client()
+        else:
+            self._cached_health = RedisHealthStatus(
+                available=False,
+                status="disabled",
+                latency_ms=None,
+                info={"detail": "Redis integration explicitly disabled via REDIS_ENABLED=false"},
+            )
+            logger.info("Redis integration disabled (REDIS_ENABLED=false). Using local disk feature store.")
 
     def _init_client(self) -> None:
         """Initialize Redis connection client with bounded socket timeouts and cooldown."""

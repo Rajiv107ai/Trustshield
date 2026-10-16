@@ -8,9 +8,12 @@ from backend.main import app, store, _build_feature_row
 from backend.schemas import TransactionScoreRequest
 
 
+VALID_API_KEY = "dev-operator-api-key-32chars-long"
+
+
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"X-API-Key": VALID_API_KEY}) as test_client:
         yield test_client
 
 
@@ -49,6 +52,7 @@ def test_fraud_rings_min_risk_filtering(client):
 def test_transaction_scoring_phase5(client):
     payload = {
         "order_id": "ORDER_TEST_P5",
+        "model_version": "phase5-hybrid",
         "buyer_id": "BUYER_000001",
         "seller_id": "SELLER_000001",
         "amount": 150.0,
