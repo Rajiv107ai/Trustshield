@@ -9,9 +9,12 @@ from backend.services.neo4j_service import neo4j_service
 from backend.services.redis_service import redis_service
 
 
+VALID_API_KEY = "dev-operator-api-key-32chars-long"
+
+
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"X-API-Key": VALID_API_KEY}) as test_client:
         yield test_client
 
 
@@ -134,7 +137,8 @@ def test_metrics_endpoint(client):
 
 def test_system_benchmark_endpoint(client):
     """Verify /system/benchmark computes empirical latencies without fake claims."""
-    response = client.get("/system/benchmark?iterations=5")
+    admin_headers = {"X-API-Key": "dev-admin-secret-key-32chars-long!"}
+    response = client.get("/system/benchmark?iterations=5", headers=admin_headers)
     assert response.status_code == 200
     data = response.json()
 

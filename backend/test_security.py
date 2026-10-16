@@ -29,8 +29,8 @@ def auth_client(monkeypatch):
 
 @pytest.fixture
 def dev_client(monkeypatch):
-    """Client in unauthenticated dev mode."""
-    monkeypatch.setenv("TRUSTSHIELD_AUTH_ENABLED", "false")
+    """Client in explicit insecure local dev bypass mode."""
+    monkeypatch.setenv("TRUSTSHIELD_DEV_INSECURE_BYPASS", "true")
     with TestClient(app) as client:
         yield client
 
@@ -197,13 +197,31 @@ def test_cors_untrusted_origin_disallowed(dev_client):
 # ==============================================================================
 
 def test_dev_mode_allows_unauthenticated_requests(dev_client):
-    """When TRUSTSHIELD_AUTH_ENABLED is false, local development requests pass smoothly."""
+    """When TRUSTSHIELD_DEV_INSECURE_BYPASS is true, local development scoring requests pass smoothly."""
     payload = {
         "order_id": "DEV_PASS_01",
         "amount": 80.0,
     }
     response = dev_client.post("/transaction/score", json=payload)
     assert response.status_code == 200
+
+
+def test_dev_mode_denies_admin_benchmark(dev_client):
+    """Anonymous bypass users must receive OPERATOR, NEVER ADMIN, and be rejected from admin routes with 403."""
+    response = dev_client.get("/system/benchmark")
+    assert response.status_code == 403
+    assert "requires 'admin'" in response.json()["detail"].lower()
+
+
+def test_default_configuration_requires_authentication(monkeypatch):
+    """Under default configuration (no env vars set), protected routes must return 401."""
+    monkeypatch.delenv("TRUSTSHIELD_DEV_INSECURE_BYPASS", raising=False)
+    monkeypatch.delenv("TRUSTSHIELD_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("TRUSTSHIELD_ENV", raising=False)
+    with TestClient(app) as client:
+        payload = {"order_id": "DEFAULT_FAIL_01", "amount": 50.0}
+        response = client.post("/transaction/score", json=payload)
+        assert response.status_code == 401
 
 
 # ==============================================================================
@@ -225,6 +243,16 @@ def test_production_fails_when_auth_disabled_attempted(monkeypatch):
     """In production, attempting to disable auth via TRUSTSHIELD_AUTH_ENABLED=false must raise RuntimeError."""
     monkeypatch.setenv("TRUSTSHIELD_ENV", "production")
     monkeypatch.setenv("TRUSTSHIELD_AUTH_ENABLED", "false")
+
+    from backend.auth import is_auth_enabled
+    with pytest.raises(RuntimeError, match="Cannot disable authentication"):
+        is_auth_enabled()
+
+
+def test_production_fails_when_dev_bypass_attempted(monkeypatch):
+    """In production, attempting to enable TRUSTSHIELD_DEV_INSECURE_BYPASS=true must raise RuntimeError."""
+    monkeypatch.setenv("TRUSTSHIELD_ENV", "production")
+    monkeypatch.setenv("TRUSTSHIELD_DEV_INSECURE_BYPASS", "true")
 
     from backend.auth import is_auth_enabled
     with pytest.raises(RuntimeError, match="Cannot disable authentication"):
@@ -270,3 +298,34 @@ def test_scoring_response_identifies_real_inference(auth_client):
     assert data["is_simulation"] is False
     assert data["scoring_mode"] in ("production_model_phase5_hybrid", "production_model_phase3_combined")
 
+
+# ==============================================================================
+# 7. Streaming Endpoint Authentication Controls
+# ==============================================================================
+
+def test_stream_transactions_rejects_unauthenticated(auth_client):
+    """Calling /stream/transactions without credentials must return 401."""
+    response = auth_client.get("/stream/transactions")
+    assert response.status_code == 401
+    assert "authentication required" in response.json()["detail"].lower()
+
+
+def test_stream_transactions_allows_header_auth(auth_client, monkeypatch):
+    """Calling /stream/transactions with valid X-API-Key header must succeed."""
+    async def finite_gen(*args, **kwargs):
+        yield 'data: {"event": "connected"}\n\n'
+    monkeypatch.setattr("backend.main.transaction_event_generator", finite_gen)
+    headers = {"X-API-Key": "test-operator-api-key-32chars!!"}
+    response = auth_client.get("/stream/transactions", headers=headers)
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers.get("content-type", "")
+
+
+def test_stream_transactions_allows_query_param_auth(auth_client, monkeypatch):
+    """Calling /stream/transactions with valid api_key query param must succeed for browser SSE."""
+    async def finite_gen(*args, **kwargs):
+        yield 'data: {"event": "connected"}\n\n'
+    monkeypatch.setattr("backend.main.transaction_event_generator", finite_gen)
+    response = auth_client.get("/stream/transactions?api_key=test-operator-api-key-32chars!!")
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers.get("content-type", "")

@@ -79,14 +79,6 @@ except ImportError:
         OperationalDecision = None
 
 try:
-    from trustshield_project.trust_engine import TrustEngine
-except ImportError:
-    try:
-        from trust_engine import TrustEngine
-    except ImportError:
-        TrustEngine = None
-
-try:
     from trustshield_project.multimodal_scoring import explain_listing_risk, MultimodalScorer as _MultimodalScorer
 except ImportError:
     try:
@@ -95,8 +87,10 @@ except ImportError:
         explain_listing_risk = None
         _MultimodalScorer = None
 
+# Stage A Simplification: CanonicalTrustEngine is the sole authoritative production engine.
+# Legacy trust_engine.py is deprecated and fallback has been removed.
 _canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not None else None
-_trust_engine = TrustEngine() if TrustEngine is not None else None
+
 
 
 def _risk_label(score: float) -> str:
@@ -227,9 +221,23 @@ def _resolve_graph_features(
     snapshot = getattr(store, "graph_snapshot", None)
     b_data = snapshot.get("buyer_features", {}).get(req.buyer_id) if snapshot and req.buyer_id else None
     s_data = snapshot.get("seller_features", {}).get(req.seller_id) if snapshot and req.seller_id else None
-    pair_weights = snapshot.get("pair_edge_weights", {}) if snapshot else {}
-    edge_key = f"{req.buyer_id}_{req.seller_id}"
-    srv_edge_weight = pair_weights.get(edge_key, pair_weights.get((req.buyer_id, req.seller_id), 0.0))
+
+    # Crucial P0 Fix: Point-in-time edge weight computation strictly before transaction timestamp.
+    # NEVER silently substitute frozen cumulative lifetime counts from static graph_snapshot!
+    tx_hist = getattr(store, "transaction_history", None)
+    req_date = getattr(req, "order_date", None)
+    pit_weight: Optional[float] = None
+    pit_source = "unavailable"
+    pit_note = ""
+
+    if tx_hist is not None and req.buyer_id and req.seller_id:
+        pit_weight, pit_source, pit_note = tx_hist.get_prior_edge_weight(
+            req.buyer_id, req.seller_id, order_date=req_date, order_id=req.order_id
+        )
+    else:
+        pit_weight = 0.0
+        pit_source = "fallback_history_unavailable"
+        pit_note = "Point-in-time history store unavailable; defaulted to 0.0 (static snapshot NOT substituted)"
 
     server_computed = {}
     if b_data is not None:
@@ -242,14 +250,14 @@ def _resolve_graph_features(
         server_computed["seller_pagerank"] = float(s_data.get("seller_pagerank", 0.0))
         server_computed["seller_buyer_concentration_hhi"] = float(s_data.get("seller_buyer_concentration_hhi", 0.0))
     if b_data is not None or s_data is not None:
-        server_computed["buyer_seller_edge_weight_before"] = float(srv_edge_weight)
+        server_computed["buyer_seller_edge_weight_before"] = float(pit_weight if pit_weight is not None else 0.0)
 
     resolved = {}
     flag_notes = ""
     client_mismatch = False
 
     if server_computed:
-        # Server snapshot is available
+        # Server snapshot and point-in-time calculation are available
         mismatches = []
         if client_supplied:
             for k in client_supplied:
@@ -263,7 +271,7 @@ def _resolve_graph_features(
             flag_notes = f"Flagged client-supplied graph feature mismatch ({', '.join(mismatches)}). Server snapshot value enforced."
             logger.warning("Graph feature mismatch for order %s: %s", req.order_id, flag_notes)
 
-        # When server snapshot is available, ALWAYS use server values
+        # When server values are available, ALWAYS use authoritative server values
         for k in GRAPH_FEATURE_KEYS:
             if k in server_computed:
                 resolved[k] = float(server_computed[k])
@@ -345,6 +353,8 @@ def _build_hybrid_feature_row(
 async def lifespan(app: FastAPI):
     """Load models once at startup and probe infrastructure connectivity."""
     validate_security_configuration()
+    if _canonical_trust_engine is None:
+        logger.error("Canonical Trust Engine unavailable at startup. Transaction scoring will fail loud with HTTP 503.")
     store.load()
     try:
         redis_service.ping()
@@ -486,8 +496,8 @@ def ready(response: Response):
             "phase5_loaded": phase5_ready,
             "clip_loaded": clip_ready,
             "shap_loaded": shap_ready,
-            "redis_status": "connected" if redis_ready else "unavailable",
-            "neo4j_status": "connected" if neo4j_ready else "unavailable",
+            "redis_status": "connected" if redis_ready else ("disabled" if not redis_service.enabled else "unavailable"),
+            "neo4j_status": "connected" if neo4j_ready else ("disabled" if not neo4j_service.enabled else "unavailable"),
             "prometheus_instrumented": True,
             "investigation_agent_ready": investigation_service.agent is not None,
         },
@@ -514,12 +524,41 @@ def get_canonical_results():
 # POST /transaction/score
 # ---------------------------------------------------------------------------
 
+VALID_SERVING_MODELS = {"phase3", "phase5-hybrid"}
+
+
+def _get_serving_model_version(req: TransactionScoreRequest, request: Optional[Request] = None) -> str:
+    """Determines model version: environment default or authenticated header/body override."""
+    env_default = os.getenv("TRUSTSHIELD_SERVING_MODEL", "phase3").strip().lower()
+    if env_default not in VALID_SERVING_MODELS:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Invalid server configuration for TRUSTSHIELD_SERVING_MODEL: '{env_default}'. Valid options: {sorted(list(VALID_SERVING_MODELS))}"
+        )
+
+    chosen = req.model_version
+    if not chosen and request is not None:
+        chosen = request.headers.get("x-trustshield-model-version")
+
+    if not chosen:
+        chosen = env_default
+    else:
+        chosen = chosen.strip().lower()
+
+    if chosen not in VALID_SERVING_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid model version requested: '{chosen}'. Valid model options: {sorted(list(VALID_SERVING_MODELS))}"
+        )
+    return chosen
+
+
 @app.post("/transaction/score", response_model=TransactionScoreResponse, tags=["scoring"], dependencies=[Depends(authenticate_request)])
-def score_transaction(req: TransactionScoreRequest):
+def score_transaction(req: TransactionScoreRequest, request: Request = None):
     """
-    Score an incoming order for fraud using either the Phase 5 Hybrid model
-    (tabular + NetworkX graph features + 32-dim GNN embeddings) when loaded,
-    or falling back to the Phase 3 combined tabular+graph Random Forest model.
+    Score an incoming order for fraud using either the Phase 3 Combined model
+    (tabular + NetworkX graph features) by default, or the Phase 5 Hybrid model
+    when explicitly selected.
 
     Evaluated via Unified Trust Engine for calibrated risk, trust score (0-100),
     entropy confidence, model disagreement, and decision routing (ALLOW/REVIEW/HOLD/BLOCK).
@@ -532,6 +571,8 @@ def score_transaction(req: TransactionScoreRequest):
     if not store.is_loaded:
         raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
 
+    target_model = _get_serving_model_version(req, request)
+
     # Phase 10: Multi-signal cold-start detection (insufficient buyer/seller history)
     is_cold_start = bool(
         (req.buyer_orders_before < 3)
@@ -540,7 +581,22 @@ def score_transaction(req: TransactionScoreRequest):
         or (req.seller_age_days < 7.0)
     )
 
-    if store.phase5_loaded and store.phase5_meta is not None and store.hybrid_model is not None:
+    if _canonical_trust_engine is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Canonical Trust Engine is unavailable. Legacy fallback is disabled."
+        )
+    engine = _canonical_trust_engine
+    if getattr(store, "conformal_predictor", None) is not None:
+        if not getattr(engine.conformal, "is_calibrated", False):
+            engine.conformal = store.conformal_predictor
+
+    if target_model == "phase5-hybrid":
+        if not (store.phase5_loaded and store.phase5_meta is not None and store.hybrid_model is not None):
+            raise HTTPException(
+                status_code=503,
+                detail="Model 'phase5-hybrid' was requested but Phase 5 artifacts are not loaded on this server."
+            )
         p5_meta = store.phase5_meta
         hybrid_cols = p5_meta["hybrid_feature_cols"]
         p3_cols = p5_meta["phase3_feature_cols"]
@@ -587,9 +643,8 @@ def score_transaction(req: TransactionScoreRequest):
             )
 
         t_te0 = time.perf_counter()
-        engine = _canonical_trust_engine or _trust_engine
         if engine is not None:
-            t_res = engine.score(component_risks, is_cold_start=is_cold_start)
+            t_res = engine.score(component_risks, is_cold_start=is_cold_start, model_probability=prob_cal)
             final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
             decision = t_res.decision.value
             trust_score = t_res.trust_score
@@ -597,6 +652,7 @@ def score_transaction(req: TransactionScoreRequest):
             uncertainty = getattr(t_res, "predictive_uncertainty", None)
             model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
             reason_codes = t_res.reason_codes
+            conformal_set = sorted(list(t_res.conformal_prediction_set)) if hasattr(t_res, "conformal_prediction_set") else None
         else:
             final_risk = prob_cal
             decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
@@ -605,6 +661,7 @@ def score_transaction(req: TransactionScoreRequest):
             uncertainty = None
             model_disagreement = 0.0
             reason_codes = []
+            conformal_set = [0, 1] if 0.35 <= prob_cal <= 0.65 else ([1] if prob_cal > 0.65 else [0])
 
         metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
         metrics_service.record_decision(decision, _risk_label(final_risk), "phase5-hybrid")
@@ -621,12 +678,20 @@ def score_transaction(req: TransactionScoreRequest):
             except Exception as exc:
                 logger.warning("TreeSHAP Phase 5 explanation failed: %s", exc)
 
+        conformal_calibrated = bool(engine.conformal.is_calibrated) if engine and hasattr(engine, "conformal") else False
+        conformal_q = round(float(engine.conformal.q_hat), 4) if engine and hasattr(engine, "conformal") and engine.conformal.is_calibrated else None
+
         return TransactionScoreResponse(
             order_id=req.order_id,
             overall_fraud_probability=round(final_risk, 4),
             raw_fraud_probability=round(prob_raw, 4),
             calibrated_fraud_probability=round(prob_cal, 4),
+            policy_risk_score=round(final_risk, 4),
             canonical_trust_engine_risk=round(final_risk, 4),
+            conformal_prediction_set=conformal_set,
+            conformal_is_calibrated=conformal_calibrated,
+            conformal_coverage_guarantee=0.95,
+            conformal_q_hat=conformal_q,
             risk_label=_risk_label(final_risk),
             decision=decision,
             trust_score=trust_score,
@@ -666,6 +731,7 @@ def score_transaction(req: TransactionScoreRequest):
             ),
         )
 
+    # Phase 3 model (Default)
     if store.feature_meta is None or store.combined_graph_model is None:
         raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
 
@@ -701,9 +767,8 @@ def score_transaction(req: TransactionScoreRequest):
         )
 
     t_te0 = time.perf_counter()
-    engine = _canonical_trust_engine or _trust_engine
     if engine is not None:
-        t_res = engine.score(component_risks, is_cold_start=is_cold_start)
+        t_res = engine.score(component_risks, is_cold_start=is_cold_start, model_probability=prob_cal)
         final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
         decision = t_res.decision.value
         trust_score = t_res.trust_score
@@ -711,6 +776,7 @@ def score_transaction(req: TransactionScoreRequest):
         uncertainty = getattr(t_res, "predictive_uncertainty", None)
         model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
         reason_codes = t_res.reason_codes
+        conformal_set = sorted(list(t_res.conformal_prediction_set)) if hasattr(t_res, "conformal_prediction_set") else None
     else:
         final_risk = prob_cal
         decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
@@ -719,6 +785,7 @@ def score_transaction(req: TransactionScoreRequest):
         uncertainty = None
         model_disagreement = 0.0
         reason_codes = []
+        conformal_set = [0, 1] if 0.35 <= prob_cal <= 0.65 else ([1] if prob_cal > 0.65 else [0])
 
     metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
     metrics_service.record_decision(decision, _risk_label(final_risk), "phase3")
@@ -735,12 +802,26 @@ def score_transaction(req: TransactionScoreRequest):
         except Exception as exc:
             logger.warning("TreeSHAP Phase 3 explanation failed: %s", exc)
 
+    conformal_calibrated = bool(engine.conformal.is_calibrated) if engine and hasattr(engine, "conformal") else False
+    conformal_q = round(float(engine.conformal.q_hat), 4) if engine and hasattr(engine, "conformal") and engine.conformal.is_calibrated else None
+
+    # For live scoring (when order_date is not supplied), record confirmed transaction into live ledger
+    if getattr(store, "transaction_history", None) is not None and req.buyer_id and req.seller_id and getattr(req, "order_date", None) is None:
+        store.transaction_history.record_live_transaction(
+            req.buyer_id, req.seller_id, order_id=req.order_id
+        )
+
     return TransactionScoreResponse(
         order_id=req.order_id,
         overall_fraud_probability=round(final_risk, 4),
         raw_fraud_probability=round(prob_raw, 4),
         calibrated_fraud_probability=round(prob_cal, 4),
+        policy_risk_score=round(final_risk, 4),
         canonical_trust_engine_risk=round(final_risk, 4),
+        conformal_prediction_set=conformal_set,
+        conformal_is_calibrated=conformal_calibrated,
+        conformal_coverage_guarantee=0.95,
+        conformal_q_hat=conformal_q,
         risk_label=_risk_label(final_risk),
         decision=decision,
         trust_score=trust_score,
@@ -767,7 +848,7 @@ def score_transaction(req: TransactionScoreRequest):
         },
         shap_attributions=shap_attrs,
         top_risk_drivers=top_drivers,
-        scoring_mode="production_model_phase3_fallback",
+        scoring_mode="production_model_phase3_combined",
         is_simulation=False,
         note=(
             f"Scored with Phase 3 tabular+graph model. Graph features source: {graph_source}."
@@ -813,10 +894,11 @@ def explain_transaction(req: TransactionExplainRequest):
     })
     score_res = score_transaction(score_req)
 
-    # Pick the appropriate SHAP explainer
+    # Pick the appropriate SHAP explainer matching the active scored model version
     explanation: Dict[str, Any] = {}
     if (
-        store.phase5_loaded
+        score_res.model_version == "phase5-hybrid"
+        and store.phase5_loaded
         and store.phase5_shap_explainer is not None
         and store.phase5_meta is not None
     ):
@@ -966,10 +1048,16 @@ def analyze_listing(req: ListingScoreRequest):
     if not store.is_loaded or store.fake_listing_model is None or store.feature_meta is None:
         raise HTTPException(status_code=503, detail="Listing model not loaded yet.")
 
-    cols = store.feature_meta.get("listing_feature_cols", [
+    model_fn = getattr(store.fake_listing_model, "feature_names_in_", None)
+    if model_fn is None and hasattr(store.fake_listing_model, "get_booster"):
+        try:
+            model_fn = store.fake_listing_model.get_booster().feature_names
+        except Exception:
+            model_fn = None
+    cols = list(model_fn) if model_fn is not None else store.feature_meta.get("listing_feature_cols", [
         "price_vs_base_price_ratio", "price_vs_category_median_ratio",
         "seller_age_days_at_listing", "seller_listings_before",
-        "multimodal_similarity_score",
+        "synthetic_mismatch_score",
     ])
 
     price_base_ratio = req.price / max(req.base_price, 0.01)
@@ -980,7 +1068,7 @@ def analyze_listing(req: ListingScoreRequest):
     # ------------------------------------------------------------------ #
     clip_scored = False
     tfidf_scored = False
-    sim_score = req.multimodal_similarity_score  # default: caller-supplied
+    sim_score = req.synthetic_mismatch_score if req.synthetic_mismatch_score is not None else req.multimodal_similarity_score  # default: caller-supplied
 
     if req.product_id is not None and store.clip_loaded and store.clip_scorer is not None:
         # ── Preferred path: real CLIP scorer ────────────────────────────
@@ -1037,6 +1125,7 @@ def analyze_listing(req: ListingScoreRequest):
         "seller_age_days_at_listing": req.seller_age_days_at_listing,
         "seller_listings_before": req.seller_listings_before,
         "multimodal_similarity_score": sim_score,
+        "synthetic_mismatch_score": sim_score,
     }
 
     X = pd.DataFrame([{c: features.get(c, 0.0) for c in cols}])[cols].fillna(0.0)

@@ -59,15 +59,17 @@ class Neo4jService:
         self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.user = user or os.getenv("NEO4J_USER", "neo4j")
 
-        # Safe secret handling: prohibit hardcoded password fallbacks in production
+        # Stage B Simplification: Neo4j is strictly optional infrastructure.
+        # Safe default is False unless explicitly enabled via NEO4J_ENABLED=true or enabled=True.
+        env_enabled = os.getenv("NEO4J_ENABLED", "false").lower() in ("true", "1", "yes")
+        self.enabled = env_enabled if enabled is None else enabled
+
+        # Safe secret handling: prohibit hardcoded password fallbacks in production ONLY when enabled
         env = os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower()
-        if env == "production" and not (password or os.getenv("NEO4J_PASSWORD")):
-            raise RuntimeError("CRITICAL SECURITY: NEO4J_PASSWORD must be explicitly set in production.")
+        if self.enabled and env == "production" and not (password or os.getenv("NEO4J_PASSWORD")):
+            raise RuntimeError("CRITICAL SECURITY: NEO4J_PASSWORD must be explicitly set in production when Neo4j is enabled.")
         self.password = password or os.getenv("NEO4J_PASSWORD", "trustshield_secret_dev_only")
         self.connection_timeout = connection_timeout
-
-        env_enabled = os.getenv("NEO4J_ENABLED", "true").lower() in ("true", "1", "yes")
-        self.enabled = env_enabled if enabled is None else enabled
 
         self._driver: Any = None
         self._connected: bool = False
@@ -78,6 +80,14 @@ class Neo4jService:
 
         if self.enabled:
             self._init_driver()
+        else:
+            self._cached_health = Neo4jHealthStatus(
+                available=False,
+                status="disabled",
+                latency_ms=None,
+                info={"detail": "Neo4j integration disabled via NEO4J_ENABLED=false"},
+            )
+            logger.info("Neo4j integration disabled (NEO4J_ENABLED=false). Using local disk graph artifacts.")
 
     def _init_driver(self) -> None:
         """Initialize official Neo4j driver with connection pooling and cooldown guard."""
