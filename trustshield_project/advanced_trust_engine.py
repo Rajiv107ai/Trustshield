@@ -47,42 +47,76 @@ class AdvancedTrustResult:
 
 
 class ConformalPredictor:
-    """Split Conformal Prediction for distribution-free finite-sample error guarantees."""
+    """Class-conditional (Mondrian) Conformal Prediction for distribution-free finite-sample error guarantees."""
 
     def __init__(self, alpha: float = 0.05):
-        self.alpha = alpha  # Target error rate (e.g. 0.05 for 95% coverage)
-        self.q_hat: float = 0.5
+        self.alpha = alpha  # Target error rate per class (e.g. 0.05 for 95% nominal coverage)
+        self.q_hat_0: float = 0.5
+        self.q_hat_1: float = 0.5
         self.is_calibrated: bool = False
+        self.n_cal_0: int = 0
+        self.n_cal_1: int = 0
+        self.calibration_source: str = "uncalibrated_heuristic"
 
-    def calibrate(self, val_probs: np.ndarray, val_labels: np.ndarray) -> "ConformalPredictor":
-        """Compute conformal quantile non-conformity score on held-out calibration set."""
+    @property
+    def q_hat(self) -> float:
+        """Backward-compatible single scalar quantile (class 1 fraud quantile)."""
+        return self.q_hat_1
+
+    @q_hat.setter
+    def q_hat(self, val: float):
+        self.q_hat_1 = float(val)
+
+    @staticmethod
+    def compute_finite_sample_quantile(scores: np.ndarray, alpha: float) -> float:
+        """Computes the exact finite-sample conformal quantile:
+        k = ceil((n + 1) * (1 - alpha)).
+        The critical threshold is the k-th smallest value in the sorted non-conformity scores.
+        """
+        n = len(scores)
+        if n == 0:
+            return 1.0
+        k = math.ceil((n + 1) * (1.0 - alpha))
+        if k > n:
+            return 1.0
+        sorted_scores = np.sort(scores)
+        return float(sorted_scores[k - 1])
+
+    def calibrate(self, val_probs: np.ndarray, val_labels: np.ndarray, source: str = "validation_cohort") -> "ConformalPredictor":
+        """Compute class-conditional (Mondrian) conformal quantiles on held-out calibration set."""
         p = np.asarray(val_probs, dtype=float)
         y = np.asarray(val_labels, dtype=int)
-        n = len(y)
-        if n == 0:
+        mask_0 = (y == 0)
+        mask_1 = (y == 1)
+        self.n_cal_0 = int(mask_0.sum())
+        self.n_cal_1 = int(mask_1.sum())
+        if self.n_cal_0 == 0 or self.n_cal_1 == 0:
             return self
 
-        # Non-conformity score: 1 - P(true class)
-        true_class_probs = np.where(y == 1, p, 1.0 - p)
-        scores = 1.0 - true_class_probs
+        # Non-conformity scores:
+        # Class 0: non-conformity is predicted fraud probability p (higher p is worse for non-fraud)
+        scores_0 = p[mask_0]
+        self.q_hat_0 = self.compute_finite_sample_quantile(scores_0, self.alpha)
 
-        # Conformal quantile: ceil((n + 1) * (1 - alpha)) / n
-        level = min(1.0, math.ceil((n + 1) * (1.0 - self.alpha)) / n)
-        self.q_hat = float(np.quantile(scores, level, method="higher"))
+        # Class 1: non-conformity is predicted non-fraud probability 1 - p (lower p is worse for fraud)
+        scores_1 = 1.0 - p[mask_1]
+        self.q_hat_1 = self.compute_finite_sample_quantile(scores_1, self.alpha)
+
         self.is_calibrated = True
+        self.calibration_source = source
         return self
 
     def predict_set(self, prob: float) -> Set[int]:
-        """Return prediction set {0}, {1}, or {0, 1}."""
+        """Return prediction set {0}, {1}, or {0, 1} under Mondrian error guarantees."""
         if not self.is_calibrated:
             return {0, 1} if 0.35 <= prob <= 0.65 else ({1} if prob > 0.65 else {0})
 
         pred_set = set()
-        # Include 0 if 1 - (1 - p) <= q_hat => p <= q_hat
-        if prob <= self.q_hat:
+        # Include 0 if non-conformity score p <= q_hat_0
+        if prob <= self.q_hat_0:
             pred_set.add(0)
-        # Include 1 if 1 - p <= q_hat => p >= 1 - q_hat
-        if (1.0 - prob) <= self.q_hat:
+        # Include 1 if non-conformity score 1 - p <= q_hat_1 <=> p >= 1 - q_hat_1
+        if (1.0 - prob) <= self.q_hat_1:
             pred_set.add(1)
 
         # Non-empty fallback
@@ -224,6 +258,7 @@ class AdvancedTrustEngine:
         self,
         detector_scores: Dict[str, float],
         is_cold_start: bool = False,
+        model_probability: Optional[float] = None,
     ) -> AdvancedTrustResult:
         if not detector_scores:
             raise ValueError("detector_scores dictionary cannot be empty.")
@@ -243,8 +278,14 @@ class AdvancedTrustEngine:
         disagreement = round(float(max(vals) - min(vals)), 4) if len(vals) > 1 else 0.0
         variance = round(float(np.var(vals)), 6) if len(vals) > 1 else 0.0
 
-        # 3. Conformal Prediction Set
-        pred_set = self.conformal.predict_set(risk)
+        # 3. Conformal Prediction Set:
+        # Crucial P0 Fix: Evaluated on calibrated model probability, NEVER on composite policy_risk_score!
+        eval_prob = (
+            model_probability
+            if model_probability is not None
+            else detector_scores.get("tabular_risk", risk)
+        )
+        pred_set = self.conformal.predict_set(eval_prob)
 
         # 4. Reason Codes
         reasons = []

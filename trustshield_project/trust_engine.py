@@ -1,12 +1,23 @@
-"""Unified Trust Engine for TrustShield.
+"""[DEPRECATED] Legacy Trust Engine for TrustShield.
 
-Combines component risk scores (tabular, graph, GNN, multimodal, heuristic)
-into a unified calibrated risk assessment with:
-- Decision routing: ALLOW, REVIEW, HOLD, BLOCK
-- Information-theoretic confidence scoring (via binary Shannon entropy)
-- Model disagreement metrics (divergence between component detectors)
-- Deterministic explainable reason codes
-- Anti-feedback-loop protection guard
+DEPRECATION NOTICE (Stage A Simplification):
+This module represents the legacy Phase 1 TrustEngine. It is preserved strictly for backward
+compatibility with historical tests (e.g., test_core_fixes.py) and research evaluation scripts
+(e.g., evaluate_stage33_controlled.py).
+
+DO NOT USE FOR PRODUCTION SERVING:
+The authoritative production engine is CanonicalTrustEngine in `advanced_trust_engine.py`.
+Production serving in `backend/main.py` routes exclusively through CanonicalTrustEngine and
+fails loud if it is unavailable.
+
+Key differences from CanonicalTrustEngine:
+- Thresholds: Legacy uses (0.25, 0.60, 0.85); Canonical uses (0.25, 0.55, 0.85).
+- Weights: Legacy defaults to 5 components (0.35/0.25/0.20/0.10/0.10); Canonical uses 4 components (0.40/0.25/0.15/0.20).
+- Dataclass: Legacy returns TrustResult; Canonical returns AdvancedTrustResult with conformal sets and variance.
+
+Migration plan:
+- test_core_fixes.py should be migrated to test CanonicalTrustEngine once legacy tests are retired.
+- evaluate_stage33_controlled.py should be updated if re-running Stage 3.3 controlled benchmarks.
 """
 
 from __future__ import annotations
