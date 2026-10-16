@@ -130,6 +130,8 @@ def benchmark_scale_tier(
 
     # 7. Real Model Inference Throughput Benchmark (Real XGBoost Classifier)
     from xgboost import XGBClassifier
+    n_sample = min(5000, len(features_df))
+    sample_features = features_df[feature_cols].iloc[:n_sample].fillna(0.0).to_numpy()
     clf = XGBClassifier(n_estimators=100, max_depth=6, n_jobs=-1, random_state=42)
     y_sample = injected["orders"]["is_fraudulent"].iloc[:n_sample].astype(int).to_numpy()
     clf.fit(sample_features, y_sample)

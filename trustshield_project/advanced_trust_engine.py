@@ -45,6 +45,14 @@ class AdvancedTrustResult:
     def risk_score(self) -> float:
         return self.calibrated_risk
 
+    @property
+    def model_disagreement(self) -> float:
+        return self.detector_disagreement
+
+    @property
+    def component_risks(self) -> Dict[str, float]:
+        return self.detector_scores
+
 
 class ConformalPredictor:
     """Class-conditional (Mondrian) Conformal Prediction for distribution-free finite-sample error guarantees."""
@@ -228,6 +236,12 @@ class AdvancedTrustEngine:
         weights: Optional[Dict[str, float]] = None,
         thresholds: tuple[float, float, float] = DEFAULT_THRESHOLDS,
     ):
+        if weights is not None:
+            if not weights or sum(weights.values()) <= 0 or any(v < 0 for v in weights.values()):
+                raise ValueError(f"Invalid component weights: {weights}")
+        if not (0.0 <= thresholds[0] < thresholds[1] < thresholds[2] <= 1.0):
+            raise ValueError(f"Thresholds must be strictly increasing in [0, 1]: {thresholds}")
+
         self.meta_learner = meta_learner
         self.conformal = conformal_predictor or ConformalPredictor(alpha=0.05)
         self.weights = weights or {
@@ -241,6 +255,40 @@ class AdvancedTrustEngine:
         total_w = sum(self.weights.values())
         self.norm_weights = {k: v / total_w for k, v in self.weights.items()}
         self.allow_th, self.review_th, self.hold_th = thresholds
+
+    @property
+    def allow_cutoff(self) -> float:
+        return self.allow_th
+
+    @property
+    def review_cutoff(self) -> float:
+        return self.review_th
+
+    @property
+    def hold_cutoff(self) -> float:
+        return self.hold_th
+
+    @staticmethod
+    def calculate_confidence(risk_score: float) -> float:
+        p = min(max(float(risk_score), 1e-12), 1.0 - 1e-12)
+        entropy = float(-(p * math.log2(p) + (1.0 - p) * math.log2(1.0 - p)))
+        return round(1.0 - entropy, 4)
+
+    FORBIDDEN_FEEDBACK_FEATURES = {
+        "trust_score",
+        "risk_score",
+        "overall_fraud_probability",
+        "predicted_fraud",
+        "decision",
+        "model_reason_code",
+        "model_probability",
+    }
+
+    @classmethod
+    def validate_no_feedback_loop(cls, feature_names: List[str]) -> None:
+        violations = cls.FORBIDDEN_FEEDBACK_FEATURES.intersection(feature_names)
+        if violations:
+            raise ValueError(f"Feedback loop violation: features contain model outputs: {violations}")
 
     def aggregate_risk(self, detector_scores: Dict[str, float]) -> Tuple[float, str]:
         """Calculate composite risk comparing stacking vs weighted ensemble."""
@@ -330,3 +378,8 @@ class AdvancedTrustEngine:
 
 # Canonical alias for the unified serving Trust Engine
 CanonicalTrustEngine = AdvancedTrustEngine
+
+# Backward-compatible aliases for legacy imports
+TrustEngine = CanonicalTrustEngine
+TrustResult = AdvancedTrustResult
+Decision = OperationalDecision

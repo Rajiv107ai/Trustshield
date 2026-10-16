@@ -158,6 +158,7 @@ frontend/src/app/
 > [!NOTE]
 > All metrics are canonical benchmarks produced under strict independent audit controls across **20 pre-registered data seeds**. Raw and calibrated metrics are serialized in [`results/results.json`](results/results.json) and [`results/RESULTS.md`](results/RESULTS.md).
 
+<!-- BEGIN GENERATED -->
 ### Headline: Truncated Test Horizon (2025-11-01 to 2025-12-10, 20 Seeds)
 
 *Seeds: 42, 101, 202, 303, 404, 505, 606, 707, 808, 909, 1001, 1102, 1203, 1304, 1405, 1506, 1607, 1708, 1809, 1910*
@@ -257,6 +258,7 @@ While the global ROC lift is ~+0.011, operational deployments face investigator 
 8. **Graph snapshots require periodic refresh**: The graph feature snapshot is a training-time artifact and must be refreshed on schedule in production.
 
 *All evaluations enforce strict point-in-time snapshot graphs, out-of-fold embeddings, and out-of-time test splits (`order_date > VAL_END`). See [`results/RESULTS.md`](results/RESULTS.md) for Holm-Bonferroni correction and design-rule ablations.*
+<!-- END GENERATED -->
 
 ---
 
