@@ -1,0 +1,547 @@
+{
+  "metadata": {
+    "baseline_id": "phase3_production_baseline_post_phase43b",
+    "baseline_version": "1.0.0",
+    "baseline_label": "Current post-Phase-4.3B frozen baseline",
+    "historical_invariance_note": "Authoritative frozen regression baseline established post-Phase-4.3B simplification. Because Phase 4.2B online components were never committed before removal, historical before/after invariance cannot be claimed against Git history. This fixture serves as the authoritative post-simplification baseline for all regression protection.",
+    "generated_at": "2026-10-16T12:23:43.166523+00:00",
+    "generator_command": "python scripts/generate_phase3_golden_baseline.py",
+    "model_version": "phase3",
+    "scoring_mode": "production_model_phase3_combined",
+    "response_field_count": 29,
+    "response_fields": [
+      "order_id",
+      "overall_fraud_probability",
+      "raw_fraud_probability",
+      "calibrated_fraud_probability",
+      "policy_risk_score",
+      "canonical_trust_engine_risk",
+      "conformal_prediction_set",
+      "conformal_is_calibrated",
+      "conformal_coverage_guarantee",
+      "conformal_q_hat",
+      "risk_label",
+      "model_used",
+      "model_version",
+      "graph_features_source",
+      "client_mismatch",
+      "note",
+      "decision",
+      "trust_score",
+      "confidence",
+      "predictive_uncertainty",
+      "cold_start",
+      "model_disagreement",
+      "reason_codes",
+      "evidence_availability",
+      "infrastructure_sources",
+      "shap_attributions",
+      "top_risk_drivers",
+      "scoring_mode",
+      "is_simulation"
+    ],
+    "feature_count": 18,
+    "feature_order": [
+      "price_vs_base_price_ratio",
+      "price_vs_category_median_ratio",
+      "seller_age_days",
+      "seller_total_listings_before",
+      "buyer_age_days",
+      "buyer_orders_before",
+      "buyer_returns_before",
+      "buyer_return_rate_before",
+      "device_shared_buyer_count",
+      "amount",
+      "share_degree",
+      "share_component_size",
+      "buyer_seller_degree",
+      "buyer_pagerank",
+      "seller_buyer_degree",
+      "seller_pagerank",
+      "seller_buyer_concentration_hhi",
+      "buyer_seller_edge_weight_before"
+    ],
+    "runtime_environment": {
+      "python_version": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+      "platform": "win32",
+      "scikit_learn_version": "1.9.1",
+      "xgboost_version": "3.4.1",
+      "fastapi_version": "0.141.1",
+      "numpy_version": "2.5.3"
+    },
+    "model_artifact_hashes": {
+      "combined_graph_model.joblib": "a16afba42b6c8e0f696c2d59249400842aaa47b6cb9d44a47a69e6ed4cd3e19a",
+      "calibrator.joblib": "7616e9dc7384eee06d214dd51dfe4016e717aa6114fe40370e3af7ad511748b5",
+      "graph_snapshot.joblib": "8f4e749ccaeb48097b5eca47c8c82753964835dec258a6d2d5a6c4c32f5e2247",
+      "feature_meta.joblib": "1bae104010a76ea858c756febf33e9346ad500c503a350bb63ea806a38de1fc0",
+      "phase3_val_predictions.npy": "3ac14131ebb5429628d587d08636493ef8b695b9ba18a3e5978d732ca9a85561"
+    }
+  },
+  "scenarios": {
+    "low_risk_standard": {
+      "description": "Established warm buyer and seller, low order amount, normal price ratios, 0 returns, legitimate trust score.",
+      "request_payload": {
+        "order_id": "golden_p3_001_low",
+        "buyer_id": "buyer_golden_low",
+        "seller_id": "seller_golden_low",
+        "amount": 45.0,
+        "order_amount": 45.0,
+        "price_vs_base_price_ratio": 1.0,
+        "price_vs_category_median_ratio": 1.0,
+        "seller_age_days": 365.0,
+        "seller_total_listings_before": 50.0,
+        "buyer_age_days": 180.0,
+        "buyer_orders_before": 12,
+        "buyer_returns_before": 0,
+        "buyer_return_rate_before": 0.0,
+        "device_shared_buyer_count": 1.0,
+        "multimodal_similarity_score": 0.95
+      },
+      "expected_response": {
+        "order_id": "golden_p3_001_low",
+        "overall_fraud_probability": 0.0254,
+        "raw_fraud_probability": 0.1174,
+        "calibrated_fraud_probability": 0.0384,
+        "policy_risk_score": 0.0254,
+        "canonical_trust_engine_risk": 0.0254,
+        "conformal_prediction_set": [
+          0,
+          1
+        ],
+        "conformal_is_calibrated": true,
+        "conformal_coverage_guarantee": 0.95,
+        "conformal_q_hat": 0.9913,
+        "risk_label": "low",
+        "model_used": "tabular+graph XGBoost (Phase 3)",
+        "model_version": "phase3",
+        "graph_features_source": "default",
+        "client_mismatch": false,
+        "note": "Scored with Phase 3 tabular+graph model. Graph features source: default. [Flagged: Graph features defaulted to 0.0 (entity not in snapshot and no client values provided)]",
+        "decision": "REVIEW",
+        "trust_score": 97.46,
+        "confidence": 0.8292,
+        "predictive_uncertainty": 0.1708,
+        "cold_start": false,
+        "model_disagreement": 0.05,
+        "reason_codes": [
+          "HIGH_CONFORMAL_UNCERTAINTY_SET_{0,1}"
+        ],
+        "evidence_availability": {
+          "tabular": true,
+          "graph": false,
+          "gnn_embeddings": false,
+          "multimodal": true,
+          "calibrator_active": true,
+          "shap_active": true
+        },
+        "infrastructure_sources": {
+          "graph_topology": "disk_artifact",
+          "embeddings": "not_used_in_phase3"
+        },
+        "shap_attributions": {
+          "price_vs_base_price_ratio": -0.3729,
+          "price_vs_category_median_ratio": -0.1885,
+          "seller_age_days": 0.3591,
+          "seller_total_listings_before": -0.2246,
+          "buyer_age_days": 0.1138,
+          "buyer_orders_before": -0.3429,
+          "buyer_returns_before": -0.1316,
+          "buyer_return_rate_before": -0.171,
+          "device_shared_buyer_count": -0.0739,
+          "amount": 0.1587,
+          "share_degree": -0.6598,
+          "share_component_size": -0.2533,
+          "buyer_seller_degree": -0.1198,
+          "buyer_pagerank": -0.1525,
+          "seller_buyer_degree": -0.0594,
+          "seller_pagerank": -0.2544,
+          "seller_buyer_concentration_hhi": -0.0441,
+          "buyer_seller_edge_weight_before": 0.0004
+        },
+        "top_risk_drivers": [
+          {
+            "feature_name": "seller_age_days",
+            "friendly_name": "Seller Account Age (Days)",
+            "feature_value": 365.0,
+            "shap_value": 0.3591,
+            "abs_impact": 0.3591
+          },
+          {
+            "feature_name": "amount",
+            "friendly_name": "Order Dollar Amount",
+            "feature_value": 45.0,
+            "shap_value": 0.1587,
+            "abs_impact": 0.1587
+          },
+          {
+            "feature_name": "buyer_age_days",
+            "friendly_name": "Buyer Account Age (Days)",
+            "feature_value": 180.0,
+            "shap_value": 0.1138,
+            "abs_impact": 0.1138
+          },
+          {
+            "feature_name": "buyer_seller_edge_weight_before",
+            "friendly_name": "Historical Repeat Transaction Count",
+            "feature_value": 0.0,
+            "shap_value": 0.0004,
+            "abs_impact": 0.0004
+          }
+        ],
+        "scoring_mode": "production_model_phase3_combined",
+        "is_simulation": false
+      }
+    },
+    "high_risk_anomalous": {
+      "description": "High order amount, severe price inflation, 100% return rate, collusive device sharing, high ring component size, multimodal mismatch.",
+      "request_payload": {
+        "order_id": "golden_p3_002_high",
+        "buyer_id": "buyer_golden_high",
+        "seller_id": "seller_golden_high",
+        "amount": 8500.0,
+        "order_amount": 8500.0,
+        "price_vs_base_price_ratio": 8.0,
+        "price_vs_category_median_ratio": 9.0,
+        "seller_age_days": 100.0,
+        "seller_total_listings_before": 10.0,
+        "buyer_age_days": 60.0,
+        "buyer_orders_before": 10,
+        "buyer_returns_before": 10,
+        "buyer_return_rate_before": 1.0,
+        "device_shared_buyer_count": 25.0,
+        "share_degree": 10.0,
+        "share_component_size": 20.0,
+        "buyer_pagerank": 0.15,
+        "multimodal_similarity_score": 0.02
+      },
+      "expected_response": {
+        "order_id": "golden_p3_002_high",
+        "overall_fraud_probability": 0.6334,
+        "raw_fraud_probability": 0.3452,
+        "calibrated_fraud_probability": 0.0936,
+        "policy_risk_score": 0.6334,
+        "canonical_trust_engine_risk": 0.6334,
+        "conformal_prediction_set": [
+          0,
+          1
+        ],
+        "conformal_is_calibrated": true,
+        "conformal_coverage_guarantee": 0.95,
+        "conformal_q_hat": 0.9913,
+        "risk_label": "high",
+        "model_used": "tabular+graph XGBoost (Phase 3)",
+        "model_version": "phase3",
+        "graph_features_source": "client",
+        "client_mismatch": false,
+        "note": "Scored with Phase 3 tabular+graph model. Graph features source: client.",
+        "decision": "HOLD",
+        "trust_score": 36.66,
+        "confidence": 0.052,
+        "predictive_uncertainty": 0.948,
+        "cold_start": false,
+        "model_disagreement": 0.9064,
+        "reason_codes": [
+          "HIGH_CONFORMAL_UNCERTAINTY_SET_{0,1}",
+          "HIGH_DETECTOR_DISAGREEMENT (spread=0.91)",
+          "CRITICAL_GRAPH_RISK_HEURISTIC_ELEVATED (1.00)",
+          "CRITICAL_RING_RISK_HEURISTIC_ELEVATED (1.00)",
+          "CRITICAL_MULTIMODAL_RISK_ELEVATED (0.98)"
+        ],
+        "evidence_availability": {
+          "tabular": true,
+          "graph": true,
+          "gnn_embeddings": false,
+          "multimodal": true,
+          "calibrator_active": true,
+          "shap_active": true
+        },
+        "infrastructure_sources": {
+          "graph_topology": "disk_artifact",
+          "embeddings": "not_used_in_phase3"
+        },
+        "shap_attributions": {
+          "price_vs_base_price_ratio": -0.4877,
+          "price_vs_category_median_ratio": -0.5465,
+          "seller_age_days": -0.4067,
+          "seller_total_listings_before": -0.2085,
+          "buyer_age_days": -0.3858,
+          "buyer_orders_before": -0.2278,
+          "buyer_returns_before": 0.6116,
+          "buyer_return_rate_before": 2.4335,
+          "device_shared_buyer_count": -0.164,
+          "amount": -0.2522,
+          "share_degree": 0.7807,
+          "share_component_size": -0.1039,
+          "buyer_seller_degree": -0.0042,
+          "buyer_pagerank": -1.653,
+          "seller_buyer_degree": -0.0402,
+          "seller_pagerank": -0.1734,
+          "seller_buyer_concentration_hhi": -0.2142,
+          "buyer_seller_edge_weight_before": 0.0029
+        },
+        "top_risk_drivers": [
+          {
+            "feature_name": "buyer_return_rate_before",
+            "friendly_name": "Historical Buyer Return Rate",
+            "feature_value": 1.0,
+            "shap_value": 2.4335,
+            "abs_impact": 2.4335
+          },
+          {
+            "feature_name": "share_degree",
+            "friendly_name": "Hardware / Address Sharing Degree",
+            "feature_value": 10.0,
+            "shap_value": 0.7807,
+            "abs_impact": 0.7807
+          },
+          {
+            "feature_name": "buyer_returns_before",
+            "friendly_name": "Prior Return Count",
+            "feature_value": 10.0,
+            "shap_value": 0.6116,
+            "abs_impact": 0.6116
+          },
+          {
+            "feature_name": "buyer_seller_edge_weight_before",
+            "friendly_name": "Historical Repeat Transaction Count",
+            "feature_value": 0.0,
+            "shap_value": 0.0029,
+            "abs_impact": 0.0029
+          }
+        ],
+        "scoring_mode": "production_model_phase3_combined",
+        "is_simulation": false
+      }
+    },
+    "historical_point_in_time": {
+      "description": "Point-in-time replay order with explicit order_date timestamp ensuring deterministic prior-state isolation.",
+      "request_payload": {
+        "order_id": "golden_p3_003_historical",
+        "buyer_id": "buyer_golden_hist",
+        "seller_id": "seller_golden_hist",
+        "order_date": "2026-10-15T12:00:00Z",
+        "amount": 120.0,
+        "order_amount": 120.0,
+        "price_vs_base_price_ratio": 1.15,
+        "price_vs_category_median_ratio": 1.1,
+        "seller_age_days": 120.0,
+        "seller_total_listings_before": 25.0,
+        "buyer_age_days": 60.0,
+        "buyer_orders_before": 3,
+        "buyer_returns_before": 1,
+        "buyer_return_rate_before": 0.333,
+        "device_shared_buyer_count": 1.0,
+        "multimodal_similarity_score": 0.88
+      },
+      "expected_response": {
+        "order_id": "golden_p3_003_historical",
+        "overall_fraud_probability": 0.0305,
+        "raw_fraud_probability": 0.0282,
+        "calibrated_fraud_probability": 0.0162,
+        "policy_risk_score": 0.0305,
+        "canonical_trust_engine_risk": 0.0305,
+        "conformal_prediction_set": [
+          0,
+          1
+        ],
+        "conformal_is_calibrated": true,
+        "conformal_coverage_guarantee": 0.95,
+        "conformal_q_hat": 0.9913,
+        "risk_label": "low",
+        "model_used": "tabular+graph XGBoost (Phase 3)",
+        "model_version": "phase3",
+        "graph_features_source": "default",
+        "client_mismatch": false,
+        "note": "Scored with Phase 3 tabular+graph model. Graph features source: default. [Flagged: Graph features defaulted to 0.0 (entity not in snapshot and no client values provided)]",
+        "decision": "REVIEW",
+        "trust_score": 96.95,
+        "confidence": 0.8031,
+        "predictive_uncertainty": 0.1969,
+        "cold_start": false,
+        "model_disagreement": 0.12,
+        "reason_codes": [
+          "HIGH_CONFORMAL_UNCERTAINTY_SET_{0,1}"
+        ],
+        "evidence_availability": {
+          "tabular": true,
+          "graph": false,
+          "gnn_embeddings": false,
+          "multimodal": true,
+          "calibrator_active": true,
+          "shap_active": true
+        },
+        "infrastructure_sources": {
+          "graph_topology": "disk_artifact",
+          "embeddings": "not_used_in_phase3"
+        },
+        "shap_attributions": {
+          "price_vs_base_price_ratio": -0.988,
+          "price_vs_category_median_ratio": -0.4827,
+          "seller_age_days": -0.0102,
+          "seller_total_listings_before": -0.2126,
+          "buyer_age_days": -0.3344,
+          "buyer_orders_before": -0.0581,
+          "buyer_returns_before": -0.097,
+          "buyer_return_rate_before": 0.0942,
+          "device_shared_buyer_count": -0.0214,
+          "amount": 0.0025,
+          "share_degree": -0.9999,
+          "share_component_size": -0.2774,
+          "buyer_seller_degree": -0.0339,
+          "buyer_pagerank": 0.0793,
+          "seller_buyer_degree": -0.0566,
+          "seller_pagerank": -0.261,
+          "seller_buyer_concentration_hhi": -0.2787,
+          "buyer_seller_edge_weight_before": -0.0012
+        },
+        "top_risk_drivers": [
+          {
+            "feature_name": "buyer_return_rate_before",
+            "friendly_name": "Historical Buyer Return Rate",
+            "feature_value": 0.333,
+            "shap_value": 0.0942,
+            "abs_impact": 0.0942
+          },
+          {
+            "feature_name": "buyer_pagerank",
+            "friendly_name": "Buyer Graph Centrality (PageRank)",
+            "feature_value": 0.0,
+            "shap_value": 0.0793,
+            "abs_impact": 0.0793
+          },
+          {
+            "feature_name": "amount",
+            "friendly_name": "Order Dollar Amount",
+            "feature_value": 120.0,
+            "shap_value": 0.0025,
+            "abs_impact": 0.0025
+          }
+        ],
+        "scoring_mode": "production_model_phase3_combined",
+        "is_simulation": false
+      }
+    },
+    "cold_start_new_entities": {
+      "description": "Brand-new buyer and seller with 0 previous orders and 0 listings triggering multi-signal cold_start penalty.",
+      "request_payload": {
+        "order_id": "golden_p3_004_cold_start",
+        "buyer_id": "buyer_golden_cold_new",
+        "seller_id": "seller_golden_cold_new",
+        "amount": 65.0,
+        "order_amount": 65.0,
+        "price_vs_base_price_ratio": 1.0,
+        "price_vs_category_median_ratio": 1.0,
+        "seller_age_days": 2.0,
+        "seller_total_listings_before": 1.0,
+        "buyer_age_days": 1.0,
+        "buyer_orders_before": 0,
+        "buyer_returns_before": 0,
+        "buyer_return_rate_before": 0.0,
+        "device_shared_buyer_count": 1.0,
+        "multimodal_similarity_score": 0.9
+      },
+      "expected_response": {
+        "order_id": "golden_p3_004_cold_start",
+        "overall_fraud_probability": 0.0235,
+        "raw_fraud_probability": 0.0126,
+        "calibrated_fraud_probability": 0.0087,
+        "policy_risk_score": 0.0235,
+        "canonical_trust_engine_risk": 0.0235,
+        "conformal_prediction_set": [
+          0,
+          1
+        ],
+        "conformal_is_calibrated": true,
+        "conformal_coverage_guarantee": 0.95,
+        "conformal_q_hat": 0.9913,
+        "risk_label": "low",
+        "model_used": "tabular+graph XGBoost (Phase 3)",
+        "model_version": "phase3",
+        "graph_features_source": "default",
+        "client_mismatch": false,
+        "note": "Scored with Phase 3 tabular+graph model. Graph features source: default. [Flagged: Graph features defaulted to 0.0 (entity not in snapshot and no client values provided)]",
+        "decision": "REVIEW",
+        "trust_score": 97.65,
+        "confidence": 0.5875,
+        "predictive_uncertainty": 0.1607,
+        "cold_start": true,
+        "model_disagreement": 0.1,
+        "reason_codes": [
+          "COLD_START_INSUFFICIENT_HISTORY",
+          "HIGH_CONFORMAL_UNCERTAINTY_SET_{0,1}"
+        ],
+        "evidence_availability": {
+          "tabular": true,
+          "graph": false,
+          "gnn_embeddings": false,
+          "multimodal": true,
+          "calibrator_active": true,
+          "shap_active": true
+        },
+        "infrastructure_sources": {
+          "graph_topology": "disk_artifact",
+          "embeddings": "not_used_in_phase3"
+        },
+        "shap_attributions": {
+          "price_vs_base_price_ratio": -0.4651,
+          "price_vs_category_median_ratio": -0.2506,
+          "seller_age_days": -0.9346,
+          "seller_total_listings_before": -1.3945,
+          "buyer_age_days": -0.4671,
+          "buyer_orders_before": 0.1202,
+          "buyer_returns_before": -0.1417,
+          "buyer_return_rate_before": -0.1705,
+          "device_shared_buyer_count": 0.0134,
+          "amount": 0.2949,
+          "share_degree": -0.8836,
+          "share_component_size": -0.2794,
+          "buyer_seller_degree": 0.0278,
+          "buyer_pagerank": 0.0237,
+          "seller_buyer_degree": 0.0647,
+          "seller_pagerank": -0.1708,
+          "seller_buyer_concentration_hhi": -0.1502,
+          "buyer_seller_edge_weight_before": 0.001
+        },
+        "top_risk_drivers": [
+          {
+            "feature_name": "amount",
+            "friendly_name": "Order Dollar Amount",
+            "feature_value": 65.0,
+            "shap_value": 0.2949,
+            "abs_impact": 0.2949
+          },
+          {
+            "feature_name": "buyer_orders_before",
+            "friendly_name": "Prior Completed Orders",
+            "feature_value": 0.0,
+            "shap_value": 0.1202,
+            "abs_impact": 0.1202
+          },
+          {
+            "feature_name": "seller_buyer_degree",
+            "friendly_name": "Seller-Buyer Graph Connectivity",
+            "feature_value": 0.0,
+            "shap_value": 0.0647,
+            "abs_impact": 0.0647
+          },
+          {
+            "feature_name": "buyer_seller_degree",
+            "friendly_name": "Buyer-Seller Graph Connectivity",
+            "feature_value": 0.0,
+            "shap_value": 0.0278,
+            "abs_impact": 0.0278
+          },
+          {
+            "feature_name": "buyer_pagerank",
+            "friendly_name": "Buyer Graph Centrality (PageRank)",
+            "feature_value": 0.0,
+            "shap_value": 0.0237,
+            "abs_impact": 0.0237
+          }
+        ],
+        "scoring_mode": "production_model_phase3_combined",
+        "is_simulation": false
+      }
+    }
+  }
+}
