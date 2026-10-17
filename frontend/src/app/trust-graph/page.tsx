@@ -19,6 +19,7 @@ import {
   Layers,
   CheckCircle2,
   PlusCircle,
+  type LucideIcon,
 } from "lucide-react";
 
 // ============================================================================
@@ -76,395 +77,102 @@ interface ClusterDefinition {
 // ============================================================================
 
 /* BEGIN GENERATED */
+let _eid = 0;
+const n = (id: string, type: GraphNode["type"], x: number, y: number, risk: number, daysAgo: number, details: GraphNode["details"] = {}, label?: string): GraphNode =>
+  ({ id, type, label: label || id, x, y, risk, createdAtDaysAgo: daysAgo, details });
+const e = (from: string, to: string, label: string, suspicious: boolean = true, daysAgo: number = 1): GraphEdge =>
+  ({ id: `e${++_eid}`, from, to, label, suspicious, createdAtDaysAgo: daysAgo });
+
+const cDef = (
+  id: string, name: string, tag: string, riskScore: number, riskLevel: "high" | "medium" | "low",
+  description: string, executiveSummary: string, nodes: GraphNode[], edges: GraphEdge[]
+): ClusterDefinition => ({ id, name, tag, riskScore, riskLevel, description, executiveSummary, nodes, edges });
+
 const CLUSTERS: ClusterDefinition[] = [
-  {
-    id: "RING_COLLUSION_01",
-    name: "Ring #01: Device Farm & Collusion",
-    tag: "Device Farm",
-    riskScore: 0.94,
-    riskLevel: "high",
-    description: "2-hop bipartite graph mapping shared device collision and synthetic buyer accounts.",
-    executiveSummary: "Active botnet farm recycling Android hardware IDs to orchestrate 42 coordinated checkout attempts totaling $38,400 in potential chargeback exposure.",
-    nodes: [
-      {
-        id: "BUYER_RING_MEMBER_04",
-        type: "buyer",
-        label: "BUYER_RING_MEMBER_04",
-        x: 280,
-        y: 160,
-        risk: 0.94,
-        createdAtDaysAgo: 4,
-        details: {
-          ageDays: 4,
-          connectedOrders: 9,
-          connectedDevices: 3,
-          fraudFlagged: true,
-          clusterId: "RING_COLLUSION_01",
-          financialExposure: 8450,
-          gnnEmbeddingSample: [0.891, -0.421, 0.763, 0.129],
-          pageRank: 0.0412,
-          degree: 4,
-        },
-      },
-      {
-        id: "BUYER_RING_MEMBER_02",
-        type: "buyer",
-        label: "BUYER_RING_MEMBER_02",
-        x: 220,
-        y: 320,
-        risk: 0.91,
-        createdAtDaysAgo: 2,
-        details: {
-          ageDays: 2,
-          connectedOrders: 6,
-          connectedDevices: 2,
-          fraudFlagged: true,
-          clusterId: "RING_COLLUSION_01",
-          financialExposure: 5200,
-          gnnEmbeddingSample: [0.884, -0.395, 0.741, 0.118],
-          pageRank: 0.0354,
-          degree: 3,
-        },
-      },
-      {
-        id: "BUYER_VERIFIED_77",
-        type: "buyer",
-        label: "BUYER_VERIFIED_77",
-        x: 680,
-        y: 220,
-        risk: 0.04,
-        createdAtDaysAgo: 180,
-        details: {
-          ageDays: 180,
-          connectedOrders: 15,
-          connectedDevices: 1,
-          fraudFlagged: false,
-          clusterId: "BENIGN_NETWORK",
-          financialExposure: 0,
-          gnnEmbeddingSample: [-0.621, 0.142, -0.312, 0.041],
-          pageRank: 0.0098,
-          degree: 1,
-        },
-      },
-      {
-        id: "DEV_FARM_99",
-        type: "device",
-        label: "DEV_FARM_99 (Emulated)",
-        x: 380,
-        y: 240,
-        risk: 0.98,
-        createdAtDaysAgo: 6,
-        details: {
-          connectedDevices: 9,
-          ipHash: "192.168.1.104",
-          fraudFlagged: true,
-          clusterId: "RING_COLLUSION_01",
-          financialExposure: 18900,
-          gnnEmbeddingSample: [0.952, -0.812, 0.915, 0.442],
-          pageRank: 0.0891,
-          degree: 5,
-        },
-      },
-      {
-        id: "ADDR_WH_01",
-        type: "address",
-        label: "ADDR_WH_01 (Drop Ship Hub)",
-        x: 290,
-        y: 420,
-        risk: 0.89,
-        createdAtDaysAgo: 25,
-        details: {
-          addressLine: "Suite 4B, Industrial Blvd",
-          fraudFlagged: true,
-          clusterId: "RING_COLLUSION_01",
-          financialExposure: 14200,
-          gnnEmbeddingSample: [0.712, -0.219, 0.589, 0.301],
-          pageRank: 0.0385,
-          degree: 2,
-        },
-      },
-      {
-        id: "SELLER_RING_LEADER_01",
-        type: "seller",
-        label: "SELLER_RING_LEADER_01",
-        x: 490,
-        y: 360,
-        risk: 0.92,
-        createdAtDaysAgo: 12,
-        details: {
-          ageDays: 12,
-          connectedOrders: 63,
-          fraudFlagged: true,
-          clusterId: "RING_COLLUSION_01",
-          financialExposure: 38400,
-          gnnEmbeddingSample: [0.901, -0.582, 0.812, 0.399],
-          pageRank: 0.0712,
-          degree: 4,
-        },
-      },
-      {
-        id: "SELLER_REPUTABLE_12",
-        type: "seller",
-        label: "SELLER_REPUTABLE_12",
-        x: 740,
-        y: 380,
-        risk: 0.03,
-        createdAtDaysAgo: 420,
-        details: {
-          ageDays: 420,
-          connectedOrders: 412,
-          fraudFlagged: false,
-          clusterId: "BENIGN_NETWORK",
-          financialExposure: 0,
-          gnnEmbeddingSample: [-0.781, 0.312, -0.512, -0.108],
-          pageRank: 0.0152,
-          degree: 1,
-        },
-      },
-      {
-        id: "ORD_SIM_FARM_03",
-        type: "order",
-        label: "ORD_SIM_FARM_03 ($890)",
-        x: 420,
-        y: 110,
-        risk: 0.95,
-        createdAtDaysAgo: 1,
-        details: {
-          connectedOrders: 1,
-          fraudFlagged: true,
-          clusterId: "RING_COLLUSION_01",
-          financialExposure: 890,
-          gnnEmbeddingSample: [0.841, -0.612, 0.771, 0.291],
-          pageRank: 0.0125,
-          degree: 1,
-        },
-      },
+  cDef(
+    "RING_COLLUSION_01", "Ring #01: Device Farm & Collusion", "Device Farm", 0.94, "high",
+    "2-hop bipartite graph mapping shared device collision and synthetic buyer accounts.",
+    "Active botnet farm recycling Android hardware IDs to orchestrate 42 coordinated checkout attempts totaling $38,400 in potential chargeback exposure.",
+    [
+      n("BUYER_RING_MEMBER_04", "buyer", 280, 160, 0.94, 4, { ageDays: 4, connectedOrders: 9, connectedDevices: 3, fraudFlagged: true, clusterId: "RING_COLLUSION_01", financialExposure: 8450, gnnEmbeddingSample: [0.891, -0.421, 0.763, 0.129], pageRank: 0.0412, degree: 4 }),
+      n("BUYER_RING_MEMBER_02", "buyer", 220, 320, 0.91, 2, { ageDays: 2, connectedOrders: 6, connectedDevices: 2, fraudFlagged: true, clusterId: "RING_COLLUSION_01", financialExposure: 5200, gnnEmbeddingSample: [0.884, -0.395, 0.741, 0.118], pageRank: 0.0354, degree: 3 }),
+      n("BUYER_VERIFIED_77", "buyer", 680, 220, 0.04, 180, { ageDays: 180, connectedOrders: 15, connectedDevices: 1, fraudFlagged: false, clusterId: "BENIGN_NETWORK", financialExposure: 0, gnnEmbeddingSample: [-0.621, 0.142, -0.312, 0.041], pageRank: 0.0098, degree: 1 }),
+      n("DEV_FARM_99", "device", 380, 240, 0.98, 6, { connectedDevices: 9, ipHash: "192.168.1.104", fraudFlagged: true, clusterId: "RING_COLLUSION_01", financialExposure: 18900, gnnEmbeddingSample: [0.952, -0.812, 0.915, 0.442], pageRank: 0.0891, degree: 5 }, "DEV_FARM_99 (Emulated)"),
+      n("ADDR_WH_01", "address", 290, 420, 0.89, 25, { addressLine: "Suite 4B, Industrial Blvd", fraudFlagged: true, clusterId: "RING_COLLUSION_01", financialExposure: 14200, gnnEmbeddingSample: [0.712, -0.219, 0.589, 0.301], pageRank: 0.0385, degree: 2 }, "ADDR_WH_01 (Drop Ship Hub)"),
+      n("SELLER_RING_LEADER_01", "seller", 490, 360, 0.92, 12, { ageDays: 12, connectedOrders: 63, fraudFlagged: true, clusterId: "RING_COLLUSION_01", financialExposure: 38400, gnnEmbeddingSample: [0.901, -0.582, 0.812, 0.399], pageRank: 0.0712, degree: 4 }),
+      n("SELLER_REPUTABLE_12", "seller", 740, 380, 0.03, 420, { ageDays: 420, connectedOrders: 412, fraudFlagged: false, clusterId: "BENIGN_NETWORK", financialExposure: 0, gnnEmbeddingSample: [-0.781, 0.312, -0.512, -0.108], pageRank: 0.0152, degree: 1 }),
+      n("ORD_SIM_FARM_03", "order", 420, 110, 0.95, 1, { connectedOrders: 1, fraudFlagged: true, clusterId: "RING_COLLUSION_01", financialExposure: 890, gnnEmbeddingSample: [0.841, -0.612, 0.771, 0.291], pageRank: 0.0125, degree: 1 }, "ORD_SIM_FARM_03 ($890)"),
     ],
-    edges: [
-      { id: "e1", from: "BUYER_RING_MEMBER_04", to: "DEV_FARM_99", label: "USES_DEVICE", suspicious: true, createdAtDaysAgo: 4 },
-      { id: "e2", from: "BUYER_RING_MEMBER_02", to: "DEV_FARM_99", label: "USES_DEVICE", suspicious: true, createdAtDaysAgo: 2 },
-      { id: "e3", from: "BUYER_RING_MEMBER_04", to: "ADDR_WH_01", label: "SHIPS_TO", suspicious: true, createdAtDaysAgo: 4 },
-      { id: "e4", from: "BUYER_RING_MEMBER_02", to: "ADDR_WH_01", label: "SHIPS_TO", suspicious: true, createdAtDaysAgo: 2 },
-      { id: "e5", from: "BUYER_RING_MEMBER_04", to: "SELLER_RING_LEADER_01", label: "TRANSACTS_WITH", suspicious: true, createdAtDaysAgo: 3 },
-      { id: "e6", from: "BUYER_RING_MEMBER_04", to: "ORD_SIM_FARM_03", label: "PLACES_ORDER", suspicious: true, createdAtDaysAgo: 1 },
-      { id: "e7", from: "BUYER_VERIFIED_77", to: "SELLER_REPUTABLE_12", label: "TRANSACTS_WITH", suspicious: false, createdAtDaysAgo: 30 },
+    [
+      e("BUYER_RING_MEMBER_04", "DEV_FARM_99", "USES_DEVICE", true, 4),
+      e("BUYER_RING_MEMBER_02", "DEV_FARM_99", "USES_DEVICE", true, 2),
+      e("BUYER_RING_MEMBER_04", "ADDR_WH_01", "SHIPS_TO", true, 4),
+      e("BUYER_RING_MEMBER_02", "ADDR_WH_01", "SHIPS_TO", true, 2),
+      e("BUYER_RING_MEMBER_04", "SELLER_RING_LEADER_01", "TRANSACTS_WITH", true, 3),
+      e("BUYER_RING_MEMBER_04", "ORD_SIM_FARM_03", "PLACES_ORDER", true, 1),
+      e("BUYER_VERIFIED_77", "SELLER_REPUTABLE_12", "TRANSACTS_WITH", false, 30),
+    ]
+  ),
+  cDef(
+    "RING_PRICE_ARBITRAGE_02", "Ring #02: Price Arbitrage & Freight Hub", "Price Arbitrage", 0.85, "high",
+    "Syndicate exploiting discounted promotional codes and shipping to commercial freight forwarders.",
+    "Coordinated buyer cluster purchasing high-demand luxury electronics using unauthorized coupons and shipping to an unvetted freight forwarder terminal.",
+    [
+      n("BUYER_ARBITRAGE_112", "buyer", 250, 180, 0.88, 8, { ageDays: 8, connectedOrders: 14, connectedDevices: 2, fraudFlagged: true, financialExposure: 12400 }),
+      n("BUYER_ARBITRAGE_114", "buyer", 320, 340, 0.82, 5, { ageDays: 5, connectedOrders: 8, connectedDevices: 2, fraudFlagged: true, financialExposure: 7800 }),
+      n("DEV_ROTATING_PROXY_11", "device", 420, 220, 0.93, 4, { connectedDevices: 8, ipHash: "104.28.19.44", fraudFlagged: true, financialExposure: 20200 }),
+      n("ADDR_PORT_TERMINAL_7", "address", 520, 380, 0.91, 45, { addressLine: "Dock 14, Bay Forwarding Corp", fraudFlagged: true, financialExposure: 24500 }),
+      n("SELLER_MERCHANT_44", "seller", 620, 190, 0.86, 18, { ageDays: 18, connectedOrders: 34, fraudFlagged: true, financialExposure: 18500 }),
+      n("ORD_LUXURY_BULK_09", "order", 350, 100, 0.89, 2, { connectedOrders: 1, fraudFlagged: true, financialExposure: 4200 }, "ORD_LUXURY_BULK_09 ($4,200)"),
     ],
-  },
-  {
-    id: "RING_PRICE_ARBITRAGE_02",
-    name: "Ring #02: Price Arbitrage & Freight Hub",
-    tag: "Price Arbitrage",
-    riskScore: 0.85,
-    riskLevel: "high",
-    description: "Syndicate exploiting discounted promotional codes and shipping to commercial freight forwarders.",
-    executiveSummary: "Coordinated buyer cluster purchasing high-demand luxury electronics using unauthorized coupons and shipping to an unvetted freight forwarder terminal.",
-    nodes: [
-      {
-        id: "BUYER_ARBITRAGE_112",
-        type: "buyer",
-        label: "BUYER_ARBITRAGE_112",
-        x: 250,
-        y: 180,
-        risk: 0.88,
-        createdAtDaysAgo: 8,
-        details: { ageDays: 8, connectedOrders: 14, connectedDevices: 2, fraudFlagged: true, financialExposure: 12400 },
-      },
-      {
-        id: "BUYER_ARBITRAGE_114",
-        type: "buyer",
-        label: "BUYER_ARBITRAGE_114",
-        x: 320,
-        y: 340,
-        risk: 0.82,
-        createdAtDaysAgo: 5,
-        details: { ageDays: 5, connectedOrders: 8, connectedDevices: 2, fraudFlagged: true, financialExposure: 7800 },
-      },
-      {
-        id: "DEV_ROTATING_PROXY_11",
-        type: "device",
-        label: "DEV_ROTATING_PROXY_11",
-        x: 420,
-        y: 220,
-        risk: 0.93,
-        createdAtDaysAgo: 4,
-        details: { connectedDevices: 8, ipHash: "104.28.19.44", fraudFlagged: true, financialExposure: 20200 },
-      },
-      {
-        id: "ADDR_PORT_TERMINAL_7",
-        type: "address",
-        label: "ADDR_PORT_TERMINAL_7",
-        x: 520,
-        y: 380,
-        risk: 0.91,
-        createdAtDaysAgo: 45,
-        details: { addressLine: "Dock 14, Bay Forwarding Corp", fraudFlagged: true, financialExposure: 24500 },
-      },
-      {
-        id: "SELLER_MERCHANT_44",
-        type: "seller",
-        label: "SELLER_MERCHANT_44",
-        x: 620,
-        y: 190,
-        risk: 0.86,
-        createdAtDaysAgo: 18,
-        details: { ageDays: 18, connectedOrders: 34, fraudFlagged: true, financialExposure: 18500 },
-      },
-      {
-        id: "ORD_LUXURY_BULK_09",
-        type: "order",
-        label: "ORD_LUXURY_BULK_09 ($4,200)",
-        x: 350,
-        y: 100,
-        risk: 0.89,
-        createdAtDaysAgo: 2,
-        details: { connectedOrders: 1, fraudFlagged: true, financialExposure: 4200 },
-      },
+    [
+      e("BUYER_ARBITRAGE_112", "DEV_ROTATING_PROXY_11", "USES_DEVICE", true, 8),
+      e("BUYER_ARBITRAGE_114", "DEV_ROTATING_PROXY_11", "USES_DEVICE", true, 5),
+      e("BUYER_ARBITRAGE_112", "ADDR_PORT_TERMINAL_7", "SHIPS_TO", true, 8),
+      e("BUYER_ARBITRAGE_114", "ADDR_PORT_TERMINAL_7", "SHIPS_TO", true, 5),
+      e("BUYER_ARBITRAGE_112", "SELLER_MERCHANT_44", "TRANSACTS_WITH", true, 6),
+      e("BUYER_ARBITRAGE_112", "ORD_LUXURY_BULK_09", "PLACES_ORDER", true, 2),
+    ]
+  ),
+  cDef(
+    "RING_RETURN_ABUSE_03", "Ring #03: Rapid Refund & Wardrobing Syndicate", "Return Abuse", 0.78, "high",
+    "Repeated empty-box claims and high-velocity wardrobing returns against luxury fashion apparel.",
+    "Syndicate exploiting return guarantees with rapid chargebacks within 24 hours of delivery, sharing burner phone emulators.",
+    [
+      n("BUYER_REFUND_01", "buyer", 260, 200, 0.89, 35, { ageDays: 35, connectedOrders: 9, fraudFlagged: true, financialExposure: 9400 }, "BUYER_REFUND_01 (7 Returns)"),
+      n("BUYER_REFUND_02", "buyer", 320, 360, 0.84, 28, { ageDays: 28, connectedOrders: 6, fraudFlagged: true, financialExposure: 6100 }, "BUYER_REFUND_02 (5 Returns)"),
+      n("DEV_MOBILE_EMULATOR_04", "device", 450, 260, 0.94, 14, { connectedDevices: 4, ipHash: "172.56.21.90", fraudFlagged: true, financialExposure: 15500 }),
+      n("SELLER_FASHION_BOUTIQUE_88", "seller", 620, 260, 0.12, 320, { ageDays: 320, connectedOrders: 890, fraudFlagged: false, financialExposure: 0 }),
+      n("ORD_DESIGNER_RETURN_42", "order", 380, 120, 0.88, 4, { connectedOrders: 1, fraudFlagged: true, financialExposure: 1450 }, "ORD_DESIGNER_RETURN_42 ($1,450)"),
     ],
-    edges: [
-      { id: "e201", from: "BUYER_ARBITRAGE_112", to: "DEV_ROTATING_PROXY_11", label: "USES_DEVICE", suspicious: true, createdAtDaysAgo: 8 },
-      { id: "e202", from: "BUYER_ARBITRAGE_114", to: "DEV_ROTATING_PROXY_11", label: "USES_DEVICE", suspicious: true, createdAtDaysAgo: 5 },
-      { id: "e203", from: "BUYER_ARBITRAGE_112", to: "ADDR_PORT_TERMINAL_7", label: "SHIPS_TO", suspicious: true, createdAtDaysAgo: 8 },
-      { id: "e204", from: "BUYER_ARBITRAGE_114", to: "ADDR_PORT_TERMINAL_7", label: "SHIPS_TO", suspicious: true, createdAtDaysAgo: 5 },
-      { id: "e205", from: "BUYER_ARBITRAGE_112", to: "SELLER_MERCHANT_44", label: "TRANSACTS_WITH", suspicious: true, createdAtDaysAgo: 6 },
-      { id: "e206", from: "BUYER_ARBITRAGE_112", to: "ORD_LUXURY_BULK_09", label: "PLACES_ORDER", suspicious: true, createdAtDaysAgo: 2 },
+    [
+      e("BUYER_REFUND_01", "DEV_MOBILE_EMULATOR_04", "USES_DEVICE", true, 35),
+      e("BUYER_REFUND_02", "DEV_MOBILE_EMULATOR_04", "USES_DEVICE", true, 28),
+      e("BUYER_REFUND_01", "SELLER_FASHION_BOUTIQUE_88", "TRANSACTS_WITH", true, 10),
+      e("BUYER_REFUND_02", "SELLER_FASHION_BOUTIQUE_88", "TRANSACTS_WITH", true, 8),
+      e("BUYER_REFUND_01", "ORD_DESIGNER_RETURN_42", "PLACES_ORDER", true, 4),
+    ]
+  ),
+  cDef(
+    "RING_BENIGN_CLUSTER_06", "Baseline: Verified Legitimate Traffic", "Benign Network", 0.04, "low",
+    "Established consumers with years of verified transaction history, distinct devices, and low return rates.",
+    "Clean, organic e-commerce purchases from high-tenure accounts with zero hardware collisions and trusted payment methods.",
+    [
+      n("BUYER_VERIFIED_ALICE", "buyer", 280, 220, 0.02, 450, { ageDays: 450, connectedOrders: 38, connectedDevices: 1, fraudFlagged: false, financialExposure: 0 }),
+      n("DEV_ALICE_IPHONE_15", "device", 420, 160, 0.01, 450, { connectedDevices: 1, ipHash: "73.189.44.12", fraudFlagged: false, financialExposure: 0 }),
+      n("ADDR_HOME_VERIFIED", "address", 420, 320, 0.02, 450, { addressLine: "742 Evergreen Terrace", fraudFlagged: false, financialExposure: 0 }),
+      n("SELLER_APPLE_AUTHORIZED", "seller", 620, 240, 0.01, 1200, { ageDays: 1200, connectedOrders: 5400, fraudFlagged: false, financialExposure: 0 }),
+      n("ORD_AIRPODS_CLEAN", "order", 350, 100, 0.02, 10, { connectedOrders: 1, fraudFlagged: false, financialExposure: 0 }, "ORD_AIRPODS_CLEAN ($249)"),
     ],
-  },
-  {
-    id: "RING_RETURN_ABUSE_03",
-    name: "Ring #03: Rapid Refund & Wardrobing Syndicate",
-    tag: "Return Abuse",
-    riskScore: 0.78,
-    riskLevel: "high",
-    description: "Repeated empty-box claims and high-velocity wardrobing returns against luxury fashion apparel.",
-    executiveSummary: "Syndicate exploiting return guarantees with rapid chargebacks within 24 hours of delivery, sharing burner phone emulators.",
-    nodes: [
-      {
-        id: "BUYER_REFUND_01",
-        type: "buyer",
-        label: "BUYER_REFUND_01 (7 Returns)",
-        x: 260,
-        y: 200,
-        risk: 0.89,
-        createdAtDaysAgo: 35,
-        details: { ageDays: 35, connectedOrders: 9, fraudFlagged: true, financialExposure: 9400 },
-      },
-      {
-        id: "BUYER_REFUND_02",
-        type: "buyer",
-        label: "BUYER_REFUND_02 (5 Returns)",
-        x: 320,
-        y: 360,
-        risk: 0.84,
-        createdAtDaysAgo: 28,
-        details: { ageDays: 28, connectedOrders: 6, fraudFlagged: true, financialExposure: 6100 },
-      },
-      {
-        id: "DEV_MOBILE_EMULATOR_04",
-        type: "device",
-        label: "DEV_MOBILE_EMULATOR_04",
-        x: 450,
-        y: 260,
-        risk: 0.94,
-        createdAtDaysAgo: 14,
-        details: { connectedDevices: 4, ipHash: "172.56.21.90", fraudFlagged: true, financialExposure: 15500 },
-      },
-      {
-        id: "SELLER_FASHION_BOUTIQUE_88",
-        type: "seller",
-        label: "SELLER_FASHION_BOUTIQUE_88",
-        x: 620,
-        y: 260,
-        risk: 0.12,
-        createdAtDaysAgo: 320,
-        details: { ageDays: 320, connectedOrders: 890, fraudFlagged: false, financialExposure: 0 },
-      },
-      {
-        id: "ORD_DESIGNER_RETURN_42",
-        type: "order",
-        label: "ORD_DESIGNER_RETURN_42 ($1,450)",
-        x: 380,
-        y: 120,
-        risk: 0.88,
-        createdAtDaysAgo: 4,
-        details: { connectedOrders: 1, fraudFlagged: true, financialExposure: 1450 },
-      },
-    ],
-    edges: [
-      { id: "e301", from: "BUYER_REFUND_01", to: "DEV_MOBILE_EMULATOR_04", label: "USES_DEVICE", suspicious: true, createdAtDaysAgo: 35 },
-      { id: "e302", from: "BUYER_REFUND_02", to: "DEV_MOBILE_EMULATOR_04", label: "USES_DEVICE", suspicious: true, createdAtDaysAgo: 28 },
-      { id: "e303", from: "BUYER_REFUND_01", to: "SELLER_FASHION_BOUTIQUE_88", label: "TRANSACTS_WITH", suspicious: true, createdAtDaysAgo: 10 },
-      { id: "e304", from: "BUYER_REFUND_02", to: "SELLER_FASHION_BOUTIQUE_88", label: "TRANSACTS_WITH", suspicious: true, createdAtDaysAgo: 8 },
-      { id: "e305", from: "BUYER_REFUND_01", to: "ORD_DESIGNER_RETURN_42", label: "PLACES_ORDER", suspicious: true, createdAtDaysAgo: 4 },
-    ],
-  },
-  {
-    id: "RING_BENIGN_CLUSTER_06",
-    name: "Baseline: Verified Legitimate Traffic",
-    tag: "Benign Network",
-    riskScore: 0.04,
-    riskLevel: "low",
-    description: "Established consumers with years of verified transaction history, distinct devices, and low return rates.",
-    executiveSummary: "Clean, organic e-commerce purchases from high-tenure accounts with zero hardware collisions and trusted payment methods.",
-    nodes: [
-      {
-        id: "BUYER_VERIFIED_ALICE",
-        type: "buyer",
-        label: "BUYER_VERIFIED_ALICE",
-        x: 280,
-        y: 220,
-        risk: 0.02,
-        createdAtDaysAgo: 450,
-        details: { ageDays: 450, connectedOrders: 38, connectedDevices: 1, fraudFlagged: false, financialExposure: 0 },
-      },
-      {
-        id: "DEV_ALICE_IPHONE_15",
-        type: "device",
-        label: "DEV_ALICE_IPHONE_15",
-        x: 420,
-        y: 160,
-        risk: 0.01,
-        createdAtDaysAgo: 450,
-        details: { connectedDevices: 1, ipHash: "73.189.44.12", fraudFlagged: false, financialExposure: 0 },
-      },
-      {
-        id: "ADDR_HOME_VERIFIED",
-        type: "address",
-        label: "ADDR_HOME_VERIFIED",
-        x: 420,
-        y: 320,
-        risk: 0.02,
-        createdAtDaysAgo: 450,
-        details: { addressLine: "742 Evergreen Terrace", fraudFlagged: false, financialExposure: 0 },
-      },
-      {
-        id: "SELLER_APPLE_AUTHORIZED",
-        type: "seller",
-        label: "SELLER_APPLE_AUTHORIZED",
-        x: 620,
-        y: 240,
-        risk: 0.01,
-        createdAtDaysAgo: 1200,
-        details: { ageDays: 1200, connectedOrders: 5400, fraudFlagged: false, financialExposure: 0 },
-      },
-      {
-        id: "ORD_AIRPODS_CLEAN",
-        type: "order",
-        label: "ORD_AIRPODS_CLEAN ($249)",
-        x: 350,
-        y: 100,
-        risk: 0.02,
-        createdAtDaysAgo: 10,
-        details: { connectedOrders: 1, fraudFlagged: false, financialExposure: 0 },
-      },
-    ],
-    edges: [
-      { id: "e601", from: "BUYER_VERIFIED_ALICE", to: "DEV_ALICE_IPHONE_15", label: "USES_DEVICE", suspicious: false, createdAtDaysAgo: 450 },
-      { id: "e602", from: "BUYER_VERIFIED_ALICE", to: "ADDR_HOME_VERIFIED", label: "SHIPS_TO", suspicious: false, createdAtDaysAgo: 450 },
-      { id: "e603", from: "BUYER_VERIFIED_ALICE", to: "SELLER_APPLE_AUTHORIZED", label: "TRANSACTS_WITH", suspicious: false, createdAtDaysAgo: 10 },
-      { id: "e604", from: "BUYER_VERIFIED_ALICE", to: "ORD_AIRPODS_CLEAN", label: "PLACES_ORDER", suspicious: false, createdAtDaysAgo: 10 },
-    ],
-  },
+    [
+      e("BUYER_VERIFIED_ALICE", "DEV_ALICE_IPHONE_15", "USES_DEVICE", false, 450),
+      e("BUYER_VERIFIED_ALICE", "ADDR_HOME_VERIFIED", "SHIPS_TO", false, 450),
+      e("BUYER_VERIFIED_ALICE", "SELLER_APPLE_AUTHORIZED", "TRANSACTS_WITH", false, 10),
+      e("BUYER_VERIFIED_ALICE", "ORD_AIRPODS_CLEAN", "PLACES_ORDER", false, 10),
+    ]
+  ),
 ];
+
 /* END GENERATED */
 
 // ============================================================================
@@ -638,16 +346,14 @@ function TrustGraphContent() {
     [activeClusterId]
   );
 
-  const getNodeColor = (type: string) => {
-    switch (type) {
-      case "buyer": return { bg: "#3B82F6", border: "#60A5FA", icon: User };
-      case "seller": return { bg: "#8B5CF6", border: "#A78BFA", icon: Store };
-      case "device": return { bg: "#06B6D4", border: "#22D3EE", icon: Smartphone };
-      case "address": return { bg: "#F59E0B", border: "#FBBF24", icon: MapPin };
-      case "order": return { bg: "#10B981", border: "#34D399", icon: ShoppingBag };
-      default: return { bg: "#64748B", border: "#94A3B8", icon: Info };
-    }
+  const NODE_CONFIG: Record<string, { bg: string; border: string; icon: LucideIcon }> = {
+    buyer: { bg: "#3B82F6", border: "#60A5FA", icon: User },
+    seller: { bg: "#8B5CF6", border: "#A78BFA", icon: Store },
+    device: { bg: "#06B6D4", border: "#22D3EE", icon: Smartphone },
+    address: { bg: "#F59E0B", border: "#FBBF24", icon: MapPin },
+    order: { bg: "#10B981", border: "#34D399", icon: ShoppingBag },
   };
+  const getNodeColor = (type: string) => NODE_CONFIG[type] || { bg: "#64748B", border: "#94A3B8", icon: Info };
 
   return (
     <div className="space-y-6">
@@ -677,11 +383,10 @@ function TrustGraphContent() {
 
         {/* Legend */}
         <div className="flex items-center gap-3 text-[11px] font-mono bg-[#111821] px-3 py-1.5 rounded-lg border border-[#202A35]">
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Buyer</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Seller</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-cyan-500" /> Device</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Address</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Order</span>
+          {(["Buyer:bg-blue-500", "Seller:bg-purple-500", "Device:bg-cyan-500", "Address:bg-amber-500", "Order:bg-emerald-500"] as const).map((item) => {
+            const [lbl, bg] = item.split(":");
+            return <span key={lbl} className="flex items-center gap-1.5"><span className={`w-2.5 h-2.5 rounded-full ${bg}`} /> {lbl}</span>;
+          })}
         </div>
       </div>
 
@@ -994,43 +699,23 @@ function TrustGraphContent() {
 
               {/* Entity Attributes */}
               <div className="space-y-2 text-[11px] pt-1">
-                {selectedNode.details.ageDays !== undefined && (
-                  <div className="flex justify-between py-1 border-b border-[#202A35]/60">
-                    <span className="text-[#8995A3]">Account Age:</span>
-                    <span className="text-[#E8EDF3]">{selectedNode.details.ageDays} days</span>
+                {(
+                  [
+                    selectedNode.details.ageDays !== undefined ? { l: "Account Age:", v: `${selectedNode.details.ageDays} days` } : null,
+                    selectedNode.details.connectedOrders !== undefined ? { l: "Connected Orders:", v: selectedNode.details.connectedOrders } : null,
+                    selectedNode.details.connectedDevices !== undefined ? { l: "Device Collisions:", v: selectedNode.details.connectedDevices, c: "text-rose-400 font-semibold" } : null,
+                    selectedNode.details.ipHash ? { l: "Hardware IP:", v: selectedNode.details.ipHash } : null,
+                    selectedNode.details.addressLine ? { l: "Shipping Dest:", v: selectedNode.details.addressLine } : null,
+                    { l: "Collusion Ring:", v: selectedNode.details.fraudFlagged ? activeCluster.id : "None", c: selectedNode.details.fraudFlagged ? "text-rose-400 font-bold" : "text-emerald-400" },
+                  ] as ({ l: string; v: string | number; c?: string } | null)[]
+                ).filter((item): item is { l: string; v: string | number; c?: string } => item !== null).map((item, idx, arr) => (
+                  <div key={item.l} className={`flex justify-between py-1 ${idx < arr.length - 1 ? "border-b border-[#202A35]/60" : ""}`}>
+                    <span className="text-[#8995A3]">{item.l}</span>
+                    <span className={item.c || "text-[#E8EDF3]"}>{item.v}</span>
                   </div>
-                )}
-                {selectedNode.details.connectedOrders !== undefined && (
-                  <div className="flex justify-between py-1 border-b border-[#202A35]/60">
-                    <span className="text-[#8995A3]">Connected Orders:</span>
-                    <span className="text-[#E8EDF3]">{selectedNode.details.connectedOrders}</span>
-                  </div>
-                )}
-                {selectedNode.details.connectedDevices !== undefined && (
-                  <div className="flex justify-between py-1 border-b border-[#202A35]/60">
-                    <span className="text-[#8995A3]">Device Collisions:</span>
-                    <span className="text-rose-400 font-semibold">{selectedNode.details.connectedDevices}</span>
-                  </div>
-                )}
-                {selectedNode.details.ipHash && (
-                  <div className="flex justify-between py-1 border-b border-[#202A35]/60">
-                    <span className="text-[#8995A3]">Hardware IP:</span>
-                    <span className="text-[#E8EDF3]">{selectedNode.details.ipHash}</span>
-                  </div>
-                )}
-                {selectedNode.details.addressLine && (
-                  <div className="flex justify-between py-1 border-b border-[#202A35]/60">
-                    <span className="text-[#8995A3]">Shipping Dest:</span>
-                    <span className="text-[#E8EDF3]">{selectedNode.details.addressLine}</span>
-                  </div>
-                )}
-                <div className="flex justify-between py-1">
-                  <span className="text-[#8995A3]">Collusion Ring:</span>
-                  <span className={selectedNode.details.fraudFlagged ? "text-rose-400 font-bold" : "text-emerald-400"}>
-                    {selectedNode.details.fraudFlagged ? activeCluster.id : "None"}
-                  </span>
-                </div>
+                ))}
               </div>
+
 
               {/* Interactive Operations Buttons */}
               <div className="space-y-2 pt-2">

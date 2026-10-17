@@ -10,6 +10,7 @@ import {
   TransactionExplainRequest,
   TransactionExplainResponse,
   FraudRingsResponse,
+  FraudRingItem,
   ListingScoreRequest,
   ListingScoreResponse,
   ReturnScoreRequest,
@@ -20,6 +21,8 @@ import {
   ReadyResponse,
   SystemBenchmarkResponse,
   StreamTransactionEvent,
+  RiskLabel,
+  OperationalDecision,
 } from "../types/api";
 
 export function demoGetHealth(): HealthResponse {
@@ -49,164 +52,33 @@ export function demoGetReady(): ReadyResponse {
   };
 }
 
-export function demoScoreTransaction(req: TransactionScoreRequest): TransactionScoreResponse {
-  const orderId = req.order_id || `ORD_DEMO_${Math.floor(Math.random() * 90000 + 10000)}`;
-  const amt = req.amount ?? req.order_amount ?? 100.0;
-
-  // Preset 1: Verified repeat buyer (Allow)
-  if (orderId === "ORD_SIM_SAFE_01" || orderId.includes("SAFE") || (amt < 100 && (req.buyer_orders_before ?? 0) >= 10)) {
-    return {
-      order_id: orderId,
-      overall_fraud_probability: 0.0245,
-      raw_fraud_probability: 0.0245,
-      calibrated_fraud_probability: 0.0245,
-      policy_risk_score: 0.0245,
-      canonical_trust_engine_risk: 0.0245,
-      conformal_prediction_set: [0],
-      conformal_is_calibrated: false,
-      conformal_coverage_guarantee: 0.95,
-      risk_label: "low",
-      decision: "ALLOW",
-      trust_score: 97.55,
-      confidence: 0.95,
-      predictive_uncertainty: 0.16,
-      cold_start: false,
-      model_disagreement: 0.012,
-      reason_codes: ["VERIFIED_BUYER_HISTORY"],
-      model_used: "Offline Simulation (Verified Preset)",
-      model_version: "offline-demo-simulation",
-      note: "Evaluated in offline demonstration mode (verified preset scenario)",
-      evidence_availability: {
-        tabular: true,
-        graph_topology: false,
-        gnn_embeddings: false,
-        conformal_coverage: true,
-        clip_visual: false,
-      },
-    };
-  }
-
-  // Preset 2: Price anomaly / Arbitrage (Review)
-  if (orderId === "ORD_SIM_ANOMALY_02" || orderId.includes("ANOMALY") || (amt > 300 && amt <= 600)) {
-    return {
-      order_id: orderId,
-      overall_fraud_probability: 0.385,
-      raw_fraud_probability: 0.385,
-      calibrated_fraud_probability: 0.385,
-      policy_risk_score: 0.385,
-      canonical_trust_engine_risk: 0.385,
-      conformal_prediction_set: [0, 1],
-      conformal_is_calibrated: false,
-      conformal_coverage_guarantee: 0.95,
-      risk_label: "medium",
-      decision: "REVIEW",
-      trust_score: 61.5,
-      confidence: 0.72,
-      predictive_uncertainty: 0.65,
-      cold_start: (req.buyer_age_days ?? 30) <= 3,
-      model_disagreement: 0.045,
-      reason_codes: ["PRICE_OUTLIER_99TH_PCT", "COLD_START_BUYER_HIGH_VALUE"],
-      model_used: "Offline Simulation (Price Anomaly Preset)",
-      model_version: "offline-demo-simulation",
-      note: "Evaluated in offline demonstration mode (price anomaly preset)",
-      evidence_availability: {
-        tabular: true,
-        graph_topology: false,
-        gnn_embeddings: false,
-        conformal_coverage: true,
-        clip_visual: false,
-      },
-    };
-  }
-
-  // Preset 3: Device farm / Collusion (Block)
-  if (orderId === "ORD_SIM_FARM_03" || orderId.includes("FARM") || (req.device_shared_buyer_count ?? 1) >= 5 || amt > 600) {
-    return {
-      order_id: orderId,
-      overall_fraud_probability: 0.895,
-      raw_fraud_probability: 0.895,
-      calibrated_fraud_probability: 0.895,
-      policy_risk_score: 0.895,
-      canonical_trust_engine_risk: 0.895,
-      conformal_prediction_set: [1],
-      conformal_is_calibrated: false,
-      conformal_coverage_guarantee: 0.95,
-      risk_label: "high",
-      decision: "BLOCK",
-      trust_score: 10.5,
-      confidence: 0.88,
-      predictive_uncertainty: 0.48,
-      cold_start: false,
-      model_disagreement: 0.021,
-      reason_codes: ["HIGH_DEVICE_COLLISION", "RING_COLLUSION_SUSPECT"],
-      model_used: "Offline Simulation (Collusion Preset)",
-      model_version: "offline-demo-simulation",
-      note: "Evaluated in offline demonstration mode (collusion ring preset)",
-      evidence_availability: {
-        tabular: true,
-        graph_topology: false,
-        gnn_embeddings: false,
-        conformal_coverage: true,
-        clip_visual: false,
-      },
-    };
-  }
-
-  // Preset 4: Serial returner (Hold)
-  if (orderId === "ORD_SIM_RETURN_04" || orderId.includes("RETURN") || (req.buyer_return_rate_before ?? 0) >= 0.5) {
-    return {
-      order_id: orderId,
-      overall_fraud_probability: 0.582,
-      raw_fraud_probability: 0.582,
-      calibrated_fraud_probability: 0.582,
-      policy_risk_score: 0.582,
-      canonical_trust_engine_risk: 0.582,
-      conformal_prediction_set: [1],
-      conformal_is_calibrated: false,
-      conformal_coverage_guarantee: 0.95,
-      risk_label: "high",
-      decision: "HOLD",
-      trust_score: 41.8,
-      confidence: 0.78,
-      predictive_uncertainty: 0.68,
-      cold_start: false,
-      model_disagreement: 0.038,
-      reason_codes: ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_CLAIM"],
-      model_used: "Offline Simulation (Return Abuse Preset)",
-      model_version: "offline-demo-simulation",
-      note: "Evaluated in offline demonstration mode (return abuse preset)",
-      evidence_availability: {
-        tabular: true,
-        graph_topology: false,
-        gnn_embeddings: false,
-        conformal_coverage: true,
-        clip_visual: false,
-      },
-    };
-  }
-
-  // General Baseline Fallback
+function makeScoreResp(
+  orderId: string, prob: number, set: number[], riskLabel: RiskLabel,
+  decision: OperationalDecision, trustScore: number,
+  confidence: number, uncertainty: number, coldStart: boolean,
+  disagreement: number, reasonCodes: string[], name: string, note: string
+): TransactionScoreResponse {
   return {
     order_id: orderId,
-    overall_fraud_probability: 0.05,
-    raw_fraud_probability: 0.05,
-    calibrated_fraud_probability: 0.05,
-    policy_risk_score: 0.05,
-    canonical_trust_engine_risk: 0.05,
-    conformal_prediction_set: [0],
+    overall_fraud_probability: prob,
+    raw_fraud_probability: prob,
+    calibrated_fraud_probability: prob,
+    policy_risk_score: prob,
+    canonical_trust_engine_risk: prob,
+    conformal_prediction_set: set,
     conformal_is_calibrated: false,
     conformal_coverage_guarantee: 0.95,
-    risk_label: "low",
-    decision: "ALLOW",
-    trust_score: 95.0,
-    confidence: 0.9,
-    predictive_uncertainty: 0.28,
-    cold_start: (req.buyer_age_days ?? 30) <= 2,
-    model_disagreement: 0.02,
-    reason_codes: ["CLEAN_BASELINE"],
-    model_used: "Offline Simulation (Deterministic Preset)",
+    risk_label: riskLabel,
+    decision,
+    trust_score: trustScore,
+    confidence,
+    predictive_uncertainty: uncertainty,
+    cold_start: coldStart,
+    model_disagreement: disagreement,
+    reason_codes: reasonCodes,
+    model_used: `Offline Simulation (${name})`,
     model_version: "offline-demo-simulation",
-    note: "Evaluated in offline demonstration mode. Connect FastAPI backend for live inference.",
+    note,
     evidence_availability: {
       tabular: true,
       graph_topology: false,
@@ -217,71 +89,44 @@ export function demoScoreTransaction(req: TransactionScoreRequest): TransactionS
   };
 }
 
+export function demoScoreTransaction(req: TransactionScoreRequest): TransactionScoreResponse {
+  const orderId = req.order_id || `ORD_DEMO_${Math.floor(Math.random() * 90000 + 10000)}`;
+  const amt = req.amount ?? req.order_amount ?? 100.0;
+
+  if (orderId === "ORD_SIM_SAFE_01" || orderId.includes("SAFE") || (amt < 100 && (req.buyer_orders_before ?? 0) >= 10)) {
+    return makeScoreResp(orderId, 0.0245, [0], "low", "ALLOW", 97.55, 0.95, 0.16, false, 0.012,
+      ["VERIFIED_BUYER_HISTORY"], "Verified Preset", "Evaluated in offline demonstration mode (verified preset scenario)");
+  }
+  if (orderId === "ORD_SIM_ANOMALY_02" || orderId.includes("ANOMALY") || (amt > 300 && amt <= 600)) {
+    return makeScoreResp(orderId, 0.385, [0, 1], "medium", "REVIEW", 61.5, 0.72, 0.65, (req.buyer_age_days ?? 30) <= 3, 0.045,
+      ["PRICE_OUTLIER_99TH_PCT", "COLD_START_BUYER_HIGH_VALUE"], "Price Anomaly Preset", "Evaluated in offline demonstration mode (price anomaly preset)");
+  }
+  if (orderId === "ORD_SIM_FARM_03" || orderId.includes("FARM") || (req.device_shared_buyer_count ?? 1) >= 5 || amt > 600) {
+    return makeScoreResp(orderId, 0.895, [1], "high", "BLOCK", 10.5, 0.88, 0.48, false, 0.021,
+      ["HIGH_DEVICE_COLLISION", "RING_COLLUSION_SUSPECT"], "Collusion Preset", "Evaluated in offline demonstration mode (collusion ring preset)");
+  }
+  if (orderId === "ORD_SIM_RETURN_04" || orderId.includes("RETURN") || (req.buyer_return_rate_before ?? 0) >= 0.5) {
+    return makeScoreResp(orderId, 0.582, [1], "high", "HOLD", 41.8, 0.78, 0.68, false, 0.038,
+      ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_CLAIM"], "Return Abuse Preset", "Evaluated in offline demonstration mode (return abuse preset)");
+  }
+  return makeScoreResp(orderId, 0.05, [0], "low", "ALLOW", 95.0, 0.9, 0.28, (req.buyer_age_days ?? 30) <= 2, 0.02,
+    ["CLEAN_BASELINE"], "Deterministic Preset", "Evaluated in offline demonstration mode. Connect FastAPI backend for live inference.");
+}
+
+const r = (ring_id: string, size: number, n_orders: number, avg_risk_score: number, max_risk_score: number, n_high_risk_orders: number, risk_label: RiskLabel, members: string[]): FraudRingItem =>
+  ({ ring_id, size, n_orders, avg_risk_score, max_risk_score, n_high_risk_orders, risk_label, members });
+
 export function demoGetFraudRings(): FraudRingsResponse {
   return {
     total_rings: 6,
     high_risk_rings: 4,
     rings: [
-      {
-        ring_id: "RING_COLLUSION_01",
-        size: 8,
-        n_orders: 42,
-        avg_risk_score: 0.912,
-        max_risk_score: 0.985,
-        n_high_risk_orders: 39,
-        risk_label: "high",
-        members: ["BUYER_401", "BUYER_402", "BUYER_403", "BUYER_404", "BUYER_405", "SELLER_91", "SELLER_92", "DEV_FARM_99"],
-      },
-      {
-        ring_id: "RING_PRICE_ARBITRAGE_02",
-        size: 5,
-        n_orders: 28,
-        avg_risk_score: 0.845,
-        max_risk_score: 0.92,
-        n_high_risk_orders: 24,
-        risk_label: "high",
-        members: ["BUYER_112", "BUYER_114", "BUYER_118", "SELLER_44", "ADDR_WH_01"],
-      },
-      {
-        ring_id: "RING_RETURN_ABUSE_03",
-        size: 4,
-        n_orders: 19,
-        avg_risk_score: 0.78,
-        max_risk_score: 0.89,
-        n_high_risk_orders: 15,
-        risk_label: "high",
-        members: ["BUYER_REFUND_01", "BUYER_REFUND_02", "SELLER_88", "DEV_MOBILE_04"],
-      },
-      {
-        ring_id: "RING_DEVICE_FARM_04",
-        size: 11,
-        n_orders: 63,
-        avg_risk_score: 0.73,
-        max_risk_score: 0.865,
-        n_high_risk_orders: 41,
-        risk_label: "high",
-        members: ["BUYER_501", "BUYER_502", "BUYER_503", "BUYER_504", "BUYER_505", "BUYER_506", "SELLER_10", "SELLER_12"],
-      },
-      {
-        ring_id: "RING_COMMUNITY_05",
-        size: 6,
-        n_orders: 31,
-        avg_risk_score: 0.42,
-        max_risk_score: 0.58,
-        n_high_risk_orders: 6,
-        risk_label: "medium",
-        members: ["BUYER_201", "BUYER_202", "BUYER_203", "SELLER_31", "SELLER_32"],
-      },
-      {
-        ring_id: "RING_BENIGN_CLUSTER_06",
-        size: 3,
-        n_orders: 12,
-        avg_risk_score: 0.11,
-        max_risk_score: 0.22,
-        n_high_risk_orders: 0,
-        risk_label: "low",
-        members: ["BUYER_10", "BUYER_11", "SELLER_05"],
-      },
+      r("RING_COLLUSION_01", 8, 42, 0.912, 0.985, 39, "high", ["BUYER_401", "BUYER_402", "BUYER_403", "BUYER_404", "BUYER_405", "SELLER_91", "SELLER_92", "DEV_FARM_99"]),
+      r("RING_PRICE_ARBITRAGE_02", 5, 28, 0.845, 0.92, 24, "high", ["BUYER_112", "BUYER_114", "BUYER_118", "SELLER_44", "ADDR_WH_01"]),
+      r("RING_RETURN_ABUSE_03", 4, 19, 0.78, 0.89, 15, "high", ["BUYER_REFUND_01", "BUYER_REFUND_02", "SELLER_88", "DEV_MOBILE_04"]),
+      r("RING_DEVICE_FARM_04", 11, 63, 0.73, 0.865, 41, "high", ["BUYER_501", "BUYER_502", "BUYER_503", "BUYER_504", "BUYER_505", "BUYER_506", "SELLER_10", "SELLER_12"]),
+      r("RING_COMMUNITY_05", 6, 31, 0.42, 0.58, 6, "medium", ["BUYER_201", "BUYER_202", "BUYER_203", "SELLER_31", "SELLER_32"]),
+      r("RING_BENIGN_CLUSTER_06", 3, 12, 0.11, 0.22, 0, "low", ["BUYER_10", "BUYER_11", "SELLER_05"]),
     ],
   };
 }
@@ -432,69 +277,12 @@ export function demoExplainTransaction(req: TransactionExplainRequest): Transact
   };
 }
 
+const s = (event_id: string, timestamp: string, order_id: string, buyer_id: string, seller_id: string, amount: number, risk_score: number, calibrated_risk: number, policy_risk_score: number, risk_level: RiskLabel, decision: OperationalDecision, trust_score: number, reason_codes: string[]): StreamTransactionEvent =>
+  ({ event_id, timestamp, order_id, buyer_id, seller_id, amount, risk_score, calibrated_risk, policy_risk_score, risk_level, decision, trust_score, reason_codes, source: "offline_simulation" });
+
 export const DEMO_STREAM_TEMPLATES: StreamTransactionEvent[] = [
-  {
-    event_id: "EVT_SIM_01",
-    timestamp: "12:00:01",
-    order_id: "ORD_SIM_78930",
-    buyer_id: "BUYER_RING_MEMBER_04",
-    seller_id: "SELLER_RING_LEADER_01",
-    amount: 890.0,
-    risk_score: 0.942,
-    calibrated_risk: 0.938,
-    policy_risk_score: 0.942,
-    risk_level: "high",
-    decision: "BLOCK",
-    trust_score: 6.2,
-    reason_codes: ["HIGH_DEVICE_COLLISION", "RING_COLLUSION_SUSPECT"],
-    source: "offline_simulation",
-  },
-  {
-    event_id: "EVT_SIM_02",
-    timestamp: "12:00:03",
-    order_id: "ORD_SIM_78931",
-    buyer_id: "BUYER_ORGANIC_404",
-    seller_id: "SELLER_MERCHANT_10",
-    amount: 45.0,
-    risk_score: 0.035,
-    calibrated_risk: 0.031,
-    policy_risk_score: 0.035,
-    risk_level: "low",
-    decision: "ALLOW",
-    trust_score: 96.9,
-    reason_codes: ["CLEAN_BASELINE"],
-    source: "offline_simulation",
-  },
-  {
-    event_id: "EVT_SIM_03",
-    timestamp: "12:00:05",
-    order_id: "ORD_SIM_78932",
-    buyer_id: "BUYER_REFUND_ABUSER",
-    seller_id: "SELLER_ELECTRONICS_09",
-    amount: 320.0,
-    risk_score: 0.785,
-    calibrated_risk: 0.76,
-    policy_risk_score: 0.785,
-    risk_level: "high",
-    decision: "HOLD",
-    trust_score: 24.0,
-    reason_codes: ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_RATIO"],
-    source: "offline_simulation",
-  },
-  {
-    event_id: "EVT_SIM_04",
-    timestamp: "12:00:07",
-    order_id: "ORD_SIM_78933",
-    buyer_id: "BUYER_NEWBIE_99",
-    seller_id: "SELLER_UNKNOWN_44",
-    amount: 450.0,
-    risk_score: 0.38,
-    calibrated_risk: 0.375,
-    policy_risk_score: 0.38,
-    risk_level: "medium",
-    decision: "REVIEW",
-    trust_score: 62.5,
-    reason_codes: ["PRICE_OUTLIER_99TH_PCT"],
-    source: "offline_simulation",
-  },
+  s("EVT_SIM_01", "12:00:01", "ORD_SIM_78930", "BUYER_RING_MEMBER_04", "SELLER_RING_LEADER_01", 890.0, 0.942, 0.938, 0.942, "high", "BLOCK", 6.2, ["HIGH_DEVICE_COLLISION", "RING_COLLUSION_SUSPECT"]),
+  s("EVT_SIM_02", "12:00:03", "ORD_SIM_78931", "BUYER_ORGANIC_404", "SELLER_MERCHANT_10", 45.0, 0.035, 0.031, 0.035, "low", "ALLOW", 96.9, ["CLEAN_BASELINE"]),
+  s("EVT_SIM_03", "12:00:05", "ORD_SIM_78932", "BUYER_REFUND_ABUSER", "SELLER_ELECTRONICS_09", 320.0, 0.785, 0.76, 0.785, "high", "HOLD", 24.0, ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_RATIO"]),
+  s("EVT_SIM_04", "12:00:07", "ORD_SIM_78933", "BUYER_NEWBIE_99", "SELLER_UNKNOWN_44", 450.0, 0.38, 0.375, 0.38, "medium", "REVIEW", 62.5, ["PRICE_OUTLIER_99TH_PCT"]),
 ];

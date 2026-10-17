@@ -29,77 +29,33 @@ interface ListingScenarioPreset {
   originalMerchant: string;
 }
 
+const lp = (
+  id: string, name: string, badge: string, badgeColor: "rose" | "amber" | "emerald",
+  description: string, payload: ListingScoreRequest,
+  sellerImage: string, sellerImageTitle: string,
+  catalogImage: string, catalogImageTitle: string, originalMerchant: string
+): ListingScenarioPreset => ({
+  id, name, badge, badgeColor, description, payload,
+  sellerImage, sellerImageTitle, catalogImage, catalogImageTitle, originalMerchant
+});
+
 /* BEGIN GENERATED */
 const LISTING_PRESETS: ListingScenarioPreset[] = [
-  {
-    id: "preset_stolen_catalog_dslr",
-    name: "Stolen Catalog Asset (Counterfeit DSLR)",
-    badge: "IMAGE THEFT COLLISION",
-    badgeColor: "rose",
-    description: "New 3-day-old seller re-uploaded official manufacturer studio photo at 75% discount. Self-match unauthorized.",
-    payload: {
-      listing_id: "LISTING_CANON_501",
-      product_id: "PROD_B07XYZ99",
-      displayed_product_id: "PROD_B07XYZ99_STOLEN",
-      price: 450.0,
-      base_price: 1899.0,
-      category_median_price: 1850.0,
-      seller_age_days_at_listing: 3,
-      seller_listings_before: 1,
-      multimodal_similarity_score: 0.948,
-    },
-    sellerImage: "/images/camera_seller_upload.jpg",
-    sellerImageTitle: "Seller Upload: Unlicensed Manufacturer Studio Photo",
-    catalogImage: "/images/camera_catalog_match.jpg",
-    catalogImageTitle: "Official Catalog Master Asset #B07XYZ99",
-    originalMerchant: "CANON_OFFICIAL_GLOBAL",
-  },
-  {
-    id: "preset_bait_switch_accessory",
-    name: "Bait & Switch Scam (Tech -> Bulk Cable)",
-    badge: "TEXT-IMAGE MISMATCH",
-    badgeColor: "amber",
-    description: "Listing title claims $1,200 hardware, but uploaded photo is a cheap bulk USB wire in plastic sleeve.",
-    payload: {
-      listing_id: "LISTING_BAIT_SWITCH_102",
-      product_id: "PROD_LAPTOP_991",
-      displayed_product_id: "PROD_GENERIC_WIRE_01",
-      price: 299.0,
-      base_price: 1200.0,
-      category_median_price: 1150.0,
-      seller_age_days_at_listing: 5,
-      seller_listings_before: 2,
-      multimodal_similarity_score: 0.182,
-    },
-    sellerImage: "/images/fake_accessory.jpg",
-    sellerImageTitle: "Uploaded Photo: Generic Bulk Wire in Baggy",
-    catalogImage: "/images/camera_catalog_match.jpg",
-    catalogImageTitle: "Claimed Catalog Item: Pro Studio Equipment",
-    originalMerchant: "PREMIUM_ELECTRONICS_FLAGSHIP",
-  },
-  {
-    id: "preset_authentic_authorized_merchant",
-    name: "Authorized Reseller (Authentic Verified)",
-    badge: "VERIFIED AUTHENTIC",
-    badgeColor: "emerald",
-    description: "Established 420-day merchant with 150+ successful listings, valid pricing, and authorized catalog licensing.",
-    payload: {
-      listing_id: "LISTING_AUTHENTIC_204",
-      product_id: "PROD_B07XYZ99",
-      displayed_product_id: "PROD_B07XYZ99",
-      price: 1820.0,
-      base_price: 1899.0,
-      category_median_price: 1850.0,
-      seller_age_days_at_listing: 420,
-      seller_listings_before: 154,
-      multimodal_similarity_score: 0.892,
-    },
-    sellerImage: "/images/camera_seller_upload.jpg",
-    sellerImageTitle: "Merchant Product Photograph (Authorized Stockist)",
-    catalogImage: "/images/camera_catalog_match.jpg",
-    catalogImageTitle: "Official Catalog Master Asset #B07XYZ99",
-    originalMerchant: "CANON_OFFICIAL_GLOBAL",
-  },
+  lp("preset_stolen_catalog_dslr", "Stolen Catalog Asset (Counterfeit DSLR)", "IMAGE THEFT COLLISION", "rose",
+    "New 3-day-old seller re-uploaded official manufacturer studio photo at 75% discount. Self-match unauthorized.",
+    { listing_id: "LISTING_CANON_501", product_id: "PROD_B07XYZ99", displayed_product_id: "PROD_B07XYZ99_STOLEN", price: 450.0, base_price: 1899.0, category_median_price: 1850.0, seller_age_days_at_listing: 3, seller_listings_before: 1, multimodal_similarity_score: 0.948 },
+    "/images/camera_seller_upload.jpg", "Seller Upload: Unlicensed Manufacturer Studio Photo", "/images/camera_catalog_match.jpg", "Official Catalog Master Asset #B07XYZ99", "CANON_OFFICIAL_GLOBAL"
+  ),
+  lp("preset_bait_switch_accessory", "Bait & Switch Scam (Tech -> Bulk Cable)", "TEXT-IMAGE MISMATCH", "amber",
+    "Listing title claims $1,200 hardware, but uploaded photo is a cheap bulk USB wire in plastic sleeve.",
+    { listing_id: "LISTING_BAIT_SWITCH_102", product_id: "PROD_LAPTOP_991", displayed_product_id: "PROD_GENERIC_WIRE_01", price: 299.0, base_price: 1200.0, category_median_price: 1150.0, seller_age_days_at_listing: 5, seller_listings_before: 2, multimodal_similarity_score: 0.182 },
+    "/images/fake_accessory.jpg", "Uploaded Photo: Generic Bulk Wire in Baggy", "/images/camera_catalog_match.jpg", "Claimed Catalog Item: Pro Studio Equipment", "PREMIUM_ELECTRONICS_FLAGSHIP"
+  ),
+  lp("preset_authentic_authorized_merchant", "Authorized Reseller (Authentic Verified)", "VERIFIED AUTHENTIC", "emerald",
+    "Established 420-day merchant with 150+ successful listings, valid pricing, and authorized catalog licensing.",
+    { listing_id: "LISTING_AUTHENTIC_204", product_id: "PROD_B07XYZ99", displayed_product_id: "PROD_B07XYZ99", price: 1820.0, base_price: 1899.0, category_median_price: 1850.0, seller_age_days_at_listing: 420, seller_listings_before: 154, multimodal_similarity_score: 0.892 },
+    "/images/camera_seller_upload.jpg", "Merchant Product Photograph (Authorized Stockist)", "/images/camera_catalog_match.jpg", "Official Catalog Master Asset #B07XYZ99", "CANON_OFFICIAL_GLOBAL"
+  ),
 ];
 /* END GENERATED */
 
@@ -132,30 +88,10 @@ export default function ListingIntelligencePage() {
   };
 
   useEffect(() => {
-    let active = true;
-    TrustShieldApi.analyzeListing(LISTING_PRESETS[0].payload)
-      .then((res) => {
-        if (active) {
-          setResult(res.data);
-          setErrorState(null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          console.error("Listing analysis failed:", err);
-          setResult(null);
-          const isAuth = err instanceof ApiError ? err.isAuthError : false;
-          const status = err instanceof ApiError ? err.status : undefined;
-          const message = err instanceof Error ? err.message : String(err);
-          setErrorState({ message, isAuth, status });
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+    const timer = setTimeout(() => {
+      executeAudit(LISTING_PRESETS[0].payload);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const selectPreset = (preset: ListingScenarioPreset) => {
@@ -252,78 +188,39 @@ export default function ListingIntelligencePage() {
           </div>
 
           <form onSubmit={handleAnalyze} className="space-y-3 text-xs font-mono">
-            <div>
-              <label className="text-[11px] text-[#8995A3] block mb-1">Listing ID</label>
-              <input
-                type="text"
-                value={formData.listing_id || ""}
-                onChange={(e) => setFormData({ ...formData, listing_id: e.target.value })}
-                className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] text-[#8995A3] block mb-1">Product ID (Claimed)</label>
-              <input
-                type="text"
-                value={formData.product_id || ""}
-                onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
-                className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] text-[#8995A3] block mb-1">Displayed Product ID</label>
-              <input
-                type="text"
-                value={formData.displayed_product_id || ""}
-                onChange={(e) => setFormData({ ...formData, displayed_product_id: e.target.value })}
-                className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
-              />
-            </div>
+            {([
+              { key: "listing_id", label: "Listing ID" },
+              { key: "product_id", label: "Product ID (Claimed)" },
+              { key: "displayed_product_id", label: "Displayed Product ID" },
+            ] as const).map(({ key, label }) => (
+              <div key={key}>
+                <label className="text-[11px] text-[#8995A3] block mb-1">{label}</label>
+                <input
+                  type="text"
+                  value={(formData[key] as string) || ""}
+                  onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
+                  className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
+                />
+              </div>
+            ))}
 
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] text-[#8995A3] block mb-1">Listing Price ($)</label>
-                <input
-                  type="number"
-                  value={formData.price || 0}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-[#8995A3] block mb-1">Seller Age (Days)</label>
-                <input
-                  type="number"
-                  value={formData.seller_age_days_at_listing || 0}
-                  onChange={(e) => setFormData({ ...formData, seller_age_days_at_listing: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] text-[#8995A3] block mb-1">Catalog Base Price ($)</label>
-                <input
-                  type="number"
-                  value={formData.base_price || 0}
-                  onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
-                  className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-[#8995A3] block mb-1">Seller Prior Listings</label>
-                <input
-                  type="number"
-                  value={formData.seller_listings_before ?? 1}
-                  onChange={(e) => setFormData({ ...formData, seller_listings_before: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
-                />
-              </div>
+              {([
+                { key: "price", label: "Listing Price ($)", parse: parseFloat },
+                { key: "seller_age_days_at_listing", label: "Seller Age (Days)", parse: parseInt },
+                { key: "base_price", label: "Catalog Base Price ($)", parse: parseFloat },
+                { key: "seller_listings_before", label: "Seller Prior Listings", parse: parseInt },
+              ] as const).map(({ key, label, parse }) => (
+                <div key={key}>
+                  <label className="text-[11px] text-[#8995A3] block mb-1">{label}</label>
+                  <input
+                    type="number"
+                    value={formData[key] ?? 0}
+                    onChange={(e) => setFormData({ ...formData, [key]: parse(e.target.value) || 0 })}
+                    className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+              ))}
             </div>
 
             <button
@@ -441,55 +338,47 @@ export default function ListingIntelligencePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Submitted Listing */}
-                <div className="p-4 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-3">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="text-[#8995A3]">SUBMITTED SELLER UPLOAD</span>
-                    <span
-                      className={`font-semibold ${
-                        result.fake_listing_probability > 0.5 ? "text-rose-400" : "text-emerald-400"
-                      }`}
-                    >
-                      {result.fake_listing_probability > 0.5 ? "Flagged Asset" : "Clean Asset"}
-                    </span>
-                  </div>
-                  <div className="relative h-48 rounded-lg overflow-hidden border border-[#202A35] bg-black flex items-center justify-center">
-                    <img
-                      src={activePreset.sellerImage}
-                      alt="Submitted Seller Asset"
-                      className="w-full h-full object-contain"
-                    />
-                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur text-[10px] font-mono text-cyan-300 border border-cyan-500/30">
-                      Seller Upload
+                {[
+                  {
+                    header: "SUBMITTED SELLER UPLOAD",
+                    statusText: result.fake_listing_probability > 0.5 ? "Flagged Asset" : "Clean Asset",
+                    statusColor: result.fake_listing_probability > 0.5 ? "text-rose-400" : "text-emerald-400",
+                    img: activePreset.sellerImage,
+                    tag: "Seller Upload",
+                    tagColor: "text-cyan-300 border-cyan-500/30",
+                    captionLabel: "Caption:",
+                    captionVal: activePreset.sellerImageTitle,
+                    captionColor: "text-[#E8EDF3]",
+                  },
+                  {
+                    header: "CATALOG REFERENCE MATCH",
+                    statusText: `${(result.multimodal_similarity_score * 100).toFixed(1)}% Visual Match`,
+                    statusColor: "text-cyan-400 font-semibold",
+                    img: activePreset.catalogImage,
+                    tag: "Official Catalog",
+                    tagColor: "text-emerald-300 border-emerald-500/30",
+                    captionLabel: "Original Merchant:",
+                    captionVal: activePreset.originalMerchant,
+                    captionColor: "text-blue-400",
+                  },
+                ].map((card, i) => (
+                  <div key={i} className="p-4 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-3">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#8995A3]">{card.header}</span>
+                      <span className={card.statusColor}>{card.statusText}</span>
+                    </div>
+                    <div className="relative h-48 rounded-lg overflow-hidden border border-[#202A35] bg-black flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={card.img} alt={card.header} className="w-full h-full object-contain" />
+                      <div className={`absolute top-2 right-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur text-[10px] font-mono border ${card.tagColor}`}>
+                        {card.tag}
+                      </div>
+                    </div>
+                    <div className="text-[11px] font-mono text-[#8995A3]">
+                      {card.captionLabel} <span className={card.captionColor}>{card.captionVal}</span>
                     </div>
                   </div>
-                  <div className="text-[11px] font-mono text-[#8995A3]">
-                    Caption: <span className="text-[#E8EDF3]">{activePreset.sellerImageTitle}</span>
-                  </div>
-                </div>
-
-                {/* Catalog Item Match */}
-                <div className="p-4 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-3">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="text-[#8995A3]">CATALOG REFERENCE MATCH</span>
-                    <span className="text-cyan-400 font-semibold">
-                      {(result.multimodal_similarity_score * 100).toFixed(1)}% Visual Match
-                    </span>
-                  </div>
-                  <div className="relative h-48 rounded-lg overflow-hidden border border-[#202A35] bg-black flex items-center justify-center">
-                    <img
-                      src={activePreset.catalogImage}
-                      alt="Official Catalog Asset"
-                      className="w-full h-full object-contain"
-                    />
-                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur text-[10px] font-mono text-emerald-300 border border-emerald-500/30">
-                      Official Catalog
-                    </div>
-                  </div>
-                  <div className="text-[11px] font-mono text-[#8995A3]">
-                    Original Merchant: <span className="text-blue-400">{activePreset.originalMerchant}</span>
-                  </div>
-                </div>
+                ))}
               </div>
 
               {/* Dynamic Visual Alignment Gauge */}

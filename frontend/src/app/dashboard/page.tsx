@@ -16,9 +16,51 @@ import {
   Microscope,
 } from "lucide-react";
 
+const DECISION_META: Record<string, { badge: string; narrative: string; rec: string; preset: string }> = {
+  BLOCK: {
+    badge: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+    narrative: "Collusion Farm Attack Detected",
+    rec: "Halt payment settlement and freeze card",
+    preset: "preset_device_farm",
+  },
+  HOLD: {
+    badge: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    narrative: "High-Velocity Return Abuse Risk",
+    rec: "Require physical inspection of return",
+    preset: "preset_serial_returner",
+  },
+  REVIEW: {
+    badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    narrative: "First-Time Buyer Price Anomaly",
+    rec: "Verify identity or approve manual risk",
+    preset: "preset_price_arbitrage",
+  },
+  ALLOW: {
+    badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    narrative: "Verified Clean Repeat Customer",
+    rec: "Allow instant friction-free checkout",
+    preset: "preset_normal_buyer",
+  },
+};
+
+const EXEC_BREAKDOWNS = [
+  { title: "Device Farm Collusion", val: "₹890,200", sub: "42 attacks stopped before payment", color: "text-rose-400" },
+  { title: "Serial Return Arbitrage", val: "₹425,100", sub: "Held for warehouse serial verification", color: "text-amber-400" },
+  { title: "Listing & Catalog Scams", val: "₹315,400", sub: "Flagged via CLIP image vector reuse", color: "text-cyan-400" },
+  { title: "Account Takeover Bursts", val: "₹211,800", sub: "Session velocity step-up enforced", color: "text-purple-400" },
+];
+
+const AI_BREAKDOWNS = [
+  { step: "1. GraphSAGE GNN", title: "16D Node Embeddings", sub: "Inductive neighborhood message passing", color: "text-purple-400" },
+  { step: "2. Tabular XGBoost", title: "48 Relational Features", sub: "Tree depth: 6 · Regularization: L1/L2", color: "text-blue-400" },
+  { step: "3. Isotonic Calibrator", title: "Monotonic Score Fit", sub: "P(Y=1|S) calibrated on holdout split", color: "text-emerald-400" },
+  { step: "4. Conformal Risk Filter", title: "Coverage Set C(X)", sub: "Finite-sample validity guaranteed", color: "text-cyan-400" },
+];
+
 export default function DashboardPage() {
   const { viewMode, isLive, readyInfo } = useViewMode();
   const [streamStatus, setStreamStatus] = useState<"LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "OFFLINE">("CONNECTING");
+
   /* BEGIN GENERATED */
   const [metrics, setMetrics] = useState({
     totalAnalyzed: 142850,
@@ -131,7 +173,6 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Quick Simulator CTA */}
         <Link
           href="/transactions"
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-lg shadow-blue-500/20 transition-all self-start"
@@ -222,31 +263,11 @@ export default function DashboardPage() {
       {/* System Readiness Probe Grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          {
-            name: "API Gateway",
-            status: isLive ? "Operational" : "Offline Demo",
-            active: isLive,
-          },
-          {
-            name: "Redis Feature Store",
-            status: readyInfo?.components?.redis === "available" ? "Live (Port 6379)" : "Offline (Disk Fallback)",
-            active: readyInfo?.components?.redis === "available",
-          },
-          {
-            name: "Neo4j Graph Store",
-            status: readyInfo?.components?.neo4j === "available" ? "Live (Port 7687)" : "Offline (Disk Rings)",
-            active: readyInfo?.components?.neo4j === "available",
-          },
-          {
-            name: "Phase 5 Hybrid",
-            status: readyInfo?.components?.models === "ready" ? "Active (XGBoost)" : "Artifact Model",
-            active: true,
-          },
-          {
-            name: "Prometheus Telemetry",
-            status: readyInfo?.components?.prometheus === "available" ? "Scraping /metrics" : "Standby",
-            active: readyInfo?.components?.prometheus === "available",
-          },
+          { name: "API Gateway", status: isLive ? "Operational" : "Offline Demo", active: isLive },
+          { name: "Redis Feature Store", status: readyInfo?.components?.redis === "available" ? "Live (Port 6379)" : "Offline (Disk Fallback)", active: readyInfo?.components?.redis === "available" },
+          { name: "Neo4j Graph Store", status: readyInfo?.components?.neo4j === "available" ? "Live (Port 7687)" : "Offline (Disk Rings)", active: readyInfo?.components?.neo4j === "available" },
+          { name: "Phase 5 Hybrid", status: readyInfo?.components?.models === "ready" ? "Active (XGBoost)" : "Artifact Model", active: true },
+          { name: "Prometheus Telemetry", status: readyInfo?.components?.prometheus === "available" ? "Scraping /metrics" : "Standby", active: readyInfo?.components?.prometheus === "available" },
         ].map((comp, idx) => (
           <div key={idx} className="p-3 rounded-lg border border-[#202A35] bg-[#111821]">
             <div className="flex items-center justify-between">
@@ -261,144 +282,58 @@ export default function DashboardPage() {
       {/* DYNAMIC KEY METRICS ROW (ADAPTS TO VIEW MODE) */}
       {/* BEGIN GENERATED */}
       {viewMode === "executive" ? (
-        /* ================= EXECUTIVE STORY METRICS ================= */
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl border border-blue-500/20 bg-[#111821] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-blue-300">Fraud Loss Prevented</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+          {[
+            { label: "Fraud Loss Prevented", val: "$1,842,500", sub: "+18.4% YoY saved vs legacy rules", color: "text-emerald-400", subColor: "text-emerald-400/90", border: "border-blue-500/20", icon: Sparkles, iconColor: "text-blue-400", titleColor: "text-blue-300" },
+            { label: "Clean Buyer Experience", val: "99.2%", sub: "Frictionless instant checkout rate", color: "text-[#E8EDF3]", subColor: "text-emerald-400", border: "border-emerald-500/20", icon: CheckCircle2, iconColor: "text-emerald-400", titleColor: "text-emerald-300" },
+            { label: "Chargeback Dispute Rate", val: "0.04%", sub: "Well below Visa 0.65% excessive limit", color: "text-[#E8EDF3]", subColor: "text-emerald-400", border: "border-amber-500/20", icon: ShieldAlert, iconColor: "text-amber-400", titleColor: "text-amber-300" },
+            { label: "Autonomous Action Rate", val: "93.5%", sub: "Instant automated machine decisions", color: "text-[#E8EDF3]", subColor: "text-cyan-400", border: "border-cyan-500/20", icon: Zap, iconColor: "text-cyan-400", titleColor: "text-cyan-300" },
+          ].map((c) => {
+            const Icon = c.icon;
+            return (
+              <div key={c.label} className={`p-4 rounded-xl border ${c.border} bg-[#111821]`}>
+                <div className="flex items-center justify-between text-xs text-[#8995A3]">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`font-medium ${c.titleColor}`}>{c.label}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+                  </div>
+                  <Icon className={`w-4 h-4 ${c.iconColor}`} />
+                </div>
+                <div className={`text-2xl font-bold font-mono ${c.color} mt-2`}>{c.val}</div>
+                <div className={`text-[11px] ${c.subColor} mt-1 font-medium`}>{c.sub}</div>
               </div>
-              <Sparkles className="w-4 h-4 text-blue-400" />
-            </div>
-            <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
-              $1,842,500
-            </div>
-            <div className="text-[11px] text-emerald-400/90 mt-1 flex items-center gap-1 font-medium">
-              <span>+18.4% YoY saved vs legacy rules</span>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-emerald-500/20 bg-[#111821]">
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-emerald-300">Clean Buyer Experience</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
-              </div>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
-              99.2%
-            </div>
-            <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1 font-medium">
-              <span>Frictionless instant checkout rate</span>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-amber-500/20 bg-[#111821]">
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-amber-300">Chargeback Dispute Rate</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
-              </div>
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
-              0.04%
-            </div>
-            <div className="text-[11px] text-emerald-400 mt-1 font-medium">
-              Well below Visa 0.65% excessive limit
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-cyan-500/20 bg-[#111821]">
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-cyan-300">Autonomous Action Rate</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
-              </div>
-              <Zap className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
-              93.5%
-            </div>
-            <div className="text-[11px] text-cyan-400 mt-1 font-medium">
-              Instant automated machine decisions
-            </div>
-          </div>
+            );
+          })}
         </div>
       ) : (
-        /* ================= DEEP AI INSPECTOR METRICS ================= */
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl border border-purple-500/20 bg-[#111821]">
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-purple-300">Inferences Evaluated</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+          {[
+            { label: "Inferences Evaluated", val: metrics.totalAnalyzed.toLocaleString("en-US"), sub: "+12.4% vs last week", color: "text-[#E8EDF3]", subColor: "text-emerald-400", border: "border-purple-500/20", icon: Activity, iconColor: "text-purple-400", titleColor: "text-purple-300", tag: "DEMO DATA", tagCls: "bg-amber-500/10 text-amber-400 border-amber-500/30", suppress: true },
+            { label: "Conformal Guarantee C(X)", val: "≥ 95.0%", sub: "Nominal guarantee (α = 0.05) · Empirical: Not available in live feed", color: "text-emerald-400", subColor: "text-[#8995A3]", border: "border-indigo-500/20", icon: Layers, iconColor: "text-indigo-400", titleColor: "text-indigo-300", tag: "MATHEMATICAL BOUND", tagCls: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
+            { label: "Expected Calibration Error", val: "Not available", sub: "Requires ground-truth labels · See Evaluation tab", color: "text-[#8995A3]", subColor: "text-[#596574] font-mono", border: "border-cyan-500/20", icon: Microscope, iconColor: "text-cyan-400", titleColor: "text-cyan-300", tag: "OFFLINE METRIC", tagCls: "bg-[#202A35] text-[#8995A3] border-[#202A35]" },
+            { label: "Hardware Latency (p95)", val: metrics.p95Latency, sub: "< 20 ms SLA strictly verified", color: "text-[#E8EDF3]", subColor: "text-emerald-400", border: "border-rose-500/20", icon: Clock, iconColor: "text-rose-400", titleColor: "text-rose-300", tag: "DEMO DATA", tagCls: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+          ].map((c) => {
+            const Icon = c.icon;
+            return (
+              <div key={c.label} className={`p-4 rounded-xl border ${c.border} bg-[#111821]`}>
+                <div className="flex items-center justify-between text-xs text-[#8995A3]">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`font-medium ${c.titleColor}`}>{c.label}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold border ${c.tagCls}`}>{c.tag}</span>
+                  </div>
+                  <Icon className={`w-4 h-4 ${c.iconColor}`} />
+                </div>
+                <div {...(c.suppress ? { suppressHydrationWarning: true } : {})} className={`text-2xl font-bold font-mono ${c.color} mt-2`}>{c.val}</div>
+                <div className={`text-[11px] ${c.subColor} mt-1 flex items-center gap-1`}>{c.sub}</div>
               </div>
-              <Activity className="w-4 h-4 text-purple-400" />
-            </div>
-            <div suppressHydrationWarning className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
-              {metrics.totalAnalyzed.toLocaleString("en-US")}
-            </div>
-            <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-              <span>+12.4% vs last week</span>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-indigo-500/20 bg-[#111821]">
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-indigo-300">Conformal Guarantee C(X)</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">MATHEMATICAL BOUND</span>
-              </div>
-              <Layers className="w-4 h-4 text-indigo-400" />
-            </div>
-            <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
-              &ge; 95.0%
-            </div>
-            <div className="text-[11px] text-[#8995A3] mt-1 flex items-center gap-1">
-              <span>Nominal guarantee (&alpha; = 0.05) &middot; Empirical: Not available in live feed</span>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-cyan-500/20 bg-[#111821]">
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-cyan-300">Expected Calibration Error</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#202A35] text-[#8995A3] border border-[#202A35]">OFFLINE METRIC</span>
-              </div>
-              <Microscope className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div className="text-2xl font-bold font-mono text-[#8995A3] mt-2">
-              Not available
-            </div>
-            <div className="text-[11px] text-[#596574] mt-1 font-mono">
-              Requires ground-truth labels &middot; See Evaluation tab
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-rose-500/20 bg-[#111821]">
-            <div className="flex items-center justify-between text-xs text-[#8995A3]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-rose-300">Hardware Latency (p95)</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
-              </div>
-              <Clock className="w-4 h-4 text-rose-400" />
-            </div>
-            <div className="text-2xl font-bold font-mono text-[#E8EDF3] mt-2">
-              {metrics.p95Latency}
-            </div>
-            <div className="text-[11px] text-emerald-400 mt-1">&lt; 20 ms SLA strictly verified</div>
-          </div>
+            );
+          })}
         </div>
       )}
       {/* END GENERATED */}
 
       {/* DUAL MODE MIDDLE INTELLIGENCE SECTION */}
       {viewMode === "executive" ? (
-        /* ================= EXECUTIVE STORY BREAKDOWN ================= */
         <div className="p-5 rounded-xl border border-blue-500/20 bg-[#111821] space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#202A35] pb-3">
             <div>
@@ -416,30 +351,16 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[11px] text-[#8995A3]">Device Farm Collusion</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹890,200</div>
-              <div className="text-[10px] text-rose-400 mt-1">42 attacks stopped before payment</div>
-            </div>
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[11px] text-[#8995A3]">Serial Return Arbitrage</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹425,100</div>
-              <div className="text-[10px] text-amber-400 mt-1">Held for warehouse serial verification</div>
-            </div>
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[11px] text-[#8995A3]">Listing &amp; Catalog Scams</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹315,400</div>
-              <div className="text-[10px] text-cyan-400 mt-1">Flagged via CLIP image vector reuse</div>
-            </div>
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[11px] text-[#8995A3]">Account Takeover Bursts</div>
-              <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">₹211,800</div>
-              <div className="text-[10px] text-purple-400 mt-1">Session velocity step-up enforced</div>
-            </div>
+            {EXEC_BREAKDOWNS.map((item, idx) => (
+              <div key={idx} className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
+                <div className="text-[11px] text-[#8995A3]">{item.title}</div>
+                <div className="text-lg font-bold font-mono text-[#E8EDF3] mt-1">{item.val}</div>
+                <div className={`text-[10px] mt-1 ${item.color}`}>{item.sub}</div>
+              </div>
+            ))}
           </div>
         </div>
       ) : (
-        /* ================= DEEP AI INSPECTOR ARCHITECTURE ================= */
         <div className="p-5 rounded-xl border border-purple-500/20 bg-[#111821] space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#202A35] pb-3">
             <div>
@@ -457,73 +378,57 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 font-mono text-xs">
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[10px] text-purple-400 font-bold uppercase">1. GraphSAGE GNN</div>
-              <div className="text-[#E8EDF3] font-semibold mt-1">16D Node Embeddings</div>
-              <div className="text-[10px] text-[#8995A3] mt-1">Inductive neighborhood message passing</div>
-            </div>
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[10px] text-blue-400 font-bold uppercase">2. Tabular XGBoost</div>
-              <div className="text-[#E8EDF3] font-semibold mt-1">48 Relational Features</div>
-              <div className="text-[10px] text-[#8995A3] mt-1">Tree depth: 6 · Regularization: L1/L2</div>
-            </div>
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[10px] text-emerald-400 font-bold uppercase">3. Isotonic Calibrator</div>
-              <div className="text-[#E8EDF3] font-semibold mt-1">Monotonic Score Fit</div>
-              <div className="text-[10px] text-[#8995A3] mt-1">P(Y=1|S) calibrated on holdout split</div>
-            </div>
-            <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-              <div className="text-[10px] text-cyan-400 font-bold uppercase">4. Conformal Risk Filter</div>
-              <div className="text-[#E8EDF3] font-semibold mt-1">Coverage Set C(X)</div>
-              <div className="text-[10px] text-[#8995A3] mt-1">Finite-sample validity guaranteed</div>
-            </div>
+            {AI_BREAKDOWNS.map((item, idx) => (
+              <div key={idx} className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
+                <div className={`text-[10px] font-bold uppercase ${item.color}`}>{item.step}</div>
+                <div className="text-[#E8EDF3] font-semibold mt-1">{item.title}</div>
+                <div className="text-[10px] text-[#8995A3] mt-1">{item.sub}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* Operational Decision Distribution */}
       {/* BEGIN GENERATED */}
-      <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold text-[#E8EDF3] uppercase tracking-wider flex items-center gap-2">
-            <span>Operational Decision Routing Distribution</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
-          </div>
-          <div className="text-[11px] text-[#8995A3] font-mono">Last 24 Hours: 142,850 decisions</div>
-        </div>
+      {(() => {
+        const ROUTING_ITEMS = [
+          { label: "ALLOW", width: "88.2%", bg: "bg-emerald-500", text: "88.2% (125,993)" },
+          { label: "REVIEW", width: "6.5%", bg: "bg-amber-500", text: "6.5% (9,285)" },
+          { label: "HOLD", width: "2.3%", bg: "bg-orange-500", text: "2.3% (3,285)" },
+          { label: "BLOCK", width: "3.0%", bg: "bg-rose-500", text: "3.0% (4,287)" },
+        ];
+        return (
+          <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-[#E8EDF3] uppercase tracking-wider flex items-center gap-2">
+                <span>Operational Decision Routing Distribution</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">DEMO DATA</span>
+              </div>
+              <div className="text-[11px] text-[#8995A3] font-mono">Last 24 Hours: 142,850 decisions</div>
+            </div>
 
-        {/* Visual Progress Bar */}
+
         <div className="h-3 rounded-full bg-[#0A0E13] overflow-hidden flex">
-          <div style={{ width: "88.2%" }} className="bg-emerald-500" title="ALLOW: 88.2%" />
-          <div style={{ width: "6.5%" }} className="bg-amber-500" title="REVIEW: 6.5%" />
-          <div style={{ width: "2.3%" }} className="bg-orange-500" title="HOLD: 2.3%" />
-          <div style={{ width: "3.0%" }} className="bg-rose-500" title="BLOCK: 3.0%" />
+          {ROUTING_ITEMS.map((r, idx) => (
+            <div key={idx} style={{ width: r.width }} className={r.bg} title={`${r.label}: ${r.width}`} />
+          ))}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-xs text-[#8995A3]">ALLOW:</span>
-            <span className="font-mono text-xs font-semibold text-[#E8EDF3]">88.2% (125,993)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span className="text-xs text-[#8995A3]">REVIEW:</span>
-            <span className="font-mono text-xs font-semibold text-[#E8EDF3]">6.5% (9,285)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-            <span className="text-xs text-[#8995A3]">HOLD:</span>
-            <span className="font-mono text-xs font-semibold text-[#E8EDF3]">2.3% (3,285)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <span className="text-xs text-[#8995A3]">BLOCK:</span>
-            <span className="font-mono text-xs font-semibold text-[#E8EDF3]">3.0% (4,287)</span>
-          </div>
+          {ROUTING_ITEMS.map((r, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${r.bg}`} />
+              <span className="text-xs text-[#8995A3]">{r.label}:</span>
+              <span className="font-mono text-xs font-semibold text-[#E8EDF3]">{r.text}</span>
+            </div>
+          ))}
         </div>
       </div>
+        );
+      })()}
       {/* END GENERATED */}
+
 
       {/* Flagged Transactions Queue (ADAPTS TO VIEW MODE) */}
       <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
@@ -577,7 +482,6 @@ export default function DashboardPage() {
 
         <div className="overflow-x-auto">
           {viewMode === "executive" ? (
-            /* ================= EXECUTIVE STORY QUEUE TABLE ================= */
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#202A35] text-[10px] uppercase font-mono text-[#596574]">
@@ -591,70 +495,38 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#151D27] text-xs">
-                {recentTransactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
-                    <td className="py-3 px-3 font-mono text-blue-400 font-semibold">{tx.id}</td>
-                    <td className="py-3 px-3 font-mono text-[#E8EDF3]">{tx.buyer}</td>
-                    <td className="py-3 px-3 font-mono text-[#E8EDF3]">{tx.amount}</td>
-                    <td className="py-3 px-3 text-[#E8EDF3] max-w-sm">
-                      <div className="font-medium text-xs">
-                        {tx.decision === "BLOCK"
-                          ? "Collusion Farm Attack Detected"
-                          : tx.decision === "HOLD"
-                          ? "High-Velocity Return Abuse Risk"
-                          : tx.decision === "REVIEW"
-                          ? "First-Time Buyer Price Anomaly"
-                          : "Verified Clean Repeat Customer"}
-                      </div>
-                      <div className="text-[11px] text-[#8995A3] mt-0.5 truncate">{tx.reason}</div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                          tx.decision === "BLOCK"
-                            ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                            : tx.decision === "HOLD"
-                            ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
-                            : tx.decision === "REVIEW"
-                            ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        }`}
-                      >
-                        {tx.decision}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-[11px] text-[#8995A3]">
-                      {tx.decision === "BLOCK"
-                        ? "Halt payment settlement and freeze card"
-                        : tx.decision === "HOLD"
-                        ? "Require physical inspection of return"
-                        : tx.decision === "REVIEW"
-                        ? "Verify identity or approve manual risk"
-                        : "Allow instant friction-free checkout"}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <Link
-                        href={`/transactions?preset=${
-                          tx.decision === "BLOCK"
-                            ? "preset_device_farm"
-                            : tx.decision === "HOLD"
-                            ? "preset_serial_returner"
-                            : tx.decision === "REVIEW"
-                            ? "preset_price_arbitrage"
-                            : "preset_normal_buyer"
-                        }`}
-                        className="text-xs text-blue-400 hover:text-blue-300 font-semibold inline-flex items-center gap-1"
-                      >
-                        <span>Review Story</span>
-                        <ArrowUpRight className="w-3 h-3" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {recentTransactions.map((tx) => {
+                  const meta = DECISION_META[tx.decision] ?? DECISION_META.ALLOW;
+                  return (
+                    <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
+                      <td className="py-3 px-3 font-mono text-blue-400 font-semibold">{tx.id}</td>
+                      <td className="py-3 px-3 font-mono text-[#E8EDF3]">{tx.buyer}</td>
+                      <td className="py-3 px-3 font-mono text-[#E8EDF3]">{tx.amount}</td>
+                      <td className="py-3 px-3 text-[#E8EDF3] max-w-sm">
+                        <div className="font-medium text-xs">{meta.narrative}</div>
+                        <div className="text-[11px] text-[#8995A3] mt-0.5 truncate">{tx.reason}</div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${meta.badge}`}>
+                          {tx.decision}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-[11px] text-[#8995A3]">{meta.rec}</td>
+                      <td className="py-3 px-3 text-right">
+                        <Link
+                          href={`/transactions?preset=${meta.preset}`}
+                          className="text-xs text-blue-400 hover:text-blue-300 font-semibold inline-flex items-center gap-1"
+                        >
+                          <span>Review Story</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
-            /* ================= DEEP AI INSPECTOR QUEUE TABLE ================= */
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#202A35] text-[10px] uppercase font-mono text-[#596574]">
@@ -671,69 +543,52 @@ export default function DashboardPage() {
               </thead>
               {/* BEGIN GENERATED */}
               <tbody className="divide-y divide-[#151D27] text-xs font-mono">
-                {recentTransactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
-                    <td className="py-3 px-3 text-purple-400 font-semibold">{tx.id}</td>
-                    <td className="py-3 px-3 text-[#E8EDF3]">{tx.buyer}</td>
-                    <td className="py-3 px-3 text-[#E8EDF3]">{tx.amount}</td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`font-semibold ${
-                          tx.calibratedProb > 0.7 ? "text-rose-400" : tx.calibratedProb > 0.3 ? "text-amber-400" : "text-emerald-400"
-                        }`}
-                      >
-                        {(tx.calibratedProb * 100).toFixed(2)}%
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`font-semibold ${
-                          tx.policyRisk > 0.7 ? "text-rose-400" : tx.policyRisk > 0.3 ? "text-amber-400" : "text-emerald-400"
-                        }`}
-                      >
-                        {(tx.policyRisk * 100).toFixed(2)}%
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-[11px] text-[#8995A3]">
-                      {tx.policyRisk > 0.7
-                        ? "XGB: 0.96 · GNN: 0.92"
-                        : tx.policyRisk > 0.3
-                        ? "XGB: 0.42 · GNN: 0.34"
-                        : "XGB: 0.04 · GNN: 0.03"}
-                    </td>
-                    <td className="py-3 px-3 text-cyan-400 text-[11px] max-w-xs truncate">
-                      {tx.decision === "BLOCK"
-                        ? "device_share_count (+0.38)"
-                        : tx.decision === "HOLD"
-                        ? "return_ratio_30d (+0.44)"
-                        : tx.decision === "REVIEW"
-                        ? "price_discrepancy (+0.31)"
-                        : "account_age_days (-0.42)"}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[#E8EDF3]">
-                        {tx.risk > 0.7 ? "{ 1 }" : tx.risk < 0.15 ? "{ 0 }" : "{ 0, 1 }"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <Link
-                        href={`/transactions?preset=${
-                          tx.decision === "BLOCK"
-                            ? "preset_device_farm"
-                            : tx.decision === "HOLD"
-                            ? "preset_serial_returner"
-                            : tx.decision === "REVIEW"
-                            ? "preset_price_arbitrage"
-                            : "preset_normal_buyer"
-                        }`}
-                        className="text-xs text-purple-400 hover:text-purple-300 font-semibold inline-flex items-center gap-1"
-                      >
-                        <span>Inspect ML</span>
-                        <ArrowUpRight className="w-3 h-3" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {recentTransactions.map((tx) => {
+                  const meta = DECISION_META[tx.decision] ?? DECISION_META.ALLOW;
+                  return (
+                    <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
+                      <td className="py-3 px-3 text-purple-400 font-semibold">{tx.id}</td>
+                      <td className="py-3 px-3 text-[#E8EDF3]">{tx.buyer}</td>
+                      <td className="py-3 px-3 text-[#E8EDF3]">{tx.amount}</td>
+                      <td className="py-3 px-3">
+                        <span className={`font-semibold ${tx.calibratedProb > 0.7 ? "text-rose-400" : tx.calibratedProb > 0.3 ? "text-amber-400" : "text-emerald-400"}`}>
+                          {(tx.calibratedProb * 100).toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`font-semibold ${tx.policyRisk > 0.7 ? "text-rose-400" : tx.policyRisk > 0.3 ? "text-amber-400" : "text-emerald-400"}`}>
+                          {(tx.policyRisk * 100).toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-[11px] text-[#8995A3]">
+                        {tx.policyRisk > 0.7 ? "XGB: 0.96 · GNN: 0.92" : tx.policyRisk > 0.3 ? "XGB: 0.42 · GNN: 0.34" : "XGB: 0.04 · GNN: 0.03"}
+                      </td>
+                      <td className="py-3 px-3 text-cyan-400 text-[11px] max-w-xs truncate">
+                        {tx.decision === "BLOCK"
+                          ? "device_share_count (+0.38)"
+                          : tx.decision === "HOLD"
+                          ? "return_ratio_30d (+0.44)"
+                          : tx.decision === "REVIEW"
+                          ? "price_discrepancy (+0.31)"
+                          : "account_age_days (-0.42)"}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[#E8EDF3]">
+                          {tx.risk > 0.7 ? "{ 1 }" : tx.risk < 0.15 ? "{ 0 }" : "{ 0, 1 }"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <Link
+                          href={`/transactions?preset=${meta.preset}`}
+                          className="text-xs text-purple-400 hover:text-purple-300 font-semibold inline-flex items-center gap-1"
+                        >
+                          <span>Inspect ML</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               {/* END GENERATED */}
             </table>
