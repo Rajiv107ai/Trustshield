@@ -124,6 +124,7 @@ export default function DashboardPage() {
       (event) => {
         setStreamStatus("LIVE");
         setRecentTransactions((prev) => {
+          const filtered = prev.filter((t) => t.id !== event.order_id);
           const newTx = {
             id: event.order_id,
             buyer: event.buyer_id,
@@ -135,7 +136,7 @@ export default function DashboardPage() {
             reason: event.reason_codes.length > 0 ? event.reason_codes.join(", ") : "Standard baseline scoring",
             timestamp: "Just now",
           };
-          return [newTx, ...prev.slice(0, 5)];
+          return [newTx, ...filtered.slice(0, 5)];
         });
         setMetrics((prev) => ({
           ...prev,
@@ -495,10 +496,10 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#151D27] text-xs">
-                {recentTransactions.map((tx) => {
+                {recentTransactions.map((tx, idx) => {
                   const meta = DECISION_META[tx.decision] ?? DECISION_META.ALLOW;
                   return (
-                    <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
+                    <tr key={`${tx.id}-${idx}`} className="hover:bg-[#151D27]/50 transition-colors">
                       <td className="py-3 px-3 font-mono text-blue-400 font-semibold">{tx.id}</td>
                       <td className="py-3 px-3 font-mono text-[#E8EDF3]">{tx.buyer}</td>
                       <td className="py-3 px-3 font-mono text-[#E8EDF3]">{tx.amount}</td>
@@ -543,10 +544,10 @@ export default function DashboardPage() {
               </thead>
               {/* BEGIN GENERATED */}
               <tbody className="divide-y divide-[#151D27] text-xs font-mono">
-                {recentTransactions.map((tx) => {
+                {recentTransactions.map((tx, idx) => {
                   const meta = DECISION_META[tx.decision] ?? DECISION_META.ALLOW;
                   return (
-                    <tr key={tx.id} className="hover:bg-[#151D27]/50 transition-colors">
+                    <tr key={`${tx.id}-${idx}`} className="hover:bg-[#151D27]/50 transition-colors">
                       <td className="py-3 px-3 text-purple-400 font-semibold">{tx.id}</td>
                       <td className="py-3 px-3 text-[#E8EDF3]">{tx.buyer}</td>
                       <td className="py-3 px-3 text-[#E8EDF3]">{tx.amount}</td>
@@ -561,7 +562,7 @@ export default function DashboardPage() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-[11px] text-[#8995A3]">
-                        {tx.policyRisk > 0.7 ? "XGB: 0.96 · GNN: 0.92" : tx.policyRisk > 0.3 ? "XGB: 0.42 · GNN: 0.34" : "XGB: 0.04 · GNN: 0.03"}
+                        {tx.policyRisk > 0.7 ? "Tabular: 0.96 · Graph: 0.92" : tx.policyRisk > 0.3 ? "Tabular: 0.42 · Graph: 0.34" : "Tabular: 0.04 · Graph: 0.03"}
                       </td>
                       <td className="py-3 px-3 text-cyan-400 text-[11px] max-w-xs truncate">
                         {tx.decision === "BLOCK"

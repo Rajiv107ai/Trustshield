@@ -297,11 +297,13 @@ export const TrustShieldApi = {
 
     onStatusChange?.("DISCONNECTED");
     let idx = 0;
+    let streamSeq = 1000;
     mockInterval = setInterval(() => {
       if (isClosed) return;
+      streamSeq++;
       const item = {
         ...DEMO_STREAM_TEMPLATES[idx % DEMO_STREAM_TEMPLATES.length],
-        order_id: `ORD_SIM_${Math.floor(78900 + Math.random() * 200)}`,
+        order_id: `ORD_SIM_${79000 + streamSeq}`,
         timestamp: new Date().toLocaleTimeString(),
       };
       idx++;
