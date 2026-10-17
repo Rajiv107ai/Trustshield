@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trustshield"
+version = "2.1.0"
+description = "TrustShield AI - Multi-Layer E-Commerce Fraud Prevention Engine"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*", "trustshield_project*"]

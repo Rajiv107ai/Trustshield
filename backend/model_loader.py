@@ -37,12 +37,6 @@ from typing import Optional, Any
 _ROOT = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 )
-_PROJECT_DIR = os.path.normpath(
-    os.path.join(_ROOT, "trustshield_project")
-)
-if _PROJECT_DIR not in sys.path:
-    sys.path.insert(0, _PROJECT_DIR)
-
 MODELS_DIR = os.path.join(_ROOT, "models")
 
 _REQUIRED = [
@@ -133,7 +127,7 @@ class ModelStore:
 
         # Point-in-time transaction history store (for causal edge weight calculation)
         try:
-            from point_in_time_history import PointInTimeHistoryStore
+            from trustshield_project.point_in_time_history import PointInTimeHistoryStore
             data_dir = os.path.join(_ROOT, "data", "synthetic_v2_1")
             orders_path = os.path.join(data_dir, "orders.csv")
             self.transaction_history = PointInTimeHistoryStore(orders_csv_path=orders_path if os.path.isfile(orders_path) else None)
@@ -152,7 +146,7 @@ class ModelStore:
         if os.path.isfile(val_pred_path) and os.path.isfile(val_label_path):
             try:
                 import numpy as _np
-                from advanced_trust_engine import ConformalPredictor
+                from trustshield_project.advanced_trust_engine import ConformalPredictor
                 _p_val = _np.load(val_pred_path)
                 _y_val = _np.load(val_label_path)
                 cal_src = os.path.basename(val_pred_path)
@@ -177,7 +171,7 @@ class ModelStore:
 
         # ---- Explainability: Initialize TreeSHAP Explainer for Phase 3 ----
         try:
-            from shap_explainer import TrustShieldSHAPExplainer
+            from trustshield_project.shap_explainer import TrustShieldSHAPExplainer
             p3_cols = self.feature_meta.get("all_feature_cols", []) if self.feature_meta is not None else []
             self.shap_explainer = TrustShieldSHAPExplainer(
                 model=self.combined_graph_model,
@@ -201,21 +195,19 @@ class ModelStore:
             self._clip_loaded = False
         elif os.path.isfile(clip_meta_path):
             try:
-                import sys
-                _project_dir = os.path.normpath(
-                    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "trustshield_project")
-                )
-                if _project_dir not in sys.path:
-                    sys.path.insert(0, _project_dir)
-
-                from product_listing_generator import generate_product_catalog
-                from multimodal_scoring import (
+                from trustshield_project.multimodal_scoring import (
                     CLIPMultimodalScorer,
                     CLIPEmbeddingCache,
                     _product_fingerprint,
                 )
 
-                self.clip_products_df = generate_product_catalog()
+                catalog_parquet_path = os.path.join(MODELS_DIR, "product_catalog.parquet")
+                if os.path.isfile(catalog_parquet_path):
+                    self.clip_products_df = pd.read_parquet(catalog_parquet_path)
+                else:
+                    from trustshield_project.product_listing_generator import generate_product_catalog
+                    self.clip_products_df = generate_product_catalog()
+
                 cache = CLIPEmbeddingCache(clip_cache_dir)
                 fingerprint = _product_fingerprint(list(self.clip_products_df["product_id"].astype(str)))
                 cached = cache.load(fingerprint)

@@ -35,6 +35,7 @@ trustshield_project/synthetic_data_export/*.gz
 *.tar
 *.tar.gz
 *.parquet
+!models/product_catalog.parquet
 .env
 .ipynb_checkpoints/
 

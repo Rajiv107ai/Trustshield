@@ -20,13 +20,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-# Ensure repository root is on sys.path
-_ROOT_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-)
-if _ROOT_DIR not in sys.path:
-    sys.path.insert(0, _ROOT_DIR)
-
 from backend.auth import validate_security_configuration
 from backend.features import _build_feature_row, _risk_label
 from backend.model_loader import store
@@ -34,14 +27,7 @@ from backend.routers.operations import router as operations_router
 from backend.routers.scoring import router as scoring_router, score_transaction
 from backend.routers.system import router as system_router
 from backend.services.metrics_service import metrics_service
-
-try:
-    from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
-except ImportError:
-    try:
-        from advanced_trust_engine import CanonicalTrustEngine
-    except ImportError:
-        CanonicalTrustEngine = None
+from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
 
 logger = logging.getLogger(__name__)
 
