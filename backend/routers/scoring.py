@@ -120,7 +120,12 @@ def _evaluate_and_build_response(
 
     t_te0 = time.perf_counter()
     if engine is not None:
-        t_res = engine.score(component_risks, is_cold_start=is_cold_start, model_probability=prob_cal)
+        t_res = engine.score(
+            component_risks,
+            is_cold_start=is_cold_start,
+            model_probability=prob_cal,
+            order_amount=float(feature_row.get("amount", 0.0) or feature_row.get("order_amount", 0.0)),
+        )
         final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
         decision = t_res.decision.value
         trust_score = t_res.trust_score

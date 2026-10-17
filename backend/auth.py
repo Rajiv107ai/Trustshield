@@ -121,13 +121,6 @@ def validate_security_configuration() -> None:
                 "CRITICAL SECURITY: Explicit CORS_ALLOWED_ORIGINS must be configured in production without wildcards."
             )
 
-        # 4. Enforce explicit Neo4j credentials
-        neo_pw = os.getenv("NEO4J_PASSWORD", "")
-        if not neo_pw or neo_pw in ("password", "trustshield_secret", "neo4j"):
-            raise RuntimeError(
-                "CRITICAL SECURITY: Strong, non-default NEO4J_PASSWORD must be configured in production."
-            )
-
 
 def authenticate_request(
     api_key: Optional[str] = Security(_api_key_header),

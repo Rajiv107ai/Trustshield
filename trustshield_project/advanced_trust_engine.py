@@ -250,7 +250,7 @@ class AdvancedTrustEngine:
         reasons: List[str] = []
         if is_cold_start:
             reasons.append("COLD_START_INSUFFICIENT_HISTORY")
-        if len(pred_set) > 1:
+        if len(pred_set) > 1 and risk >= 0.15:
             reasons.append("HIGH_CONFORMAL_UNCERTAINTY_SET_{0,1}")
         if disagreement >= 0.40:
             reasons.append(f"HIGH_DETECTOR_DISAGREEMENT (spread={disagreement:.2f})")
@@ -267,14 +267,14 @@ class AdvancedTrustEngine:
         if order_amount is not None and order_amount > 0:
             c_review = 20.0  # Estimated manual human review cost ($20)
             cost_threshold = c_review / (c_review + order_amount)
-            if risk >= cost_threshold and risk >= self.allow_th:
+            if risk >= cost_threshold and risk >= 0.05:
                 cost_review_flag = True
 
         if risk >= self.hold_th:
             decision = OperationalDecision.BLOCK
         elif risk >= self.review_th:
             decision = OperationalDecision.HOLD
-        elif len(pred_set) > 1 or disagreement > 0.45 or cost_review_flag:
+        elif (len(pred_set) > 1 and risk >= 0.15) or disagreement > 0.45 or cost_review_flag:
             decision = OperationalDecision.REVIEW
         elif risk >= self.allow_th:
             decision = OperationalDecision.REVIEW
