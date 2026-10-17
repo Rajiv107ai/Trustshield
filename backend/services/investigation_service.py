@@ -2,9 +2,9 @@
 TrustShield AI — Investigation & Forensic Dossier Generation Service.
 
 Orchestrates:
-1. Entity validation & feature context resolution (Redis, Disk, or explicit payload)
-2. Unified Trust Engine scoring & Conformal Prediction evaluation
-3. Neo4j parameterized graph traversal (with strict temporal isolation)
+1. Entity validation & feature context resolution (In-Memory, Disk, or explicit payload)
+2. Canonical Trust Engine scoring & Conformal Prediction evaluation
+3. Subgraph traversal & fraud ring attribution (with strict temporal isolation)
 4. Grounded GenAI Investigation Agent synthesis with automated Grounding Verification Guard
 5. Structured Dossier separation: Observed Evidence vs Model Inference vs Action
 """

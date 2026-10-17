@@ -29,7 +29,6 @@ export function demoGetHealth(): HealthResponse {
   return {
     status: "healthy (offline demo mode)",
     models_loaded: false,
-    phase5_loaded: false,
     clip_loaded: false,
     rings_loaded: false,
     n_rings: 0,
@@ -41,13 +40,10 @@ export function demoGetReady(): ReadyResponse {
     status: "not_ready",
     models_ready: false,
     phase3_ready: false,
-    phase5_ready: false,
     clip_ready: false,
     rings_ready: false,
     details: {
       mode: "Offline Demo Simulation",
-      neo4j_mesh: "Offline (Demo mode)",
-      redis_cache: "Offline (Demo mode)",
     },
   };
 }

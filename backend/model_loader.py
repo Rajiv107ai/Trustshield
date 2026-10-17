@@ -39,6 +39,12 @@ _ROOT = os.path.normpath(
 )
 MODELS_DIR = os.path.join(_ROOT, "models")
 
+try:
+    import trustshield_project.calibration as _cal
+    sys.modules.setdefault("calibration", _cal)
+except ImportError:
+    pass
+
 _REQUIRED = [
     "combined_graph_model.joblib",
     "fake_listing_model.joblib",

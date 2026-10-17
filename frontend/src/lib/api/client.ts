@@ -292,96 +292,28 @@ export const TrustShieldApi = {
     onStatusChange?: (status: "LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "ERROR") => void
   ): () => void {
     if (typeof window === "undefined") return () => {};
-    const baseUrl = getBaseApiUrl();
-    const apiKey = getSessionApiKey();
-    const url = `${baseUrl}/stream/transactions?interval=2.0${apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : ""}`;
-    let es: EventSource | null = null;
-    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     let mockInterval: ReturnType<typeof setInterval> | null = null;
     let isClosed = false;
-    let failedAttempts = 0;
 
-    const startMockFallback = () => {
-      if (mockInterval || isClosed) return;
-      onStatusChange?.("DISCONNECTED");
-      let idx = 0;
-      mockInterval = setInterval(() => {
-        if (isClosed) return;
-        const item = {
-          ...DEMO_STREAM_TEMPLATES[idx % DEMO_STREAM_TEMPLATES.length],
-          order_id: `ORD_SIM_${Math.floor(78900 + Math.random() * 200)}`,
-          timestamp: new Date().toLocaleTimeString(),
-        };
-        idx++;
-        onEvent(item);
-      }, 4000);
-    };
+    onStatusChange?.("DISCONNECTED");
+    let idx = 0;
+    mockInterval = setInterval(() => {
+      if (isClosed) return;
+      const item = {
+        ...DEMO_STREAM_TEMPLATES[idx % DEMO_STREAM_TEMPLATES.length],
+        order_id: `ORD_SIM_${Math.floor(78900 + Math.random() * 200)}`,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      idx++;
+      onEvent(item);
+    }, 4000);
 
-    const stopMockFallback = () => {
+    return () => {
+      isClosed = true;
       if (mockInterval) {
         clearInterval(mockInterval);
         mockInterval = null;
       }
-    };
-
-    if (isDemoMode()) {
-      startMockFallback();
-      return () => {
-        isClosed = true;
-        stopMockFallback();
-        onStatusChange?.("DISCONNECTED");
-      };
-    }
-
-    const connect = () => {
-      if (isClosed) return;
-      onStatusChange?.("CONNECTING");
-      try {
-        es = new EventSource(url);
-
-        es.addEventListener("transaction", (e) => {
-          try {
-            const parsed = JSON.parse(e.data);
-            failedAttempts = 0;
-            stopMockFallback();
-            onStatusChange?.("LIVE");
-            onEvent(parsed);
-          } catch {}
-        });
-
-        es.addEventListener("connected", () => {
-          failedAttempts = 0;
-          stopMockFallback();
-          onStatusChange?.("LIVE");
-        });
-
-        es.onerror = () => {
-          failedAttempts++;
-          if (es) {
-            es.close();
-            es = null;
-          }
-          onStatusChange?.("ERROR");
-          if (!isClosed) {
-            retryTimeout = setTimeout(connect, failedAttempts >= 3 ? 15000 : 5000);
-          }
-        };
-      } catch {
-        failedAttempts++;
-        onStatusChange?.("ERROR");
-        if (!isClosed) {
-          retryTimeout = setTimeout(connect, 15000);
-        }
-      }
-    };
-
-    connect();
-
-    return () => {
-      isClosed = true;
-      if (retryTimeout) clearTimeout(retryTimeout);
-      stopMockFallback();
-      if (es) es.close();
       onStatusChange?.("DISCONNECTED");
     };
   },

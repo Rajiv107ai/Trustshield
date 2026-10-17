@@ -10,7 +10,7 @@ export type ServiceState = "ready" | "degraded" | "not_ready";
 export interface HealthResponse {
   status: string;
   models_loaded: boolean;
-  phase5_loaded: boolean;
+  phase5_loaded?: boolean;
   clip_loaded: boolean;
   shap_loaded?: boolean;
   rings_loaded: boolean;
@@ -21,7 +21,7 @@ export interface ReadyResponse {
   status: ServiceState;
   models_ready: boolean;
   phase3_ready: boolean;
-  phase5_ready: boolean;
+  phase5_ready?: boolean;
   clip_ready: boolean;
   shap_ready?: boolean;
   rings_ready: boolean;
