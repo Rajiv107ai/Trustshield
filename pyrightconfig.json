@@ -1,7 +1,6 @@
 {
   "include": [
     "backend",
-    "scripts",
     "trustshield_project"
   ],
   "exclude": [

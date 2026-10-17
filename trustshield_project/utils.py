@@ -28,9 +28,9 @@ def evaluate(y_true, y_pred, y_score, label):
     for a binary classifier.
     """
     print(f"\n=== {label} ===")
-    print(f"Precision: {precision_score(y_true, y_pred, zero_division=0):.3f}")
-    print(f"Recall:    {recall_score(y_true, y_pred, zero_division=0):.3f}")
-    print(f"F1:        {f1_score(y_true, y_pred, zero_division=0):.3f}")
+    print(f"Precision: {precision_score(y_true, y_pred, zero_division=0):.3f}")  # type: ignore[arg-type]
+    print(f"Recall:    {recall_score(y_true, y_pred, zero_division=0):.3f}")     # type: ignore[arg-type]
+    print(f"F1:        {f1_score(y_true, y_pred, zero_division=0):.3f}")         # type: ignore[arg-type]
     if y_score is not None:
         print(f"ROC-AUC:   {roc_auc_score(y_true, y_score):.3f}")
         print(f"PR-AUC:    {average_precision_score(y_true, y_score):.3f}"

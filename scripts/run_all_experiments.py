@@ -509,7 +509,7 @@ def run_all_experiments():
 
     if not HAS_PHASE5_GNN:
         print("  [Notice] Phase 5 GNN models retired from active serving; preserving audited hybrid results.")
-        canonical_res_path = os.path.join(ROOT_DIR, "results", "results.json")
+        canonical_res_path = os.path.join(_ROOT_DIR, "results", "results.json")
         if os.path.exists(canonical_res_path):
             with open(canonical_res_path, "r", encoding="utf-8") as rf:
                 cdata = json.load(rf)
