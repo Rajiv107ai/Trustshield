@@ -29,7 +29,6 @@ from trustshield_project.advanced_ring_intelligence import (
     discover_candidate_communities,
     analyze_candidate_community,
 )
-from trustshield_project.neo4j_investigator import Neo4jInvestigator
 from trustshield_project.investigation_rag import ForensicRAGIndex
 from trustshield_project.investigation_agent import (
     GenAIInvestigationAgent,
@@ -123,19 +122,6 @@ class TestAdvancedRingIntelligence:
         report = analyze_candidate_community(comm, orders, pd.DataFrame(columns=["order_id"]), G, cluster_id="RING_01")
         assert report.member_count == len(comm) and report.hardware_sharing_density > 0.50 and report.merchant_concentration_hhi == 1.0
         assert report.cluster_classification in ("suspicious_cluster", "high_risk_candidate_ring")
-
-
-class TestNeo4jInvestigator:
-    def test_cypher_generation(self):
-        cypher = Neo4jInvestigator.cypher_shared_device_query("SELLER_42", days=30)
-        assert "MATCH (s:Seller" in cypher and "SELLER_42" in cypher
-
-    def test_in_memory_simulation(self):
-        G = nx.MultiGraph()
-        G.add_edge("S1", "DEV_99", relation="uses_device")
-        G.add_edge("DEV_99", "B1", relation="uses_device")
-        results = Neo4jInvestigator(G).query_buyers_connected_via_device_in_memory("S1")
-        assert len(results) == 1 and results[0]["buyer_id"] == "B1" and results[0]["shared_device_id"] == "DEV_99"
 
 
 class _MockTrustResult:

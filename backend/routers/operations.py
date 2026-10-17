@@ -6,7 +6,6 @@ Endpoints:
 - POST /listing/analyze                -- Multimodal fake listing detection (CLIP + XGBoost)
 - POST /return/analyze & /return/score -- Return abuse & velocity scoring
 - POST /investigation/generate-dossier -- Evidence-grounded forensic dossier generation
-- GET  /stream/transactions            -- Real-time Server-Sent Events (SSE) transaction stream
 """
 
 import logging
@@ -17,7 +16,6 @@ from typing import List
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
 
 from backend.auth import Role, authenticate_request, require_role
 from backend.features import _risk_label
@@ -35,7 +33,6 @@ from backend.schemas import (
 )
 from backend.services.investigation_service import investigation_service
 from backend.services.metrics_service import metrics_service
-from backend.services.stream_service import transaction_event_generator
 
 try:
     from trustshield_project.multimodal_scoring import MultimodalScorer as _MultimodalScorer
@@ -51,14 +48,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _get_transaction_event_generator():
-    """Dynamically resolves the active transaction event generator, respecting test monkeypatching."""
-    main_mod = sys.modules.get("backend.main")
-    if main_mod is not None and hasattr(main_mod, "transaction_event_generator"):
-        return getattr(main_mod, "transaction_event_generator")
-    return transaction_event_generator
 
 
 @router.get("/fraud-rings", response_model=FraudRingsResponse, tags=["rings"], dependencies=[Depends(authenticate_request)])
@@ -315,33 +304,3 @@ def generate_forensic_dossier(req: DossierRequest):
         metrics_service.dossier_total.labels(entity_type=req.entity_type, status="error").inc()
         logger.error("Dossier generation failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal dossier generation failed.")
-
-
-@router.get("/stream/transactions", tags=["streaming"], dependencies=[Depends(authenticate_request)])
-async def stream_transactions(request: Request, interval: float = Query(default=2.0, ge=0.5, le=10.0)):
-    """
-    Server-Sent Events (SSE) real-time stream of incoming transactions scored dynamically
-    through the Unified Trust Engine and active ML models.
-    """
-    if not store.is_loaded:
-        try:
-            store.load()
-        except Exception:
-            raise HTTPException(status_code=503, detail="Models not loaded yet.")
-
-    gen_fn = _get_transaction_event_generator()
-
-    return StreamingResponse(
-        gen_fn(
-            request=request,
-            scoring_fn=score_transaction,
-            interval_seconds=interval,
-            metrics_tracker=metrics_service,
-        ),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
