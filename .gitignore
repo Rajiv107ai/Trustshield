@@ -42,3 +42,7 @@ trustshield_project/synthetic_data_export/*.gz
 scripts/seed_graph.cypher
 scripts/seed_redis.txt
 scratch/
+
+# Agent tooling & locks
+.agents/
+skills-lock.json
