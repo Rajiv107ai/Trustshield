@@ -42,7 +42,11 @@ def _risk_label(score: float) -> str:
     return "low"
 
 
-def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
+def _build_feature_row(
+    req: TransactionScoreRequest,
+    all_cols: list,
+    resolved_graph_features: Optional[dict] = None,
+) -> dict:
     """
     Convert a TransactionScoreRequest into a feature dict keyed by the
     exact model column names.
@@ -118,7 +122,10 @@ def _build_feature_row(req: TransactionScoreRequest, all_cols: list) -> dict:
         row["device_shared_buyer_count"] = 1.0
 
     # Incorporate resolved graph features (server / client / default)
-    graph_resolved, _, _, _ = _resolve_graph_features(req)
+    if resolved_graph_features is not None:
+        graph_resolved = resolved_graph_features
+    else:
+        graph_resolved, _, _, _ = _resolve_graph_features(req)
     row.update(graph_resolved)
 
     # Build the final feature vector using only the columns the model expects

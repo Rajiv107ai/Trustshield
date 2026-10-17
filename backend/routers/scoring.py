@@ -48,12 +48,16 @@ VALID_SERVING_MODELS = {"phase3"}
 _default_canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not None else None
 
 
-def _get_engine():
-    """Dynamically resolves the active canonical trust engine, respecting patches on backend.main."""
-    main_mod = sys.modules.get("backend.main")
-    if main_mod is not None and hasattr(main_mod, "_canonical_trust_engine"):
-        return getattr(main_mod, "_canonical_trust_engine")
-    return _default_canonical_trust_engine
+def get_trust_engine() -> CanonicalTrustEngine:
+    """Dependency provider for CanonicalTrustEngine."""
+    if _default_canonical_trust_engine is not None:
+        return _default_canonical_trust_engine
+    if CanonicalTrustEngine is not None:
+        return CanonicalTrustEngine()
+    raise HTTPException(
+        status_code=503,
+        detail="Canonical Trust Engine is unavailable. Legacy fallback is disabled."
+    )
 
 
 def _get_serving_model_version(req: TransactionScoreRequest, request: Optional[Request] = None) -> str:
@@ -193,7 +197,11 @@ def _evaluate_and_build_response(
 
 
 @router.post("/transaction/score", response_model=TransactionScoreResponse, tags=["scoring"], dependencies=[Depends(authenticate_request)])
-def score_transaction(req: TransactionScoreRequest, request: Request = None):  # type: ignore[assignment]
+def score_transaction(
+    req: TransactionScoreRequest,
+    request: Request = None,  # type: ignore[assignment]
+    engine: CanonicalTrustEngine = Depends(get_trust_engine),
+):
     """
     Score an incoming order for fraud using either the Phase 3 Combined model
     (tabular + NetworkX graph features) by default, or the Phase 5 Hybrid model
@@ -219,7 +227,8 @@ def score_transaction(req: TransactionScoreRequest, request: Request = None):  #
         or (req.seller_age_days < 7.0)
     )
 
-    engine = _get_engine()
+    if not isinstance(engine, CanonicalTrustEngine):
+        engine = get_trust_engine()
     if engine is None:
         raise HTTPException(
             status_code=503,
@@ -237,8 +246,8 @@ def score_transaction(req: TransactionScoreRequest, request: Request = None):  #
     meta = store.feature_meta
     all_cols = meta["all_feature_cols"]
 
-    feature_row = _build_feature_row(req, all_cols)
-    _, graph_source, graph_notes, client_mismatch = _resolve_graph_features(req)
+    graph_resolved, graph_source, graph_notes, client_mismatch = _resolve_graph_features(req)
+    feature_row = _build_feature_row(req, all_cols, resolved_graph_features=graph_resolved)
     t_infer0 = time.perf_counter()
     X = pd.DataFrame([feature_row])[all_cols].fillna(0.0)
 
