@@ -1,5 +1,7 @@
 # TrustShield AI — Production Deployment Guide
 
+<!-- BEGIN GENERATED -->
+
 ## 1. Architectural Overview
 
 TrustShield AI operates as a **zero-daemon, single-container inference service** powered by FastAPI, backed by high-performance in-memory graph representations, XGBoost tabular models, TreeSHAP explainability, and conformal uncertainty prediction.
@@ -177,3 +179,5 @@ server {
     }
 }
 ```
+
+<!-- END GENERATED -->

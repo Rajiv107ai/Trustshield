@@ -1,5 +1,7 @@
 # TrustShield AI — Operations & Maintenance Runbook
 
+<!-- BEGIN GENERATED -->
+
 ## 1. Monitoring & Health Probes
 
 TrustShield exposes three standardized diagnostic and telemetry endpoints:
@@ -102,3 +104,5 @@ On startup, `lifespan` automatically loads the new model artifacts into memory w
 1. Check `/health` to confirm `calibrator_active: true`.
 2. Inspect if a sudden influx of cold-start accounts is ordering high-ticket items.
 3. If legitimate merchant flash sale is underway, temporarily adjust `C_REVIEW` policy threshold via environment variables without restarting code.
+
+<!-- END GENERATED -->
