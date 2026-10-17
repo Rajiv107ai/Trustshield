@@ -61,6 +61,12 @@ from phase2_specialized_models import (
     build_listing_features,
     build_return_features,
 )
+from trustshield_project.robustness import (
+    SEEDS_20,
+    paired_stats_calc,
+    holm_bonferroni_correction,
+    train_xgb,
+)
 
 if hasattr(sys.stdout, "reconfigure"):
     getattr(sys.stdout, "reconfigure")(encoding="utf-8", errors="replace")
@@ -98,68 +104,6 @@ def compute_dataset_hash(pipe: dict) -> str:
         df = pipe["base"][key]
         hasher.update(df.to_csv(index=False).encode("utf-8"))
     return hasher.hexdigest()
-
-
-def paired_stats_calc(baseline_vals, new_vals):
-    diffs = np.array(new_vals) - np.array(baseline_vals)
-    n = len(diffs)
-    mean_d = float(np.mean(diffs))
-    std_d = float(np.std(diffs, ddof=1)) if n > 1 else 0.0
-    se_d = std_d / np.sqrt(n) if n > 1 else 0.0
-    t_crit = float(stats.t.ppf(0.975, df=n - 1)) if n > 1 else 1.96
-    ci_lower = mean_d - t_crit * se_d
-    ci_upper = mean_d + t_crit * se_d
-    cohens_d = (mean_d / std_d) if std_d > 1e-9 else 0.0
-    t_res = stats.ttest_rel(new_vals, baseline_vals) if (std_d > 1e-9 and n > 1) else None
-    p_val = float(t_res.pvalue) if t_res is not None and not np.isnan(t_res.pvalue) else 1.0
-    return {
-        "mean_diff": mean_d,
-        "std_diff": std_d,
-        "ci_95": [float(ci_lower), float(ci_upper)],
-        "cohens_d": float(cohens_d),
-        "p_value": p_val,
-        "paired_diffs": [float(d) for d in diffs],
-    }
-
-
-def holm_bonferroni_correction(tests_dict: dict) -> list[dict]:
-    """Applies step-down Holm-Bonferroni correction to multiple testing p-values."""
-    items = list(tests_dict.items())
-    # Sort by raw p-value ascending
-    items.sort(key=lambda x: x[1])
-    m = len(items)
-    adjusted = []
-    running_max = 0.0
-    for i, (name, raw_p) in enumerate(items):
-        rank = i + 1
-        adj_p = min(1.0, (m - rank + 1) * raw_p)
-        running_max = max(running_max, adj_p)
-        adjusted.append({
-            "test_name": name,
-            "raw_p_value": float(raw_p),
-            "holm_adjusted_p_value": float(running_max),
-            "significant_at_05": running_max < 0.05,
-        })
-    return adjusted
-
-
-def train_xgb(X_tr, y_tr, random_state=42):
-    pos = int(y_tr.sum())
-    neg = len(y_tr) - pos
-    clf = XGBClassifier(
-        n_estimators=300,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        scale_pos_weight=neg / max(pos, 1),
-        eval_metric="aucpr",
-        random_state=random_state,
-        n_jobs=-1,
-        verbosity=0,
-    )
-    clf.fit(X_tr.fillna(0.0), y_tr)
-    return clf
 
 
 def compute_recalls_at_budgets(y_test, scores, fraud_types_test, budgets=(0.02, 0.05, 0.10)):

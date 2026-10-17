@@ -276,7 +276,7 @@ def generate_oof_gnn_embeddings(
     unique_buyers = np.array(sorted(train_df["buyer_id"].unique()))
     if fold_strategy == "time_aware":
         # Time-aware forward chaining: sort unique buyers by earliest order date
-        buyer_min_dates = train_df.groupby("buyer_id")["order_date"].min().sort_values()
+        buyer_min_dates = pd.Series(train_df.groupby("buyer_id")["order_date"].min()).sort_values()
         sorted_buyers = buyer_min_dates.index.to_numpy()
         chunks = np.array_split(sorted_buyers, n_splits)
         folds = []
@@ -298,8 +298,8 @@ def generate_oof_gnn_embeddings(
 
     print(f"Generating K={n_splits} buyer-grouped out-of-fold GNN embeddings ({fold_strategy}, lr={lr}) for training set...")
     for fold, (fit_buyer_set, val_b_set) in enumerate(folds):
-        fold_train_mask = train_df["buyer_id"].isin(fit_buyer_set)
-        fold_val_mask = train_df["buyer_id"].isin(val_b_set)
+        fold_train_mask = train_df["buyer_id"].isin(list(fit_buyer_set))
+        fold_val_mask = train_df["buyer_id"].isin(list(val_b_set))
 
         f_tr_b, f_tr_s, f_tr_f, f_tr_y = _make_edge_tensors(train_df[fold_train_mask])
         f_val_b, f_val_s, f_val_f, f_val_y = _make_edge_tensors(train_df[fold_val_mask])
@@ -335,7 +335,7 @@ def generate_oof_gnn_embeddings(
     split_pt = int(0.8 * len(all_b_unique))
     fit_buyers = set(all_b_unique[:split_pt])
 
-    full_fit_mask = train_df["buyer_id"].isin(fit_buyers)
+    full_fit_mask = train_df["buyer_id"].isin(list(fit_buyers))
     full_es_mask = ~full_fit_mask
 
     full_fit_b, full_fit_s, full_fit_f, full_fit_y = _make_edge_tensors(train_df[full_fit_mask])

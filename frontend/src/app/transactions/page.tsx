@@ -68,29 +68,10 @@ function TransactionAnalyzerContent() {
   };
 
   useEffect(() => {
-    let mounted = true;
-    TrustShieldApi.scoreTransaction(initialPreset.payload)
-      .then((res) => {
-        if (mounted) {
-          setResult(res.data);
-          setErrorState(null);
-          setLoading(false);
-        }
-      })
-      .catch((err: unknown) => {
-        if (mounted) {
-          console.error("Scoring failed:", err);
-          setResult(null);
-          const isAuth = err instanceof ApiError ? err.isAuthError : false;
-          const status = err instanceof ApiError ? err.status : undefined;
-          const message = err instanceof Error ? err.message : String(err);
-          setErrorState({ message, isAuth, status });
-          setLoading(false);
-        }
-      });
-    return () => {
-      mounted = false;
-    };
+    const timer = setTimeout(() => {
+      executeScore(initialPreset.payload);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [initialPreset]);
 
   const handleSelectPreset = (preset: ScenarioPreset) => {
@@ -110,45 +91,13 @@ function TransactionAnalyzerContent() {
     executeScore(formData);
   };
 
-  const getDecisionBadge = (decision: string) => {
-    switch (decision) {
-      case "ALLOW":
-        return {
-          bg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
-          glow: "glow-allow",
-          icon: CheckCircle2,
-          label: "ALLOW",
-          sub: "Safe for Instant Settlement",
-        };
-      case "REVIEW":
-        return {
-          bg: "bg-amber-500/10 border-amber-500/30 text-amber-400",
-          glow: "glow-review",
-          icon: AlertTriangle,
-          label: "REVIEW",
-          sub: "Flagged for Human Verification",
-        };
-      case "HOLD":
-        return {
-          bg: "bg-orange-500/10 border-orange-500/30 text-orange-400",
-          glow: "glow-hold",
-          icon: HelpCircle,
-          label: "HOLD",
-          sub: "High-Risk Temporary Freeze",
-        };
-      case "BLOCK":
-      default:
-        return {
-          bg: "bg-rose-500/10 border-rose-500/30 text-rose-400",
-          glow: "glow-block",
-          icon: XCircle,
-          label: "BLOCK",
-          sub: "Confirmed Collusion / Fraud Declared",
-        };
-    }
+  const DECISION_CONFIG: Record<string, { bg: string; glow: string; icon: React.ElementType; label: string; sub: string }> = {
+    ALLOW: { bg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", glow: "glow-allow", icon: CheckCircle2, label: "ALLOW", sub: "Safe for Instant Settlement" },
+    REVIEW: { bg: "bg-amber-500/10 border-amber-500/30 text-amber-400", glow: "glow-review", icon: AlertTriangle, label: "REVIEW", sub: "Flagged for Human Verification" },
+    HOLD: { bg: "bg-orange-500/10 border-orange-500/30 text-orange-400", glow: "glow-hold", icon: HelpCircle, label: "HOLD", sub: "High-Risk Temporary Freeze" },
+    BLOCK: { bg: "bg-rose-500/10 border-rose-500/30 text-rose-400", glow: "glow-block", icon: XCircle, label: "BLOCK", sub: "Confirmed Collusion / Fraud Declared" },
   };
-
-  const badgeConfig = result ? getDecisionBadge(result.decision) : getDecisionBadge("ALLOW");
+  const badgeConfig = DECISION_CONFIG[result?.decision || "ALLOW"] || DECISION_CONFIG.BLOCK;
 
   return (
     <div className="space-y-6">
@@ -361,14 +310,12 @@ function TransactionAnalyzerContent() {
                 <div className="pt-2 border-t border-[#202A35]">
                   <div className="text-xs font-semibold text-[#8995A3] uppercase">Ops Recommendation:</div>
                   <div className="text-xs text-[#E8EDF3] mt-1 leading-relaxed">
-                    {result.decision === "ALLOW" &&
-                      "Proceed with automated payment authorization and normal order fulfillment. Expected chargeback probability is under 1%."}
-                    {result.decision === "REVIEW" &&
-                      "Route transaction to tier-1 fraud queue for manual verification. Call customer or request 3D Secure / OTP authorization."}
-                    {result.decision === "HOLD" &&
-                      "Do not dispatch items. Place merchant payout on temporary hold pending return policy validation or buyer ID verification."}
-                    {result.decision === "BLOCK" &&
-                      "Decline payment authorization immediately. Freeze associated device fingerprints and add merchant to collusion monitoring queue."}
+                    {{
+                      ALLOW: "Proceed with automated payment authorization and normal order fulfillment. Expected chargeback probability is under 1%.",
+                      REVIEW: "Route transaction to tier-1 fraud queue for manual verification. Call customer or request 3D Secure / OTP authorization.",
+                      HOLD: "Do not dispatch items. Place merchant payout on temporary hold pending return policy validation or buyer ID verification.",
+                      BLOCK: "Decline payment authorization immediately. Freeze associated device fingerprints and add merchant to collusion monitoring queue.",
+                    }[result.decision] || "Algorithmic decision rendered."}
                   </div>
                 </div>
               </div>
@@ -384,29 +331,19 @@ function TransactionAnalyzerContent() {
                   </p>
 
                   <div className="space-y-2.5 mt-4">
-                    <button
-                      onClick={() => setOperatorActionSuccess("Transaction Approved & Released for Settlement")}
-                      className="w-full py-2.5 px-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Approve & Release</span>
-                    </button>
-
-                    <button
-                      onClick={() => setOperatorActionSuccess("Transaction Sent to Manual Review Queue")}
-                      className="w-full py-2.5 px-3 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 text-xs font-semibold transition-all flex items-center justify-center gap-2"
-                    >
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>Send for Manual Review</span>
-                    </button>
-
-                    <button
-                      onClick={() => setOperatorActionSuccess("Transaction Confirmed Blocked & Entity Frozen")}
-                      className="w-full py-2.5 px-3 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all flex items-center justify-center gap-2"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      <span>Confirm Block & Freeze Entity</span>
-                    </button>
+                    {[
+                      { msg: "Transaction Approved & Released for Settlement", bg: "bg-emerald-600/20 hover:bg-emerald-600/30 border-emerald-500/30 text-emerald-300", icon: CheckCircle2, text: "Approve & Release" },
+                      { msg: "Transaction Sent to Manual Review Queue", bg: "bg-amber-600/20 hover:bg-amber-600/30 border-amber-500/30 text-amber-300", icon: AlertTriangle, text: "Send for Manual Review" },
+                      { msg: "Transaction Confirmed Blocked & Entity Frozen", bg: "bg-rose-600/20 hover:bg-rose-600/30 border-rose-500/30 text-rose-300", icon: XCircle, text: "Confirm Block & Freeze Entity" },
+                    ].map((btn, idx) => {
+                      const Icon = btn.icon;
+                      return (
+                        <button key={idx} onClick={() => setOperatorActionSuccess(btn.msg)} className={`w-full py-2.5 px-3 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 ${btn.bg}`}>
+                          <Icon className="w-4 h-4" />
+                          <span>{btn.text}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -430,32 +367,18 @@ function TransactionAnalyzerContent() {
                   <span>Probability Calibration</span>
                 </div>
                 <div className="space-y-2 text-xs pt-1">
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Raw Model Score:</span>
-                    <span className="text-[#E8EDF3] font-semibold">
-                      {((result.raw_fraud_probability ?? result.overall_fraud_probability) * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Isotonic Calibrated Prob:</span>
-                    <span className="text-emerald-400 font-semibold">
-                      {((result.calibrated_fraud_probability ?? result.overall_fraud_probability) * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Composite Policy Risk:</span>
-                    <span className="text-amber-400 font-semibold">
-                      {((result.policy_risk_score ?? result.canonical_trust_engine_risk ?? result.overall_fraud_probability) * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Model Disagreement Spread:</span>
-                    <span className="text-amber-400">{(result.model_disagreement * 100).toFixed(2)}%</span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-[#8995A3]">Policy Thresholds:</span>
-                    <span className="text-blue-400">&tau; = 0.25 / 0.55 / 0.85</span>
-                  </div>
+                  {[
+                    ["Raw Model Score:", `${((result.raw_fraud_probability ?? result.overall_fraud_probability) * 100).toFixed(2)}%`, "text-[#E8EDF3] font-semibold"],
+                    ["Isotonic Calibrated Prob:", `${((result.calibrated_fraud_probability ?? result.overall_fraud_probability) * 100).toFixed(2)}%`, "text-emerald-400 font-semibold"],
+                    ["Composite Policy Risk:", `${((result.policy_risk_score ?? result.canonical_trust_engine_risk ?? result.overall_fraud_probability) * 100).toFixed(2)}%`, "text-amber-400 font-semibold"],
+                    ["Model Disagreement Spread:", `${(result.model_disagreement * 100).toFixed(2)}%`, "text-amber-400"],
+                    ["Policy Thresholds:", "τ = 0.25 / 0.55 / 0.85", "text-blue-400"],
+                  ].map(([lbl, val, cls], idx) => (
+                    <div key={idx} className={`flex justify-between py-1 ${idx < 4 ? "border-b border-[#202A35]" : ""}`}>
+                      <span className="text-[#8995A3]">{lbl}</span>
+                      <span className={cls}>{val}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -466,36 +389,21 @@ function TransactionAnalyzerContent() {
                   <span>Conformal Coverage Set</span>
                 </div>
                 <div className="space-y-2 text-xs pt-1">
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Prediction Set C(X):</span>
-                    <span className="text-white font-bold bg-white/10 px-2 py-0.5 rounded">
-                      {result.conformal_prediction_set && result.conformal_prediction_set.length > 0
-                        ? `{ ${result.conformal_prediction_set.join(", ")} }`
-                        : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) > 0.65
-                        ? "{ 1 } (High Risk)"
-                        : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) < 0.35
-                        ? "{ 0 } (Low Risk)"
-                        : "{ 0, 1 } (Ambiguous / Review)"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Target Miscoverage (&alpha;):</span>
-                    <span className="text-[#E8EDF3]">0.05 (95% Coverage)</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Calibration Status:</span>
-                    <span className={result.conformal_is_calibrated ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
-                      {result.conformal_is_calibrated ? "Calibrated (Val Split)" : "Fallback (Uncalibrated)"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-[#8995A3]">Conformal Quantile (q̂):</span>
-                    <span className="text-[#E8EDF3]">
-                      {result.conformal_q_hat !== undefined && result.conformal_q_hat !== null
-                        ? `q̂ = ${result.conformal_q_hat.toFixed(4)}`
-                        : "q̂ = 0.5000 (Default)"}
-                    </span>
-                  </div>
+                  {[
+                    ["Prediction Set C(X):", result.conformal_prediction_set && result.conformal_prediction_set.length > 0
+                      ? `{ ${result.conformal_prediction_set.join(", ")} }`
+                      : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) > 0.65 ? "{ 1 } (High Risk)"
+                      : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) < 0.35 ? "{ 0 } (Low Risk)"
+                      : "{ 0, 1 } (Ambiguous / Review)", "text-white font-bold bg-white/10 px-2 py-0.5 rounded"],
+                    ["Target Miscoverage (α):", "0.05 (95% Coverage)", "text-[#E8EDF3]"],
+                    ["Calibration Status:", result.conformal_is_calibrated ? "Calibrated (Val Split)" : "Fallback (Uncalibrated)", result.conformal_is_calibrated ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"],
+                    ["Conformal Quantile (q̂):", result.conformal_q_hat !== undefined && result.conformal_q_hat !== null ? `q̂ = ${result.conformal_q_hat.toFixed(4)}` : "q̂ = 0.5000 (Default)", "text-[#E8EDF3]"],
+                  ].map(([lbl, val, cls], idx) => (
+                    <div key={idx} className={`flex justify-between py-1 ${idx < 3 ? "border-b border-[#202A35]" : ""}`}>
+                      <span className="text-[#8995A3]">{lbl}</span>
+                      <span className={cls}>{val}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -506,22 +414,17 @@ function TransactionAnalyzerContent() {
                   <span>GNN & Topology State</span>
                 </div>
                 <div className="space-y-2 text-xs pt-1">
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">GNN Embedding Space:</span>
-                    <span className="text-[#E8EDF3]">16-Dimensional</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Message Passing:</span>
-                    <span className="text-[#E8EDF3]">2-Hop HeteroConv</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-[#202A35]">
-                    <span className="text-[#8995A3]">Continuous Time ($Time2Vec$):</span>
-                    <span className="text-emerald-400">&Delta;t &ge; 0 asserted</span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-[#8995A3]">Device Sharing Collision:</span>
-                    <span className="text-rose-400 font-semibold">{formData.device_shared_buyer_count ?? 1} devices</span>
-                  </div>
+                  {[
+                    ["GNN Embedding Space:", "16-Dimensional", "text-[#E8EDF3]"],
+                    ["Message Passing:", "2-Hop HeteroConv", "text-[#E8EDF3]"],
+                    ["Continuous Time (Time2Vec):", "Δt ≥ 0 asserted", "text-emerald-400"],
+                    ["Device Sharing Collision:", `${formData.device_shared_buyer_count ?? 1} devices`, "text-rose-400 font-semibold"],
+                  ].map(([lbl, val, cls], idx) => (
+                    <div key={idx} className={`flex justify-between py-1 ${idx < 3 ? "border-b border-[#202A35]" : ""}`}>
+                      <span className="text-[#8995A3]">{lbl}</span>
+                      <span className={cls}>{val}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -552,88 +455,27 @@ function TransactionAnalyzerContent() {
         </div>
 
         <form onSubmit={handleCustomSubmit} className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Order ID</label>
-            <input
-              type="text"
-              value={formData.order_id || ""}
-              onChange={(e) => handleInputChange("order_id", e.target.value)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Buyer ID</label>
-            <input
-              type="text"
-              value={formData.buyer_id || ""}
-              onChange={(e) => handleInputChange("buyer_id", e.target.value)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Seller ID</label>
-            <input
-              type="text"
-              value={formData.seller_id || ""}
-              onChange={(e) => handleInputChange("seller_id", e.target.value)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Order Amount ($)</label>
-            <input
-              type="number"
-              step="any"
-              value={formData.amount || ""}
-              onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Buyer Age (Days)</label>
-            <input
-              type="number"
-              value={formData.buyer_age_days ?? ""}
-              onChange={(e) => handleInputChange("buyer_age_days", parseInt(e.target.value) || 0)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Prior Orders</label>
-            <input
-              type="number"
-              value={formData.buyer_orders_before ?? ""}
-              onChange={(e) => handleInputChange("buyer_orders_before", parseInt(e.target.value) || 0)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Shared Devices Count</label>
-            <input
-              type="number"
-              step="0.1"
-              value={formData.device_shared_buyer_count ?? ""}
-              onChange={(e) => handleInputChange("device_shared_buyer_count", parseFloat(e.target.value) || 0)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-[#8995A3] block mb-1">Graph Share Degree</label>
-            <input
-              type="number"
-              step="0.1"
-              value={formData.share_degree ?? ""}
-              onChange={(e) => handleInputChange("share_degree", parseFloat(e.target.value) || 0)}
-              className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
-            />
-          </div>
+          {([
+            ["order_id", "Order ID", "text"],
+            ["buyer_id", "Buyer ID", "text"],
+            ["seller_id", "Seller ID", "text"],
+            ["amount", "Order Amount ($)", "number", "any"],
+            ["buyer_age_days", "Buyer Age (Days)", "number"],
+            ["buyer_orders_before", "Prior Orders", "number"],
+            ["device_shared_buyer_count", "Shared Devices Count", "number", "0.1"],
+            ["share_degree", "Graph Share Degree", "number", "0.1"],
+          ] as const).map(([field, label, type, step]) => (
+            <div key={field}>
+              <label className="text-[11px] text-[#8995A3] block mb-1">{label}</label>
+              <input
+                type={type}
+                step={step}
+                value={(formData[field as keyof TransactionScoreRequest] as string | number) ?? ""}
+                onChange={(e) => handleInputChange(field as keyof TransactionScoreRequest, type === "number" ? (parseFloat(e.target.value) || 0) : e.target.value)}
+                className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          ))}
         </form>
       </div>
     </div>

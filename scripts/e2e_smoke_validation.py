@@ -32,7 +32,8 @@ def run_e2e_suite():
     print("TRUSTSHIELD AI - END-TO-END VALIDATION SUITE (9 CASES)")
     print("=" * 60)
 
-    with TestClient(app) as client:
+    api_key = os.getenv("TRUSTSHIELD_API_KEY", "dev-operator-api-key-32chars-long")
+    with TestClient(app, headers={"X-API-Key": api_key}) as client:
         # Case 1: Normal transaction
         print("\n[Case 1/9] Testing Normal Transaction...")
         c1_req = {

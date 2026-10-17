@@ -48,29 +48,10 @@ export default function TelemetryPage() {
   };
 
   useEffect(() => {
-    let mounted = true;
-    TrustShieldApi.getBenchmark()
-      .then((res) => {
-        if (mounted) {
-          setBenchmark(res.data);
-          setErrorState(null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (mounted) {
-          setBenchmark(null);
-          const isAuth = err instanceof ApiError ? err.isAuthError : false;
-          const status = err instanceof ApiError ? err.status : undefined;
-          const message = err instanceof Error ? err.message : String(err);
-          setErrorState({ message, isAuth, status });
-        }
-      })
-      .finally(() => {
-        if (mounted) setBenchmarking(false);
-      });
-    return () => {
-      mounted = false;
-    };
+    const timer = setTimeout(() => {
+      runBenchmark();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -371,50 +352,22 @@ export default function TelemetryPage() {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs font-mono">
-          <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#E8EDF3]">trustshield-api</span>
-              <span className="text-[10px] text-emerald-400 font-bold">PORT 8000</span>
+          {[
+            { name: "trustshield-api", port: "PORT 8000", color: "text-emerald-400", desc: "FastAPI Gateway + SSE Stream", note: "Health: /ready" },
+            { name: "trustshield-redis", port: "PORT 6379", color: "text-cyan-400", desc: "16D GNN Vectors & Cache", note: "TTL + Disk Fallback" },
+            { name: "trustshield-neo4j", port: "PORT 7687", color: "text-purple-400", desc: "Property Graph Store", note: "Temporal Filtering" },
+            { name: "prometheus", port: "PORT 9090", color: "text-blue-400", desc: "Metrics Scraper & Engine", note: "15s Scrape Interval" },
+            { name: "grafana", port: "PORT 3001", color: "text-orange-400", desc: "Visual Risk Dashboards", note: "Auto-provisioned" },
+          ].map((s) => (
+            <div key={s.name} className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#E8EDF3]">{s.name}</span>
+                <span className={`text-[10px] font-bold ${s.color}`}>{s.port}</span>
+              </div>
+              <div className="text-[#8995A3] text-[11px]">{s.desc}</div>
+              <div className="text-[10px] text-blue-400 truncate">{s.note}</div>
             </div>
-            <div className="text-[#8995A3] text-[11px]">FastAPI Gateway + SSE Stream</div>
-            <div className="text-[10px] text-blue-400 truncate">Health: /ready</div>
-          </div>
-
-          <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#E8EDF3]">trustshield-redis</span>
-              <span className="text-[10px] text-cyan-400 font-bold">PORT 6379</span>
-            </div>
-            <div className="text-[#8995A3] text-[11px]">16D GNN Vectors & Cache</div>
-            <div className="text-[10px] text-blue-400 truncate">TTL + Disk Fallback</div>
-          </div>
-
-          <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#E8EDF3]">trustshield-neo4j</span>
-              <span className="text-[10px] text-purple-400 font-bold">PORT 7687</span>
-            </div>
-            <div className="text-[#8995A3] text-[11px]">Property Graph Store</div>
-            <div className="text-[10px] text-blue-400 truncate">Temporal Filtering</div>
-          </div>
-
-          <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#E8EDF3]">prometheus</span>
-              <span className="text-[10px] text-blue-400 font-bold">PORT 9090</span>
-            </div>
-            <div className="text-[#8995A3] text-[11px]">Metrics Scraper & Engine</div>
-            <div className="text-[10px] text-blue-400 truncate">15s Scrape Interval</div>
-          </div>
-
-          <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#E8EDF3]">grafana</span>
-              <span className="text-[10px] text-orange-400 font-bold">PORT 3001</span>
-            </div>
-            <div className="text-[#8995A3] text-[11px]">Visual Risk Dashboards</div>
-            <div className="text-[10px] text-blue-400 truncate">Auto-provisioned</div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

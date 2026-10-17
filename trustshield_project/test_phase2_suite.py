@@ -48,6 +48,25 @@ from trustshield_project.investigation_agent import (
     verify_dossier_grounding,
 )
 from trustshield_project.mlops_pipeline import ExperimentTracker
+from graph_features import (
+    build_relationship_graph,
+    compute_relationship_features,
+    build_monthly_snapshots,
+    attach_snapshot_features,
+    add_edge_weight_before,
+    detect_fraud_rings,
+)
+from phase2_specialized_models import (
+    build_listing_features,
+    build_return_features,
+)
+from gnn_model import (
+    build_node_index,
+    GraphSAGEEncoder,
+    EdgeClassifier,
+)
+from phase5_hybrid_model import attach_gnn_embeddings
+from multimodal_scoring import compute_multimodal_similarity, explain_listing_risk
 
 
 # ===========================================================================
@@ -58,126 +77,80 @@ from trustshield_project.mlops_pipeline import ExperimentTracker
 class TestHeteroGNN:
     @pytest.fixture
     def mock_data(self):
-        buyers = pd.DataFrame({
-            "buyer_id": ["B1", "B2", "B3"],
-            "device_id": ["D1", "D1", "D2"],
-            "address_id": ["A1", "A2", "A1"],
-            "orders_before": [5, 2, 8],
-            "returns_before": [1, 0, 2],
-        })
-        sellers = pd.DataFrame({
-            "seller_id": ["S1", "S2"],
-            "total_listings_before": [20, 5],
-            "seller_age_days": [200, 30],
-        })
-        orders = pd.DataFrame({
-            "order_id": ["O1", "O2", "O3"],
-            "buyer_id": ["B1", "B2", "B3"],
-            "seller_id": ["S1", "S1", "S2"],
-            "order_date": ["2024-01-10", "2024-01-20", "2024-02-05"],
-        })
-        dev_log = pd.DataFrame({
-            "seller_id": ["S1"],
-            "shared_device_id": ["D1"],
-            "first_seen_date": ["2024-01-05"],
-        })
-        addr_log = pd.DataFrame({
-            "seller_id": ["S2"],
-            "shared_address_id": ["A1"],
-            "first_seen_date": ["2024-01-15"],
-        })
+        buyers = pd.DataFrame({"buyer_id": ["B1", "B2", "B3"], "device_id": ["D1", "D1", "D2"], "address_id": ["A1", "A2", "A1"], "orders_before": [5, 2, 8], "returns_before": [1, 0, 2]})
+        sellers = pd.DataFrame({"seller_id": ["S1", "S2"], "total_listings_before": [20, 5], "seller_age_days": [200, 30]})
+        orders = pd.DataFrame({"order_id": ["O1", "O2", "O3"], "buyer_id": ["B1", "B2", "B3"], "seller_id": ["S1", "S1", "S2"], "order_date": ["2024-01-10", "2024-01-20", "2024-02-05"]})
+        dev_log = pd.DataFrame({"seller_id": ["S1"], "shared_device_id": ["D1"], "first_seen_date": ["2024-01-05"]})
+        addr_log = pd.DataFrame({"seller_id": ["S2"], "shared_address_id": ["A1"], "first_seen_date": ["2024-01-15"]})
         return buyers, sellers, orders, dev_log, addr_log
 
     def test_build_hetero_graph_structure(self, mock_data):
         buyers, sellers, orders, dev_log, addr_log = mock_data
-        data, id_maps = build_hetero_graph(
-            buyers, sellers, orders, dev_log, addr_log, cutoff_date="2024-02-01"
-        )
-        assert "buyer" in data.node_types
-        assert "seller" in data.node_types
-        assert "device" in data.node_types
-        assert "address" in data.node_types
-        assert len(id_maps["buyer"]) == 3
-        assert len(id_maps["seller"]) == 2
+        data, id_maps = build_hetero_graph(buyers, sellers, orders, dev_log, addr_log, cutoff_date="2024-02-01")
+        assert {"buyer", "seller", "device", "address"}.issubset(data.node_types)
+        assert len(id_maps["buyer"]) == 3 and len(id_maps["seller"]) == 2
 
     def test_hetero_gnn_forward_pass(self, mock_data):
         buyers, sellers, orders, dev_log, addr_log = mock_data
         data, id_maps = build_hetero_graph(buyers, sellers, orders, dev_log, addr_log)
         model = HeteroGNN(data.metadata(), hidden_channels=8, out_channels=8)
         b_embs, s_embs = extract_hetero_embeddings(model, data, id_maps)
-        assert len(b_embs) == 3
-        assert len(s_embs) == 2
-        assert b_embs["B1"].shape == (8,)
+        assert len(b_embs) == 3 and len(s_embs) == 2 and b_embs["B1"].shape == (8,)
 
+    def test_regression_heterognn_strict_cutoff(self):
+        cutoff = "2025-06-01"
+        orders = pd.DataFrame({"buyer_id": ["B1"], "seller_id": ["S1"], "order_date": [pd.Timestamp(cutoff)]})
+        buyers = pd.DataFrame({"buyer_id": ["B1"], "device_id": ["D1"], "address_id": ["A1"]})
+        sellers = pd.DataFrame({"seller_id": ["S1"]})
+        dev_log = pd.DataFrame(columns=["buyer_id", "seller_id", "shared_device_id", "first_seen_date"])
+        addr_log = pd.DataFrame(columns=["buyer_id", "seller_id", "shared_address_id", "first_seen_date"])
+        data, _ = build_hetero_graph(buyers, sellers, orders, dev_log, addr_log, cutoff_date=cutoff)
+        assert data[("buyer", "transacts_with", "seller")].edge_index.shape[1] == 0
 
-# ===========================================================================
-# Part 2: Temporal GNN Tests
-# ===========================================================================
 
 class TestTemporalGNN:
     def test_time2vec_encoding(self):
-        t2v = Time2Vec(out_dim=8)
-        delta_t = torch.tensor([[0.5], [1.0], [5.2]], dtype=torch.float)
-        emb = t2v(delta_t)
-        assert emb.shape == (3, 8)
-        assert not torch.isnan(emb).any()
+        emb = Time2Vec(out_dim=8)(torch.tensor([[0.5], [1.0], [5.2]], dtype=torch.float))
+        assert emb.shape == (3, 8) and not torch.isnan(emb).any()
 
     def test_temporal_leakage_guard_raises_error(self):
-        t2v = Time2Vec(out_dim=8)
-        # Negative delta_t indicates future information!
-        bad_delta_t = torch.tensor([[-1.5], [2.0]], dtype=torch.float)
         with pytest.raises(AssertionError, match="Temporal leakage detected"):
-            t2v(bad_delta_t)
+            Time2Vec(out_dim=8)(torch.tensor([[-1.5], [2.0]], dtype=torch.float))
 
     def test_temporal_gnn_forward(self):
-        model = TemporalGNN(in_features=4, hidden_features=8, out_features=8, time_dim=8)
-        h = torch.randn(5, 4)
-        edge_index = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long)
-        delta_t = torch.tensor([[0.1], [0.5], [1.2], [3.0]], dtype=torch.float)
+        logits, embs = TemporalGNN(in_features=4, hidden_features=8, out_features=8, time_dim=8)(
+            torch.randn(5, 4),
+            torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long),
+            torch.tensor([[0.1], [0.5], [1.2], [3.0]], dtype=torch.float)
+        )
+        assert logits.shape == (5, 1) and embs.shape == (5, 8)
 
-        logits, embs = model(h, edge_index, delta_t)
-        assert logits.shape == (5, 1)
-        assert embs.shape == (5, 8)
-
-
-# ===========================================================================
-# Part 3 & 4: Multimodal CLIP + FAISS Tests
-# ===========================================================================
 
 class TestMultimodalCLIPAndFAISS:
     def test_faiss_index_and_near_duplicates(self):
         index = MultimodalFAISSIndex(dim=8)
-        # Add 3 seller listings
         embs = np.array([
-            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],       # L1 (Seller S1)
-            [0.99, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],     # L2 (Seller S2 - Near duplicate!)
-            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],       # L3 (Seller S3 - Distinct)
+            [1.0, 0, 0, 0, 0, 0, 0, 0],
+            [0.99, 0.05, 0, 0, 0, 0, 0, 0],
+            [0, 1.0, 0, 0, 0, 0, 0, 0],
         ], dtype=np.float32)
-
         index.add_listings(["L1", "L2", "L3"], ["S1", "S2", "S3"], embs)
-
-        # Query L1 from Seller S1
-        query_emb = np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], dtype=np.float32)
-        feats = index.query_similarity_features(query_emb, ["S1"], k=2)
-
+        feats = index.query_similarity_features(np.array([[1.0, 0, 0, 0, 0, 0, 0, 0]], dtype=np.float32), ["S1"], k=2)
         assert len(feats) == 1
-        f = feats[0]
-        assert f["faiss_max_image_similarity"] >= 0.95
-        assert f["faiss_near_duplicate_count"] >= 1
-        assert f["faiss_cross_seller_image_reuse"] == 1.0  # Shared with Seller S2!
+        assert feats[0]["faiss_max_image_similarity"] >= 0.95 and feats[0]["faiss_near_duplicate_count"] >= 1 and feats[0]["faiss_cross_seller_image_reuse"] == 1.0
 
     def test_extract_multimodal_listing_features(self):
-        df = pd.DataFrame({
-            "listing_id": ["L1", "L2"],
-            "seller_id": ["S1", "S2"],
-        })
-        img_embs = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
-        txt_embs = np.array([[0.9, 0.1], [0.1, 0.9]], dtype=np.float32)
+        df = pd.DataFrame({"listing_id": ["L1", "L2"], "seller_id": ["S1", "S2"]})
+        out = extract_multimodal_listing_features(df, np.array([[1.0, 0], [0, 1.0]], dtype=np.float32), np.array([[0.9, 0.1], [0.1, 0.9]], dtype=np.float32))
+        assert "clip_image_text_similarity" in out.columns and "clip_semantic_mismatch" in out.columns and out["clip_image_text_similarity"].iloc[0] > 0.80
 
-        out = extract_multimodal_listing_features(df, img_embs, txt_embs)
-        assert "clip_image_text_similarity" in out.columns
-        assert "clip_semantic_mismatch" in out.columns
-        assert out["clip_image_text_similarity"].iloc[0] > 0.80
+    def test_regression_faiss_self_match_excluded(self):
+        index = MultimodalFAISSIndex(dim=4)
+        index.add_listings(["L1", "L2", "L3"], ["S1", "S2", "S3"], np.array([[1.0, 0, 0, 0], [0, 1.0, 0, 0], [0.6, 0.8, 0, 0]], dtype=np.float32))
+        res_self = index.query_similarity_features(np.array([[1.0, 0, 0, 0]], dtype=np.float32), ["S1"], k=2)
+        assert abs(res_self[0]["faiss_max_image_similarity"] - 1.0) < 1e-4
+        res = index.query_similarity_features(np.array([[1.0, 0, 0, 0]], dtype=np.float32), ["S1"], query_listing_ids=["L1"], k=2)
+        assert res[0]["faiss_max_image_similarity"] < 0.70
 
 
 # ===========================================================================
@@ -187,203 +160,224 @@ class TestMultimodalCLIPAndFAISS:
 class TestAdvancedTrustEngineAndUncertainty:
     def test_conformal_predictor_coverage(self):
         conf = ConformalPredictor(alpha=0.10)
-        probs = np.array([0.05, 0.10, 0.15, 0.85, 0.90, 0.95])
-        labels = np.array([0, 0, 0, 1, 1, 1])
-        conf.calibrate(probs, labels)
-
-        # Low risk -> {0}
-        set_low = conf.predict_set(0.02)
-        assert 0 in set_low
-
-        # High risk -> {1}
-        set_high = conf.predict_set(0.98)
-        assert 1 in set_high
+        conf.calibrate(np.array([0.05, 0.10, 0.15, 0.85, 0.90, 0.95]), np.array([0, 0, 0, 1, 1, 1]))
+        assert 0 in conf.predict_set(0.02) and 1 in conf.predict_set(0.98)
 
     def test_stacking_meta_learner(self):
         meta = StackingRiskMetaLearner()
-        X = pd.DataFrame({
-            "tabular_risk": [0.05, 0.10, 0.15, 0.20, 0.25, 0.75, 0.80, 0.85, 0.90, 0.95],
-            "graph_risk": [0.05, 0.08, 0.12, 0.18, 0.22, 0.70, 0.78, 0.82, 0.88, 0.92],
-        })
-        y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
-        meta.fit(X, y)
-
-        r_low = meta.predict_risk({"tabular_risk": 0.1, "graph_risk": 0.1})
-        r_high = meta.predict_risk({"tabular_risk": 0.9, "graph_risk": 0.9})
-        assert r_low < 0.35
-        assert r_high > 0.65
-        assert r_low < r_high
+        X = pd.DataFrame({"tabular_risk": [0.05, 0.1, 0.15, 0.2, 0.25, 0.75, 0.8, 0.85, 0.9, 0.95], "graph_risk": [0.05, 0.08, 0.12, 0.18, 0.22, 0.7, 0.78, 0.82, 0.88, 0.92]})
+        meta.fit(X, np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]))
+        r_low, r_high = meta.predict_risk({"tabular_risk": 0.1, "graph_risk": 0.1}), meta.predict_risk({"tabular_risk": 0.9, "graph_risk": 0.9})
+        assert r_low < 0.35 and r_high > 0.65 and r_low < r_high
 
     def test_advanced_trust_engine_scoring(self):
-        engine = AdvancedTrustEngine()
-        comp_scores = {
-            "tabular_risk": 0.85,
-            "graph_risk": 0.90,
-            "hetero_gnn_risk": 0.88,
-        }
-        res = engine.score(comp_scores)
-        assert res.calibrated_risk > 0.80
-        assert res.decision in (OperationalDecision.HOLD, OperationalDecision.BLOCK)
-        assert res.predictive_uncertainty < 0.60
-        assert res.detector_disagreement < 0.10
+        res = AdvancedTrustEngine().score({"tabular_risk": 0.85, "graph_risk": 0.90, "hetero_gnn_risk": 0.88})
+        assert res.calibrated_risk > 0.80 and res.decision in (OperationalDecision.HOLD, OperationalDecision.BLOCK)
+        assert res.predictive_uncertainty < 0.60 and res.detector_disagreement < 0.10
 
+    def test_regression_non_negative_monotonicity(self):
+        np.random.seed(42)
+        d1 = np.random.uniform(0, 1, 100)
+        meta = StackingRiskMetaLearner(l2_reg=1.0)
+        meta.fit(pd.DataFrame({"d1": d1, "d2": d1 + np.random.normal(0, 0.1, 100)}), (d1 > 0.5).astype(int))
+        assert (meta.clf.coef_ >= 0.0).all()
+        assert meta.predict_risk({"d1": 0.8, "d2": 0.8}) >= meta.predict_risk({"d1": 0.2, "d2": 0.2})
 
-# ===========================================================================
-# Part 7: Advanced Fraud Ring Intelligence Tests
-# ===========================================================================
 
 class TestAdvancedRingIntelligence:
     def test_community_discovery_and_burstiness(self):
-        # Create a small multi-graph
         G = nx.MultiGraph()
-        G.add_edge("B1", "D1", relation="uses_device")
-        G.add_edge("B2", "D1", relation="uses_device")
-        G.add_edge("B3", "D1", relation="uses_device")
-
-        communities = discover_candidate_communities(G, min_size=3)
-        assert len(communities) >= 1
-        comm = communities[0]
-
-        orders = pd.DataFrame({
-            "order_id": ["O1", "O2", "O3"],
-            "buyer_id": ["B1", "B2", "B3"],
-            "seller_id": ["S1", "S1", "S1"],
-            "order_date": ["2024-01-01 10:00:00", "2024-01-01 10:05:00", "2024-01-01 10:10:00"],
-        })
-        returns = pd.DataFrame(columns=["order_id"])
-
-        report = analyze_candidate_community(comm, orders, returns, G, cluster_id="RING_01")
-        assert report.member_count == len(comm)
-        assert report.hardware_sharing_density > 0.50
-        assert report.merchant_concentration_hhi == 1.0  # All funneled to Seller S1
+        for b in ["B1", "B2", "B3"]:
+            G.add_edge(b, "D1", relation="uses_device")
+        comm = discover_candidate_communities(G, min_size=3)[0]
+        orders = pd.DataFrame({"order_id": ["O1", "O2", "O3"], "buyer_id": ["B1", "B2", "B3"], "seller_id": ["S1", "S1", "S1"], "order_date": ["2024-01-01 10:00:00", "2024-01-01 10:05:00", "2024-01-01 10:10:00"]})
+        report = analyze_candidate_community(comm, orders, pd.DataFrame(columns=["order_id"]), G, cluster_id="RING_01")
+        assert report.member_count == len(comm) and report.hardware_sharing_density > 0.50 and report.merchant_concentration_hhi == 1.0
         assert report.cluster_classification in ("suspicious_cluster", "high_risk_candidate_ring")
 
-
-# ===========================================================================
-# Part 8: Neo4j Investigator Tests
-# ===========================================================================
 
 class TestNeo4jInvestigator:
     def test_cypher_generation(self):
         cypher = Neo4jInvestigator.cypher_shared_device_query("SELLER_42", days=30)
-        assert "MATCH (s:Seller" in cypher
-        assert "SELLER_42" in cypher
+        assert "MATCH (s:Seller" in cypher and "SELLER_42" in cypher
 
     def test_in_memory_simulation(self):
         G = nx.MultiGraph()
-        G.add_node("S1")
-        G.add_node("DEV_99")
-        G.add_node("B1")
         G.add_edge("S1", "DEV_99", relation="uses_device")
         G.add_edge("DEV_99", "B1", relation="uses_device")
-
-        inv = Neo4jInvestigator(G)
-        results = inv.query_buyers_connected_via_device_in_memory("S1")
-        assert len(results) == 1
-        assert results[0]["buyer_id"] == "B1"
-        assert results[0]["shared_device_id"] == "DEV_99"
+        results = Neo4jInvestigator(G).query_buyers_connected_via_device_in_memory("S1")
+        assert len(results) == 1 and results[0]["buyer_id"] == "B1" and results[0]["shared_device_id"] == "DEV_99"
 
 
-# ===========================================================================
-# Part 9 & 10: GenAI Investigation Agent & RAG Tests
-# ===========================================================================
+class _MockTrustResult:
+    calibrated_risk = 0.88
+    decision = OperationalDecision.BLOCK
+    confidence = 0.92
+    detector_disagreement = 0.12
+    conformal_prediction_set = {1}
+    reason_codes = ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_HARDWARE_COLLISION"]
+
 
 class TestGenAIInvestigationAgent:
+    _TXN = {"order_id": "ORD_12345", "amount": 250.0, "buyer_return_rate_before": 0.65, "cold_start": True, "price_vs_base_price_ratio": 0.45, "share_degree": 3, "share_component_size": 5}
+
     def test_rag_search(self):
-        rag = ForensicRAGIndex()
-        chunks = rag.search("hardware device collision and shared fingerprints", top_k=2)
-        assert len(chunks) > 0
-        assert "POL-01" in [c.chunk_id for c in chunks]
+        chunks = ForensicRAGIndex().search("hardware device collision and shared fingerprints", top_k=2)
+        assert len(chunks) > 0 and "POL-01" in [c.chunk_id for c in chunks]
 
     def test_dossier_generation_and_hallucination_guard(self):
-        agent = GenAIInvestigationAgent()
-        txn = {
-            "order_id": "ORD_12345",
-            "amount": 250.0,
-            "buyer_return_rate_before": 0.65,
-            "cold_start": True,
-            "price_vs_base_price_ratio": 0.45,
-            "share_degree": 3,
-            "share_component_size": 5,
-        }
-
-        # Mock Trust Engine Result
-        class MockTrustResult:
-            calibrated_risk = 0.88
-            decision = OperationalDecision.BLOCK
-            confidence = 0.92
-            detector_disagreement = 0.12
-            conformal_prediction_set = {1}
-            reason_codes = ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_HARDWARE_COLLISION"]
-
-        dossier = agent.generate_dossier(txn, MockTrustResult())
-        assert dossier.case_id == "CASE_ORD_12345"
-        assert dossier.fraud_risk_score == 0.88  # Matches model exactly
-        assert dossier.operational_decision == "BLOCK"
-        assert dossier.grounding_verification_passed is True
-        assert len(dossier.structured_evidence) >= 3
-        assert len(dossier.retrieved_policy_guidelines) > 0
+        dossier = GenAIInvestigationAgent().generate_dossier(self._TXN, _MockTrustResult())
+        assert dossier.case_id == "CASE_ORD_12345" and dossier.fraud_risk_score == 0.88 and dossier.operational_decision == "BLOCK"
+        assert dossier.grounding_verification_passed is True and len(dossier.structured_evidence) >= 3 and len(dossier.retrieved_policy_guidelines) > 0
 
     def test_hallucination_guard_detects_corruption(self):
         import dataclasses
-        agent = RuleBasedInvestigationAgent()
-        txn = {
-            "order_id": "ORD_12345",
-            "amount": 250.0,
-            "buyer_return_rate_before": 0.65,
-            "cold_start": True,
-            "price_vs_base_price_ratio": 0.45,
-            "share_degree": 3,
-            "share_component_size": 5,
-        }
+        valid = RuleBasedInvestigationAgent().generate_dossier(self._TXN, _MockTrustResult())
+        assert valid.grounding_verification_passed is True
+        assert verify_dossier_grounding(dataclasses.replace(valid, fraud_risk_score=0.42), self._TXN, _MockTrustResult()) is False
+        assert verify_dossier_grounding(dataclasses.replace(valid, operational_decision="ALLOW"), self._TXN, _MockTrustResult()) is False
+        assert verify_dossier_grounding(dataclasses.replace(valid, structured_evidence=["Transaction Amount: INR 99999.00"]), self._TXN, _MockTrustResult()) is False
 
-        class MockTrustResult:
-            calibrated_risk = 0.88
-            decision = OperationalDecision.BLOCK
-            confidence = 0.92
-            detector_disagreement = 0.12
-            conformal_prediction_set = {1}
-            reason_codes = ["HIGH_RETURN_VELOCITY"]
-
-        valid_dossier = agent.generate_dossier(txn, MockTrustResult())
-        assert valid_dossier.grounding_verification_passed is True
-
-        # 1. Corrupted risk score
-        corrupted_risk = dataclasses.replace(valid_dossier, fraud_risk_score=0.42)
-        assert verify_dossier_grounding(corrupted_risk, txn, MockTrustResult()) is False
-
-        # 2. Corrupted decision
-        corrupted_decision = dataclasses.replace(valid_dossier, operational_decision="ALLOW")
-        assert verify_dossier_grounding(corrupted_decision, txn, MockTrustResult()) is False
-
-        # 3. Corrupted evidence amount
-        corrupted_evidence = dataclasses.replace(valid_dossier, structured_evidence=["Transaction Amount: INR 99999.00"])
-        assert verify_dossier_grounding(corrupted_evidence, txn, MockTrustResult()) is False
-
-
-# ===========================================================================
-# Part 11: MLOps Lineage Tracking Tests
-# ===========================================================================
 
 class TestMLOpsPipeline:
     def test_experiment_tracker(self, tmp_path):
         tracker = ExperimentTracker(registry_dir=tmp_path / "registry")
         test_model_file = tmp_path / "model.bin"
         test_model_file.write_bytes(b"HeteroGNN_weights_v1")
+        run = tracker.log_run("HeteroGNN_vs_Baseline", "HeteroGNN", "2.0.0", {"hidden_dim": 16, "lr": 0.01}, {"roc_auc": 0.845, "pr_auc": 0.590}, {"model_weights": test_model_file})
+        assert run.model_name == "HeteroGNN" and len(run.artifact_hashes["model_weights"]) == 64
+        assert len(tracker.list_runs()) == 1 and tracker.list_runs()[0]["metrics"]["roc_auc"] == 0.845
 
-        run = tracker.log_run(
-            experiment_name="HeteroGNN_vs_Baseline",
-            model_name="HeteroGNN",
-            model_version="2.0.0",
-            parameters={"hidden_dim": 16, "lr": 0.01},
-            metrics={"roc_auc": 0.845, "pr_auc": 0.590},
-            artifacts={"model_weights": test_model_file},
-        )
 
-        assert run.model_name == "HeteroGNN"
-        assert "model_weights" in run.artifact_hashes
-        assert len(run.artifact_hashes["model_weights"]) == 64  # SHA256 length
+# ===========================================================================
+# Part 12: Graph Topological Features, Specialized Models & GNN Encoders
+# ===========================================================================
 
-        runs = tracker.list_runs()
-        assert len(runs) == 1
-        assert runs[0]["metrics"]["roc_auc"] == 0.845
+class TestGraphFeatures:
+    def test_build_relationship_graph(self, pipeline):
+        G = build_relationship_graph(pipeline["base"]["address_sharing_log"], pipeline["base"]["device_sharing_log"])
+        assert isinstance(G, nx.Graph) and G.number_of_nodes() > 0 and G.number_of_edges() > 0
+
+    def test_compute_relationship_features(self, pipeline):
+        G = build_relationship_graph(pipeline["base"]["address_sharing_log"], pipeline["base"]["device_sharing_log"])
+        buyers = list(pipeline["txn"]["buyers"]["buyer_id"].unique()[:20])
+        feat_df = compute_relationship_features(G, buyers)
+        assert len(feat_df) == 20 and set(feat_df.columns) == {"buyer_id", "share_degree", "share_component_size"}
+        assert (feat_df["share_degree"] >= 0).all() and (feat_df["share_component_size"] >= 1).all()
+
+    def test_monthly_snapshots_and_attachment(self, pipeline):
+        orders = pipeline["result"]["orders"].copy()
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+        snapshots, months = build_monthly_snapshots(orders, orders["order_date"].min())
+        attached = attach_snapshot_features(orders.head(50), snapshots, months)
+        assert len(attached) == 50
+        for col in ["buyer_seller_degree", "buyer_pagerank", "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi"]:
+            assert col in attached.columns and not bool(attached[col].isna().to_numpy().any())
+
+    def test_add_edge_weight_before(self, pipeline):
+        res = add_edge_weight_before(pipeline["result"]["orders"].head(50).copy())
+        assert "buyer_seller_edge_weight_before" in res.columns and (res["buyer_seller_edge_weight_before"] >= 0).all()
+
+    def test_detect_fraud_rings(self, pipeline):
+        G = build_relationship_graph(pipeline["base"]["address_sharing_log"], pipeline["base"]["device_sharing_log"])
+        rings = detect_fraud_rings(G, pipeline["df"].assign(fraud_score=0.45), score_col="fraud_score", min_ring_size=2)
+        assert isinstance(rings, pd.DataFrame)
+        if len(rings) > 0:
+            assert "ring_id" in rings.columns and (rings["size"] >= 2).all() and (rings["avg_risk_score"] >= 0.0).all()
+
+    def test_detect_fraud_rings_leakage_assertion(self, pipeline):
+        G = build_relationship_graph(pipeline["base"]["address_sharing_log"], pipeline["base"]["device_sharing_log"])
+        with pytest.raises(AssertionError, match="Leakage"):
+            detect_fraud_rings(G, pipeline["df"].copy(), score_col="is_fraudulent")
+
+
+class TestSpecializedModels:
+    def test_build_listing_features(self, pipeline):
+        df, cols = build_listing_features(pipeline["result"]["listings"], pipeline["catalog"]["sellers"], pipeline["catalog"]["products"])
+        assert len(df) == len(pipeline["result"]["listings"]) and set(cols).issubset(set(df.columns)) and not bool(df[cols].isna().to_numpy().any())
+
+    def test_build_return_features(self, pipeline):
+        df, cols = build_return_features(pipeline["result"]["returns"], pipeline["result"]["orders"], pipeline["txn"]["buyers"], pipeline["catalog"]["sellers"])
+        assert len(df) == len(pipeline["result"]["returns"]) and set(cols).issubset(set(df.columns)) and not bool(df[cols].isna().to_numpy().any())
+
+
+class TestGNNComponents:
+    def test_build_node_index(self):
+        b_idx, s_idx, n_b, n_tot = build_node_index(["B_001", "B_002", "B_003"], ["S_001", "S_002"])
+        assert n_b == 3 and n_tot == 6 and set(b_idx.values()) == {1, 2, 3} and set(s_idx.values()) == {4, 5}
+
+    def test_graphsage_encoder_forward(self):
+        out = GraphSAGEEncoder(in_dim=7, hidden_dim=16, out_dim=8)(torch.randn(10, 7), torch.tensor([[0, 1, 2, 3], [1, 2, 3, 0]], dtype=torch.long))
+        assert out.shape == (10, 8)
+
+    def test_edge_classifier_forward(self):
+        logits = EdgeClassifier(emb_dim=8, edge_feat_dim=2, hidden_dim=16)(torch.randn(5, 8), torch.randn(5, 8), torch.randn(5, 2))
+        assert logits.shape == (5,)
+
+    def test_attach_gnn_embeddings_cold_start(self):
+        df = pd.DataFrame({"order_id": ["O_1", "O_2"], "buyer_id": ["B_KNOWN", "B_UNKNOWN"], "seller_id": ["S_KNOWN", "S_UNKNOWN"]})
+        df_aug, cols = attach_gnn_embeddings(df, {"B_KNOWN": np.ones(16, dtype=np.float32)}, {"S_KNOWN": np.ones(16, dtype=np.float32) * 2}, emb_dim=16)
+        assert len(cols) == 32 and np.allclose(df_aug.loc[0, "gnn_buyer_emb_0"], 1.0) and np.allclose(df_aug.loc[0, "gnn_seller_emb_0"], 2.0)
+        assert np.allclose(df_aug.loc[1, "gnn_buyer_emb_0"], 0.0) and np.allclose(df_aug.loc[1, "gnn_seller_emb_0"], 0.0)
+
+
+class TestMultimodalPhase4:
+    def test_multimodal_similarity_bounds(self, pipeline):
+        sims = compute_multimodal_similarity(pipeline["result"]["listings"].head(100), pipeline["catalog"]["products"])
+        assert len(sims) == 100 and (sims >= 0.05).all() and (sims <= 1.0).all() and not bool(sims.isna().to_numpy().any())
+
+    def test_multimodal_separation(self, pipeline):
+        listings = pipeline["result"]["listings"]
+        sims = compute_multimodal_similarity(listings, pipeline["catalog"]["products"])
+        fraud_mask = listings["is_fraudulent"].fillna(False)
+        if fraud_mask.any():
+            assert sims[~fraud_mask].mean() > sims[fraud_mask].mean()
+
+    def test_investigator_explanation_high_risk(self):
+        res = explain_listing_risk({"multimodal_similarity_score": 0.22, "price_vs_base_price_ratio": 0.35, "seller_age_days_at_listing": 5, "seller_listings_before": 1}, risk_score=0.88)
+        assert res["risk_level"] == "HIGH" and "Suspend" in res["recommended_action"] and len(res["key_evidence"]) >= 2 and any("mismatch" in ev.lower() for ev in res["key_evidence"])
+
+    def test_investigator_explanation_low_risk(self):
+        res = explain_listing_risk({"multimodal_similarity_score": 0.89, "price_vs_base_price_ratio": 0.98, "seller_age_days_at_listing": 180, "seller_listings_before": 25}, risk_score=0.12)
+        assert res["risk_level"] == "LOW" and "approval" in res["recommended_action"].lower()
+
+
+class TestPhase5TemporalIntegrity:
+    def test_future_validation_edge_does_not_alter_earlier_validation_embedding_or_score(self):
+        from baseline_model import TRAIN_END
+        from phase5_hybrid_model import build_node_index, build_node_features, build_edge_index, extract_embeddings, GraphSAGEEncoder, EdgeClassifier
+
+        buyer_ids, seller_ids = ["B001", "B002", "B003"], ["S001", "S002"]
+        buyer_idx, seller_idx, n_buyers, n_total = build_node_index(buyer_ids, seller_ids)
+        train_orders = pd.DataFrame({"order_id": ["O_TR_1", "O_TR_2"], "buyer_id": ["B001", "B002"], "seller_id": ["S001", "S002"], "order_date": [pd.Timestamp("2025-03-01"), pd.Timestamp("2025-04-01")], "amount": [100.0, 200.0], "price_vs_base_price_ratio": [1.0, 1.0], "y": [0, 0]})
+        buyers_df = pd.DataFrame({"buyer_id": buyer_ids, "signup_date": [pd.Timestamp("2025-01-01")] * 3})
+        sellers_df = pd.DataFrame({"seller_id": seller_ids, "signup_date": [pd.Timestamp("2025-01-01")] * 2})
+        rel_graph = nx.Graph()
+
+        X_train_orig = build_node_features(buyer_idx, seller_idx, n_total, train_orders, rel_graph, buyers_df, sellers_df, cutoff_date=TRAIN_END)
+        edge_index_train_orig = build_edge_index(buyer_idx, seller_idx, train_orders, rel_graph)
+
+        torch.manual_seed(42)
+        encoder = GraphSAGEEncoder(in_dim=X_train_orig.shape[1], hidden_dim=16, out_dim=8)
+        classifier = EdgeClassifier(emb_dim=8, edge_feat_dim=2, hidden_dim=16)
+        encoder.eval()
+        classifier.eval()
+
+        b_embs_orig, s_embs_orig = extract_embeddings(encoder, X_train_orig, edge_index_train_orig, buyer_idx, seller_idx)
+        val_edge_feat = torch.tensor([[1.0, np.log1p(100.0)]], dtype=torch.float32)
+        score_orig = torch.sigmoid(classifier(torch.tensor(b_embs_orig["B001"]).unsqueeze(0), torch.tensor(s_embs_orig["S001"]).unsqueeze(0), val_edge_feat)).item()
+
+        all_orders = pd.concat([train_orders, pd.DataFrame({"order_id": ["O_VAL_FUTURE"], "buyer_id": ["B001"], "seller_id": ["S002"], "order_date": [pd.Timestamp("2025-10-15")], "amount": [500.0], "price_vs_base_price_ratio": [0.5], "y": [1]})], ignore_index=True)
+        train_filtered = all_orders[all_orders["order_date"] <= TRAIN_END]
+        X_train_after = build_node_features(buyer_idx, seller_idx, n_total, train_filtered, rel_graph, buyers_df, sellers_df, cutoff_date=TRAIN_END)
+        edge_index_train_after = build_edge_index(buyer_idx, seller_idx, train_filtered, rel_graph)
+
+        b_embs_after, s_embs_after = extract_embeddings(encoder, X_train_after, edge_index_train_after, buyer_idx, seller_idx)
+        score_after = torch.sigmoid(classifier(torch.tensor(b_embs_after["B001"]).unsqueeze(0), torch.tensor(s_embs_after["S001"]).unsqueeze(0), val_edge_feat)).item()
+
+        assert np.allclose(b_embs_orig["B001"], b_embs_after["B001"], atol=1e-7)
+        assert np.isclose(score_orig, score_after, atol=1e-7)
+        edge_index_leaked = build_edge_index(buyer_idx, seller_idx, all_orders, rel_graph)
+        b_embs_leaked, _ = extract_embeddings(encoder, X_train_orig, edge_index_leaked, buyer_idx, seller_idx)
+        assert not np.allclose(b_embs_orig["B001"], b_embs_leaked["B001"], atol=1e-5)
+

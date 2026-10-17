@@ -85,8 +85,118 @@ def _get_serving_model_version(req: TransactionScoreRequest, request: Optional[R
     return chosen
 
 
+def _evaluate_and_build_response(
+    req: TransactionScoreRequest,
+    feature_row: Dict[str, Any],
+    prob_raw: float,
+    prob_cal: float,
+    prob_tabular: float,
+    model_version: str,
+    is_cold_start: bool,
+    graph_source: str,
+    graph_notes: str,
+    client_mismatch: bool,
+    engine: Any,
+    explainer: Any,
+    calibrator_active: bool,
+    gnn_embeddings_active: bool,
+    infra_sources: Dict[str, str],
+    scoring_mode: str,
+    model_used_label: str,
+    note_prefix: str,
+) -> TransactionScoreResponse:
+    graph_sig_heuristic = float(min(feature_row.get("share_degree", 0.0) * 0.15 + feature_row.get("buyer_pagerank", 0.0) * 0.35, 1.0))
+    ring_sig_heuristic = float(min(max(feature_row.get("share_component_size", 1.0) - 1, 0) * 0.2, 1.0))
+    component_risks = {
+        "tabular_risk": prob_tabular,
+        "graph_risk_heuristic": graph_sig_heuristic,
+        "ring_risk_heuristic": ring_sig_heuristic,
+    }
+    if req.multimodal_similarity_score is not None:
+        component_risks["multimodal_risk"] = float(
+            max(0.0, min(1.0, 1.0 - req.multimodal_similarity_score))
+        )
+
+    t_te0 = time.perf_counter()
+    if engine is not None:
+        t_res = engine.score(component_risks, is_cold_start=is_cold_start, model_probability=prob_cal)
+        final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
+        decision = t_res.decision.value
+        trust_score = t_res.trust_score
+        confidence = t_res.confidence
+        uncertainty = getattr(t_res, "predictive_uncertainty", None)
+        model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
+        reason_codes = t_res.reason_codes
+        conformal_set = sorted(list(t_res.conformal_prediction_set)) if hasattr(t_res, "conformal_prediction_set") else None
+    else:
+        final_risk = prob_cal
+        decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
+        trust_score = round(100.0 * (1.0 - final_risk), 2)
+        confidence = 0.8
+        uncertainty = None
+        model_disagreement = 0.0
+        reason_codes = []
+        conformal_set = [0, 1] if 0.35 <= prob_cal <= 0.65 else ([1] if prob_cal > 0.65 else [0])
+
+    metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
+    metrics_service.record_decision(decision, _risk_label(final_risk), model_version)
+
+    shap_attrs = None
+    top_drivers = None
+    if explainer is not None:
+        try:
+            shap_exp = explainer.explain_instance(feature_row, top_k=5)
+            if shap_exp.get("available"):
+                shap_attrs = shap_exp.get("attributions")
+                top_drivers = shap_exp.get("top_positive_drivers")
+        except Exception as exc:
+            logger.warning("TreeSHAP %s explanation failed: %s", model_version, exc)
+
+    conformal_calibrated = bool(engine.conformal.is_calibrated) if engine and hasattr(engine, "conformal") else False
+    conformal_q = round(float(engine.conformal.q_hat), 4) if engine and hasattr(engine, "conformal") and engine.conformal.is_calibrated else None
+
+    return TransactionScoreResponse(
+        order_id=req.order_id,
+        overall_fraud_probability=round(final_risk, 4),
+        raw_fraud_probability=round(prob_raw, 4),
+        calibrated_fraud_probability=round(prob_cal, 4),
+        policy_risk_score=round(final_risk, 4),
+        canonical_trust_engine_risk=round(final_risk, 4),
+        conformal_prediction_set=conformal_set,
+        conformal_is_calibrated=conformal_calibrated,
+        conformal_coverage_guarantee=0.95,
+        conformal_q_hat=conformal_q,
+        risk_label=_risk_label(final_risk),
+        decision=decision,
+        trust_score=trust_score,
+        confidence=confidence,
+        predictive_uncertainty=uncertainty,
+        model_used=model_used_label,
+        model_version=model_version,
+        graph_features_source=graph_source,
+        client_mismatch=client_mismatch,
+        cold_start=is_cold_start,
+        model_disagreement=model_disagreement,
+        reason_codes=reason_codes,
+        evidence_availability={
+            "tabular": True,
+            "graph": bool(feature_row.get("share_degree", 0) > 0 or feature_row.get("buyer_pagerank", 0) > 0),
+            "gnn_embeddings": gnn_embeddings_active,
+            "multimodal": req.multimodal_similarity_score is not None,
+            "calibrator_active": calibrator_active,
+            "shap_active": shap_attrs is not None,
+        },
+        infrastructure_sources=infra_sources,
+        shap_attributions=shap_attrs,
+        top_risk_drivers=top_drivers,
+        scoring_mode=scoring_mode,
+        is_simulation=False,
+        note=note_prefix + (f" [{graph_notes}]" if graph_notes else ""),
+    )
+
+
 @router.post("/transaction/score", response_model=TransactionScoreResponse, tags=["scoring"], dependencies=[Depends(authenticate_request)])
-def score_transaction(req: TransactionScoreRequest, request: Request = None):
+def score_transaction(req: TransactionScoreRequest, request: Request = None):  # type: ignore[assignment]
     """
     Score an incoming order for fraud using either the Phase 3 Combined model
     (tabular + NetworkX graph features) by default, or the Phase 5 Hybrid model
@@ -145,10 +255,7 @@ def score_transaction(req: TransactionScoreRequest, request: Request = None):
         )
         clf_name = p5_meta.get("classifier", "XGBoost")
 
-        if store.phase5_calibrator is not None:
-            prob_cal = float(store.phase5_calibrator.predict_proba(np.array([prob_raw]))[0])
-        else:
-            prob_cal = prob_raw
+        prob_cal = float(store.phase5_calibrator.predict_proba(np.array([prob_raw]))[0]) if store.phase5_calibrator is not None else prob_raw
 
         if store.combined_graph_model is not None and store.feature_meta is not None:
             p3_all_cols = store.feature_meta.get("all_feature_cols", p3_cols)
@@ -159,104 +266,35 @@ def score_transaction(req: TransactionScoreRequest, request: Request = None):
         else:
             prob_tabular = float(prob_cal)
 
-        graph_sig_heuristic = float(min(row.get("share_degree", 0.0) * 0.15 + row.get("buyer_pagerank", 0.0) * 0.35, 1.0))
-        ring_sig_heuristic = float(min(max(row.get("share_component_size", 1.0) - 1, 0) * 0.2, 1.0))
-        component_risks = {
-            "tabular_risk": prob_tabular,
-            "graph_risk_heuristic": graph_sig_heuristic,
-            "ring_risk_heuristic": ring_sig_heuristic,
+        infra_sources = {
+            "buyer_embedding": emb_sources.get("buyer_embedding", "unavailable"),
+            "seller_embedding": emb_sources.get("seller_embedding", "unavailable"),
+            "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
         }
-        if req.multimodal_similarity_score is not None:
-            component_risks["multimodal_risk"] = float(
-                max(0.0, min(1.0, 1.0 - req.multimodal_similarity_score))
-            )
+        gnn_active = bool(
+            (req.buyer_id and req.buyer_id in store.buyer_embeddings)
+            or (req.seller_id and req.seller_id in store.seller_embeddings)
+        )
 
-        t_te0 = time.perf_counter()
-        if engine is not None:
-            t_res = engine.score(component_risks, is_cold_start=is_cold_start, model_probability=prob_cal)
-            final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
-            decision = t_res.decision.value
-            trust_score = t_res.trust_score
-            confidence = t_res.confidence
-            uncertainty = getattr(t_res, "predictive_uncertainty", None)
-            model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
-            reason_codes = t_res.reason_codes
-            conformal_set = sorted(list(t_res.conformal_prediction_set)) if hasattr(t_res, "conformal_prediction_set") else None
-        else:
-            final_risk = prob_cal
-            decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
-            trust_score = round(100.0 * (1.0 - final_risk), 2)
-            confidence = 0.8
-            uncertainty = None
-            model_disagreement = 0.0
-            reason_codes = []
-            conformal_set = [0, 1] if 0.35 <= prob_cal <= 0.65 else ([1] if prob_cal > 0.65 else [0])
-
-        metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
-        metrics_service.record_decision(decision, _risk_label(final_risk), "phase5-hybrid")
-
-        shap_attrs = None
-        top_drivers = None
-        if store.phase5_shap_explainer is not None:
-            try:
-                shap_exp = store.phase5_shap_explainer.explain_instance(row, top_k=5)
-                if shap_exp.get("available"):
-                    shap_attrs = shap_exp.get("attributions")
-                    top_drivers = shap_exp.get("top_positive_drivers")
-            except Exception as exc:
-                logger.warning("TreeSHAP Phase 5 explanation failed: %s", exc)
-
-        conformal_calibrated = bool(engine.conformal.is_calibrated) if engine and hasattr(engine, "conformal") else False
-        conformal_q = round(float(engine.conformal.q_hat), 4) if engine and hasattr(engine, "conformal") and engine.conformal.is_calibrated else None
-
-        return TransactionScoreResponse(
-            order_id=req.order_id,
-            overall_fraud_probability=round(final_risk, 4),
-            raw_fraud_probability=round(prob_raw, 4),
-            calibrated_fraud_probability=round(prob_cal, 4),
-            policy_risk_score=round(final_risk, 4),
-            canonical_trust_engine_risk=round(final_risk, 4),
-            conformal_prediction_set=conformal_set,
-            conformal_is_calibrated=conformal_calibrated,
-            conformal_coverage_guarantee=0.95,
-            conformal_q_hat=conformal_q,
-            risk_label=_risk_label(final_risk),
-            decision=decision,
-            trust_score=trust_score,
-            confidence=confidence,
-            predictive_uncertainty=uncertainty,
-            model_used=f"Hybrid GNN + {clf_name} (Phase 5, tabular+graph+GNN embeddings)",
+        return _evaluate_and_build_response(
+            req=req,
+            feature_row=row,
+            prob_raw=prob_raw,
+            prob_cal=prob_cal,
+            prob_tabular=prob_tabular,
             model_version="phase5-hybrid",
-            graph_features_source=graph_source,
+            is_cold_start=is_cold_start,
+            graph_source=graph_source,
+            graph_notes=graph_notes,
             client_mismatch=client_mismatch,
-            cold_start=is_cold_start,
-            model_disagreement=model_disagreement,
-            reason_codes=reason_codes,
-            evidence_availability={
-                "tabular": True,
-                "graph": bool(row.get("share_degree", 0) > 0 or row.get("buyer_pagerank", 0) > 0),
-                "gnn_embeddings": bool(
-                    (req.buyer_id and req.buyer_id in store.buyer_embeddings)
-                    or (req.seller_id and req.seller_id in store.seller_embeddings)
-                ),
-                "multimodal": req.multimodal_similarity_score is not None,
-                "calibrator_active": store.phase5_calibrator is not None,
-                "shap_active": shap_attrs is not None,
-            },
-            infrastructure_sources={
-                "buyer_embedding": emb_sources.get("buyer_embedding", "unavailable"),
-                "seller_embedding": emb_sources.get("seller_embedding", "unavailable"),
-                "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
-            },
-            shap_attributions=shap_attrs,
-            top_risk_drivers=top_drivers,
+            engine=engine,
+            explainer=store.phase5_shap_explainer,
+            calibrator_active=store.phase5_calibrator is not None,
+            gnn_embeddings_active=gnn_active,
+            infra_sources=infra_sources,
             scoring_mode="production_model_phase5_hybrid",
-            is_simulation=False,
-            note=(
-                "Scored with Phase 5 hybrid model routed through Canonical Trust Engine "
-                "with probability calibration and conformal uncertainty."
-                + (f" [{graph_notes}]" if graph_notes else "")
-            ),
+            model_used_label=f"Hybrid GNN + {clf_name} (Phase 5, tabular+graph+GNN embeddings)",
+            note_prefix="Scored with Phase 5 hybrid model routed through Canonical Trust Engine with probability calibration and conformal uncertainty.",
         )
 
     # Phase 3 model (Default authoritative production model)
@@ -275,111 +313,38 @@ def score_transaction(req: TransactionScoreRequest, request: Request = None):
     metrics_service.model_inference_seconds.labels(model_version="phase3").observe(
         time.perf_counter() - t_infer0
     )
-    if store.calibrator is not None:
-        prob_cal = float(store.calibrator.predict_proba(np.array([prob_raw]))[0])
-    else:
-        prob_cal = prob_raw
-
+    prob_cal = float(store.calibrator.predict_proba(np.array([prob_raw]))[0]) if store.calibrator is not None else prob_raw
     clf_name = meta.get("classifier", type(store.combined_graph_model).__name__)
-
-    graph_sig_heuristic = float(min(feature_row.get("share_degree", 0.0) * 0.15 + feature_row.get("buyer_pagerank", 0.0) * 0.35, 1.0))
-    ring_sig_heuristic = float(min(max(feature_row.get("share_component_size", 1.0) - 1, 0) * 0.2, 1.0))
-    component_risks = {
-        "tabular_risk": prob_cal,
-        "graph_risk_heuristic": graph_sig_heuristic,
-        "ring_risk_heuristic": ring_sig_heuristic,
-    }
-    if req.multimodal_similarity_score is not None:
-        component_risks["multimodal_risk"] = float(
-            max(0.0, min(1.0, 1.0 - req.multimodal_similarity_score))
-        )
-
-    t_te0 = time.perf_counter()
-    if engine is not None:
-        t_res = engine.score(component_risks, is_cold_start=is_cold_start, model_probability=prob_cal)
-        final_risk = getattr(t_res, "calibrated_risk", getattr(t_res, "risk_score", 0.0))
-        decision = t_res.decision.value
-        trust_score = t_res.trust_score
-        confidence = t_res.confidence
-        uncertainty = getattr(t_res, "predictive_uncertainty", None)
-        model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
-        reason_codes = t_res.reason_codes
-        conformal_set = sorted(list(t_res.conformal_prediction_set)) if hasattr(t_res, "conformal_prediction_set") else None
-    else:
-        final_risk = prob_cal
-        decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
-        trust_score = round(100.0 * (1.0 - final_risk), 2)
-        confidence = 0.8
-        uncertainty = None
-        model_disagreement = 0.0
-        reason_codes = []
-        conformal_set = [0, 1] if 0.35 <= prob_cal <= 0.65 else ([1] if prob_cal > 0.65 else [0])
-
-    metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
-    metrics_service.record_decision(decision, _risk_label(final_risk), "phase3")
-
-    shap_attrs = None
-    top_drivers = None
-    if store.shap_explainer is not None:
-        try:
-            shap_exp = store.shap_explainer.explain_instance(feature_row, top_k=5)
-            if shap_exp.get("available"):
-                shap_attrs = shap_exp.get("attributions")
-                top_drivers = shap_exp.get("top_positive_drivers")
-        except Exception as exc:
-            logger.warning("TreeSHAP Phase 3 explanation failed: %s", exc)
-
-    conformal_calibrated = bool(engine.conformal.is_calibrated) if engine and hasattr(engine, "conformal") else False
-    conformal_q = round(float(engine.conformal.q_hat), 4) if engine and hasattr(engine, "conformal") and engine.conformal.is_calibrated else None
 
     if getattr(store, "transaction_history", None) is not None and req.buyer_id and req.seller_id and getattr(req, "order_date", None) is None:
         store.transaction_history.record_live_transaction(
             req.buyer_id, req.seller_id, order_id=req.order_id
         )
 
-    return TransactionScoreResponse(
-        order_id=req.order_id,
-        overall_fraud_probability=round(final_risk, 4),
-        raw_fraud_probability=round(prob_raw, 4),
-        calibrated_fraud_probability=round(prob_cal, 4),
-        policy_risk_score=round(final_risk, 4),
-        canonical_trust_engine_risk=round(final_risk, 4),
-        conformal_prediction_set=conformal_set,
-        conformal_is_calibrated=conformal_calibrated,
-        conformal_coverage_guarantee=0.95,
-        conformal_q_hat=conformal_q,
-        risk_label=_risk_label(final_risk),
-        decision=decision,
-        trust_score=trust_score,
-        confidence=confidence,
-        predictive_uncertainty=uncertainty,
-        model_used=f"tabular+graph {clf_name} (Phase 3)",
+    infra_sources = {
+        "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
+        "embeddings": "not_used_in_phase3",
+    }
+
+    return _evaluate_and_build_response(
+        req=req,
+        feature_row=feature_row,
+        prob_raw=prob_raw,
+        prob_cal=prob_cal,
+        prob_tabular=prob_cal,
         model_version="phase3",
-        graph_features_source=graph_source,
+        is_cold_start=is_cold_start,
+        graph_source=graph_source,
+        graph_notes=graph_notes,
         client_mismatch=client_mismatch,
-        cold_start=is_cold_start,
-        model_disagreement=model_disagreement,
-        reason_codes=reason_codes,
-        evidence_availability={
-            "tabular": True,
-            "graph": bool(feature_row.get("share_degree", 0) > 0 or feature_row.get("buyer_pagerank", 0) > 0),
-            "gnn_embeddings": False,
-            "multimodal": req.multimodal_similarity_score is not None,
-            "calibrator_active": store.calibrator is not None,
-            "shap_active": shap_attrs is not None,
-        },
-        infrastructure_sources={
-            "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
-            "embeddings": "not_used_in_phase3",
-        },
-        shap_attributions=shap_attrs,
-        top_risk_drivers=top_drivers,
+        engine=engine,
+        explainer=store.shap_explainer,
+        calibrator_active=store.calibrator is not None,
+        gnn_embeddings_active=False,
+        infra_sources=infra_sources,
         scoring_mode="production_model_phase3_combined",
-        is_simulation=False,
-        note=(
-            f"Scored with Phase 3 tabular+graph model. Graph features source: {graph_source}."
-            + (f" [{graph_notes}]" if graph_notes else "")
-        ),
+        model_used_label=f"tabular+graph {clf_name} (Phase 3)",
+        note_prefix=f"Scored with Phase 3 tabular+graph model. Graph features source: {graph_source}.",
     )
 
 

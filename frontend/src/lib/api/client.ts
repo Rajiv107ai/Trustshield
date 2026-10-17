@@ -6,18 +6,13 @@
 
 import {
   TransactionScoreRequest,
-  TransactionScoreResponse,
   TransactionExplainRequest,
-  TransactionExplainResponse,
   FraudRingsResponse,
   HealthResponse,
   ReadyResponse,
   ListingScoreRequest,
-  ListingScoreResponse,
   ReturnScoreRequest,
-  ReturnScoreResponse,
   DossierRequest,
-  DossierResponse,
   SystemBenchmarkResponse,
   StreamTransactionEvent,
 } from "../types/api";
@@ -55,11 +50,19 @@ export class ApiError extends Error {
   }
 }
 
-// In-memory session API key management (never persisted to localStorage)
+// In-memory session API key management (with local development fallback)
 let _sessionApiKey = "";
 
 export function getSessionApiKey(): string {
-  return _sessionApiKey;
+  if (_sessionApiKey) return _sessionApiKey;
+  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_KEY) {
+    return process.env.NEXT_PUBLIC_API_KEY;
+  }
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("trustshield_api_key");
+    if (stored) return stored;
+  }
+  return "dev-operator-api-key-32chars-long";
 }
 
 export function setSessionApiKey(key: string): void {
@@ -156,6 +159,12 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   return (await res.json()) as T;
 }
 
+async function postRoute<T, R>(endpoint: string, req: T, demoFn: (r: T) => R): Promise<{ data: R; isLive: boolean }> {
+  if (isDemoMode()) return { data: demoFn(req), isLive: false };
+  const data = await apiFetch<R>(endpoint, { method: "POST", body: JSON.stringify(req) });
+  return { data, isLive: true };
+}
+
 export const TrustShieldApi = {
   async getHealth(): Promise<{ data: HealthResponse; isLive: boolean }> {
     if (isDemoMode()) {
@@ -207,16 +216,7 @@ export const TrustShieldApi = {
     }
   },
 
-  async scoreTransaction(req: TransactionScoreRequest): Promise<{ data: TransactionScoreResponse; isLive: boolean }> {
-    if (isDemoMode()) {
-      return { data: demoScoreTransaction(req), isLive: false };
-    }
-    const data = await apiFetch<TransactionScoreResponse>("/transaction/score", {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
-    return { data, isLive: true };
-  },
+  scoreTransaction: (req: TransactionScoreRequest) => postRoute("/transaction/score", req, demoScoreTransaction),
 
   async getFraudRings(minRisk = 0.0, limit = 50): Promise<{ data: FraudRingsResponse; isLive: boolean }> {
     if (isDemoMode()) {
@@ -226,38 +226,11 @@ export const TrustShieldApi = {
     return { data, isLive: true };
   },
 
-  async analyzeListing(req: ListingScoreRequest): Promise<{ data: ListingScoreResponse; isLive: boolean }> {
-    if (isDemoMode()) {
-      return { data: demoAnalyzeListing(req), isLive: false };
-    }
-    const data = await apiFetch<ListingScoreResponse>("/listing/analyze", {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
-    return { data, isLive: true };
-  },
+  analyzeListing: (req: ListingScoreRequest) => postRoute("/listing/analyze", req, demoAnalyzeListing),
 
-  async analyzeReturn(req: ReturnScoreRequest): Promise<{ data: ReturnScoreResponse; isLive: boolean }> {
-    if (isDemoMode()) {
-      return { data: demoAnalyzeReturn(req), isLive: false };
-    }
-    const data = await apiFetch<ReturnScoreResponse>("/return/analyze", {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
-    return { data, isLive: true };
-  },
+  analyzeReturn: (req: ReturnScoreRequest) => postRoute("/return/analyze", req, demoAnalyzeReturn),
 
-  async generateDossier(req: DossierRequest): Promise<{ data: DossierResponse; isLive: boolean }> {
-    if (isDemoMode()) {
-      return { data: demoGenerateDossier(req), isLive: false };
-    }
-    const data = await apiFetch<DossierResponse>("/investigation/generate-dossier", {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
-    return { data, isLive: true };
-  },
+  generateDossier: (req: DossierRequest) => postRoute("/investigation/generate-dossier", req, demoGenerateDossier),
 
   async getBenchmark(): Promise<{ data: SystemBenchmarkResponse; isLive: boolean }> {
     if (isDemoMode()) {
@@ -312,18 +285,7 @@ export const TrustShieldApi = {
     return { data: normalized, isLive: true };
   },
 
-  async explainTransaction(
-    req: TransactionExplainRequest
-  ): Promise<{ data: TransactionExplainResponse; isLive: boolean }> {
-    if (isDemoMode()) {
-      return { data: demoExplainTransaction(req), isLive: false };
-    }
-    const data = await apiFetch<TransactionExplainResponse>("/transaction/explain", {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
-    return { data, isLive: true };
-  },
+  explainTransaction: (req: TransactionExplainRequest) => postRoute("/transaction/explain", req, demoExplainTransaction),
 
   createTransactionEventSource(
     onEvent: (event: StreamTransactionEvent) => void,

@@ -117,15 +117,15 @@ def generate_returns(orders_df: pd.DataFrame, base_return_rate: float = BASE_RET
     # Realistic observation horizon truncation: orders placed near SIM_END whose return occurs
     # after SIM_END have not been returned yet as of the observation cutoff.
     valid_mask = returned_orders["return_date"] <= SIM_END
-    returned_orders = returned_orders[valid_mask]
+    returned_orders = pd.DataFrame(returned_orders[valid_mask])
     reasons = gen.choice(RETURN_REASONS, size=len(returned_orders), p=RETURN_REASON_WEIGHTS)
 
     return pd.DataFrame({
         "return_id": [f"RETURN_{i:06d}" for i in range(len(returned_orders))],
-        "order_id": returned_orders["order_id"].to_numpy(),
-        "buyer_id": returned_orders["buyer_id"].to_numpy(),
-        "seller_id": returned_orders["seller_id"].to_numpy(),
-        "return_date": returned_orders["return_date"].to_numpy(),
+        "order_id": np.asarray(returned_orders["order_id"]),
+        "buyer_id": np.asarray(returned_orders["buyer_id"]),
+        "seller_id": np.asarray(returned_orders["seller_id"]),
+        "return_date": np.asarray(returned_orders["return_date"]),
         "reason": reasons,
         "status": "approved",
     })

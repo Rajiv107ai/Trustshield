@@ -32,78 +32,66 @@ interface CaseItem {
   };
 }
 
+const cItem = (
+  id: string,
+  title: string,
+  severity: CaseItem["severity"],
+  date: string,
+  primaryEntity: string,
+  assignedTo: string,
+  summary: string,
+  timeline: CaseItem["timeline"],
+  evidence: CaseItem["evidence"]
+): CaseItem => ({ id, title, severity, date, primaryEntity, assignedTo, summary, timeline, evidence });
+
 /* BEGIN GENERATED */
 const CASES_DATA: CaseItem[] = [
-  {
-    id: "CASE-001",
-    title: "Device Farm Collusion Cluster #1",
-    severity: "CRITICAL",
-    date: "2026-10-07 22:45",
-    primaryEntity: "ORD_78901",
-    assignedTo: "Senior Fraud Investigator",
-    summary:
-      "Nine distinct buyer identities sharing identical mobile hardware signatures placing burst orders with a common single-merchant store within a 4-hour window.",
-    timeline: [
+  cItem("CASE-001", "Device Farm Collusion Cluster #1", "CRITICAL", "2026-10-07 22:45", "ORD_78901", "Senior Fraud Investigator",
+    "Nine distinct buyer identities sharing identical mobile hardware signatures placing burst orders with a common single-merchant store within a 4-hour window.",
+    [
       { time: "18:12:04", event: "BUYER_RING_MEMBER_01 placed ORD_78901 (₹890.00)", type: "ORDER" },
       { time: "18:44:19", event: "DEV_FARM_99 fingerprint detected on BUYER_RING_MEMBER_02 login", type: "DEVICE" },
       { time: "19:15:33", event: "BUYER_RING_MEMBER_02 placed ORD_78904 (₹910.00)", type: "ORDER" },
       { time: "20:02:11", event: "Graph edge weight exceeded threshold (HHI: 0.88)", type: "GRAPH" },
       { time: "22:45:00", event: "Automated Trust Engine flagged cluster with high fraud risk", type: "GRAPH" },
     ],
-    evidence: {
+    {
       transaction: "Cumulative cluster order volume: ₹14,240.00. 100% of transactions exceed 90th percentile basket size.",
       graph: "Graph density: 0.842. 8-node bipartite clique with shared hardware DEV_FARM_99.",
       behavioral: "Mean time between account registration and high-value purchase: 4.2 hours.",
       multimodal: "N/A — tabular and topological fraud vector.",
       returns: "1 coordinated refund claim submitted for previous transaction batch.",
-    },
-  },
-  {
-    id: "CASE-002",
-    title: "Cross-Seller Catalog Photo Theft",
-    severity: "HIGH",
-    date: "2026-10-07 19:20",
-    primaryEntity: "ORD_78920",
-    assignedTo: "Catalog Integrity Team",
-    summary:
-      "New merchant listing high-end electronics using imagery stolen from authorized merchant with 94.5% CLIP cosine similarity match.",
-    timeline: [
+    }),
+  cItem("CASE-002", "Cross-Seller Catalog Photo Theft", "HIGH", "2026-10-07 19:20", "ORD_78920", "Catalog Integrity Team",
+    "New merchant listing high-end electronics using imagery stolen from authorized merchant with 94.5% CLIP cosine similarity match.",
+    [
       { time: "14:10:00", event: "Merchant SELLER_SUSPECT_44 registered account", type: "ORDER" },
       { time: "16:22:15", event: "Uploaded LISTING_CANON_501 (₹340.00)", type: "ORDER" },
       { time: "16:22:18", event: "FAISS vector nearest neighbor query triggered", type: "GRAPH" },
       { time: "19:20:00", event: "Self-match exclusion confirmed catalog theft from PROD_B07XYZ99", type: "GRAPH" },
     ],
-    evidence: {
+    {
       transaction: "Priced at ₹340.00, slightly undercutting median price (₹350.00) to maximize quick sales.",
       graph: "Zero historical sales or seller trust degree in graph ledger.",
       behavioral: "Seller account age: 3 days.",
       multimodal: "CLIP cosine visual similarity: 0.945 against catalog hero image.",
       returns: "Zero historical returns.",
-    },
-  },
-  {
-    id: "CASE-003",
-    title: "Serial Wardrobing & Empty Box Refund Abuse",
-    severity: "MEDIUM",
-    date: "2026-10-07 14:10",
-    primaryEntity: "ORD_78907",
-    assignedTo: "Chargeback Resolution Unit",
-    summary:
-      "Customer with historical 80% return rate submitting another high-value 'wrong item received' chargeback claim.",
-    timeline: [
+    }),
+  cItem("CASE-003", "Serial Wardrobing & Empty Box Refund Abuse", "MEDIUM", "2026-10-07 14:10", "ORD_78907", "Chargeback Resolution Unit",
+    "Customer with historical 80% return rate submitting another high-value 'wrong item received' chargeback claim.",
+    [
       { time: "Sep 12", event: "Claimed refund for ORD_5521 (₹210.00) — Wrong Item", type: "RETURN" },
       { time: "Sep 28", event: "Claimed refund for ORD_6104 (₹180.00) — Defective", type: "RETURN" },
       { time: "Oct 05", event: "Placed ORD_SIM_RETURN_04 (₹320.00)", type: "ORDER" },
       { time: "Oct 07", event: "Submitted RET_CLAIM_9021 within 48h of delivery", type: "RETURN" },
     ],
-    evidence: {
+    {
       transaction: "Order amount: ₹320.00.",
       graph: "Single buyer node connected to 2 distinct merchant targets.",
       behavioral: "Account return frequency: 4 refunds out of 5 lifetime purchases.",
       multimodal: "N/A.",
       returns: "Return rate of 80% vs platform average of 4.2%.",
-    },
-  },
+    }),
 ];
 /* END GENERATED */
 
@@ -417,25 +405,17 @@ export default function InvestigationsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-                <div className="text-[10px] font-mono text-blue-400 font-bold uppercase">1. Transaction Evidence</div>
-                <div className="text-[#8995A3] mt-1 leading-relaxed">{selectedCase.evidence.transaction}</div>
-              </div>
-
-              <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-                <div className="text-[10px] font-mono text-purple-400 font-bold uppercase">2. Graph Topology Evidence</div>
-                <div className="text-[#8995A3] mt-1 leading-relaxed">{selectedCase.evidence.graph}</div>
-              </div>
-
-              <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-                <div className="text-[10px] font-mono text-amber-400 font-bold uppercase">3. Behavioral Velocity</div>
-                <div className="text-[#8995A3] mt-1 leading-relaxed">{selectedCase.evidence.behavioral}</div>
-              </div>
-
-              <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
-                <div className="text-[10px] font-mono text-cyan-400 font-bold uppercase">4. Multimodal / CLIP Evidence</div>
-                <div className="text-[#8995A3] mt-1 leading-relaxed">{selectedCase.evidence.multimodal}</div>
-              </div>
+              {[
+                { title: "1. Transaction Evidence", color: "text-blue-400", text: selectedCase.evidence.transaction },
+                { title: "2. Graph Topology Evidence", color: "text-purple-400", text: selectedCase.evidence.graph },
+                { title: "3. Behavioral Velocity", color: "text-amber-400", text: selectedCase.evidence.behavioral },
+                { title: "4. Multimodal / CLIP Evidence", color: "text-cyan-400", text: selectedCase.evidence.multimodal },
+              ].map((ch) => (
+                <div key={ch.title} className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35]">
+                  <div className={`text-[10px] font-mono font-bold uppercase ${ch.color}`}>{ch.title}</div>
+                  <div className="text-[#8995A3] mt-1 leading-relaxed">{ch.text}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

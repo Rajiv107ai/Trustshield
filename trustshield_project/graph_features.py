@@ -1,6 +1,6 @@
 """Graph-topological feature extraction and fraud ring detection using NetworkX."""
 
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -75,8 +75,8 @@ def compute_relationship_features(graph: nx.Graph, buyer_ids) -> pd.DataFrame:
 def build_weekly_relationship_snapshots(
     address_sharing_log: pd.DataFrame,
     device_sharing_log: pd.DataFrame,
-    min_date: pd.Timestamp = SIM_START,
-    max_date: pd.Timestamp = pd.Timestamp("2025-12-31"),
+    min_date: Any = SIM_START,
+    max_date: Any = pd.Timestamp("2025-12-31"),
     freq: str = "W-MON",
 ) -> pd.DataFrame:
     """Builds weekly snapshots of the buyer relationship graph strictly prior to each snapshot date.
@@ -131,7 +131,7 @@ def build_weekly_relationship_snapshots(
         return pd.DataFrame(columns=["snapshot_date", "buyer_id", "share_degree", "share_component_size"])
 
     snap_df = pd.DataFrame(snapshot_rows)
-    snap_df["snapshot_date"] = pd.to_datetime(snap_df["snapshot_date"]).dt.as_unit("ns")
+    snap_df["snapshot_date"] = pd.to_datetime(snap_df["snapshot_date"]).astype("datetime64[ns]")
     return snap_df.sort_values("snapshot_date").reset_index(drop=True)
 
 
@@ -139,7 +139,7 @@ def attach_relationship_snapshot_features(
     orders_df: pd.DataFrame,
     address_sharing_log: pd.DataFrame,
     device_sharing_log: pd.DataFrame,
-    sim_start: pd.Timestamp = SIM_START,
+    sim_start: Any = SIM_START,
 ) -> pd.DataFrame:
     """Attaches point-in-time relationship graph features (share_degree, share_component_size).
 
@@ -166,9 +166,9 @@ def attach_relationship_snapshot_features(
         df["share_component_size"] = 1.0
         return df
 
-    orders_sub = df[["buyer_id", "order_date"]].copy()
+    orders_sub = pd.DataFrame(df[["buyer_id", "order_date"]]).copy()
     orders_sub["_orig_idx"] = orders_sub.index
-    orders_sub["_dt_key"] = pd.to_datetime(orders_sub["order_date"]).dt.as_unit("ns")
+    orders_sub["_dt_key"] = pd.to_datetime(orders_sub["order_date"]).astype("datetime64[ns]")
     orders_sorted = orders_sub.sort_values(by="_dt_key", kind="mergesort")
 
     merged = pd.merge_asof(
@@ -301,7 +301,7 @@ def build_monthly_plain_aggregate_snapshots(orders_df: pd.DataFrame, sim_start, 
         seller_buyer_counts = cum_orders.groupby(["seller_id", "buyer_id"]).size()
         seller_totals = cum_orders.groupby("seller_id").size()
         shares = seller_buyer_counts.div(seller_totals, level="seller_id")
-        top_shares = shares.groupby(level=0).max().to_dict()
+        top_shares = pd.Series(shares.groupby(level=0).max()).to_dict()
 
         seller_ids = list(dict.fromkeys(cum_orders["seller_id"]))
         seller_rows = [

@@ -3,12 +3,62 @@
 import React, { useState, useEffect } from "react";
 import { Cpu } from "lucide-react";
 
+interface MetricSummary {
+  roc_mean: number;
+  pr_mean: number;
+}
+
+interface PairedLift {
+  mean_diff: number;
+  p_value: number;
+}
+
+interface PairedRocDiff {
+  roc: { mean_diff: number };
+}
+
+interface AblationMetric {
+  roc_auc: number;
+  pr_auc: number;
+}
+
+interface ReturnFraudAblations {
+  full_model: AblationMetric;
+  without_days_to_return: AblationMetric;
+  without_reasons: AblationMetric;
+  without_both: AblationMetric;
+}
+
+interface PriceAnomalySubgroups {
+  test_fake_with_price_anomaly: number;
+  recall_with_price_anomaly: number;
+  test_fake_without_price_anomaly: number;
+  recall_without_price_anomaly: number;
+}
+
+interface DesignRuleAblations {
+  return_fraud_ablations: ReturnFraudAblations;
+  fake_listing_price_anomaly_subgroups: PriceAnomalySubgroups;
+}
+
 interface RegistryResultsData {
-  pre_registered_primary_analysis_20_seeds?: any;
-  graph_free_baseline_comparisons_20_seeds?: any;
-  tuned_hybrid_model_5_seeds?: any;
-  design_rule_ablations?: any;
-  [key: string]: any;
+  pre_registered_primary_analysis_20_seeds?: {
+    tabular_plus_graph: MetricSummary;
+    tabular_with_device: MetricSummary;
+    primary_roc_lift_paired: PairedLift;
+  };
+  graph_free_baseline_comparisons_20_seeds?: {
+    device_lift_b_vs_a_paired: PairedRocDiff;
+  };
+  tuned_hybrid_model_5_seeds?: {
+    standard_dataset?: {
+      roc_mean: number;
+      pr_mean: number;
+      paired_diff_vs_tabular: PairedRocDiff;
+    };
+  };
+  design_rule_ablations?: DesignRuleAblations;
+  [key: string]: unknown;
 }
 
 export default function ModelRegistryPage() {
@@ -133,7 +183,7 @@ export default function ModelRegistryPage() {
       </div>
 
       {/* Design-Rule Ablation Summary Cards */}
-      {ablations && (
+      {ablations && ablations.return_fraud_ablations && ablations.fake_listing_price_anomaly_subgroups && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-3 font-mono text-xs">
             <div className="flex items-center justify-between">

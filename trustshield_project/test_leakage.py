@@ -43,48 +43,32 @@ class TestFeatureSetSanity:
         txn = pipeline["txn"]
         cat = pipeline["catalog"]
 
-        # 1. Run feature building on unpermuted data
-        df1, tab_cols = build_features(
-            res["orders"], res["listings"], res["returns"],
-            txn["buyers"], cat["sellers"], cat["products"]
-        )
-        df1 = attach_relationship_snapshot_features(df1, base["address_sharing_log"], base["device_sharing_log"])
-        snaps1, months1 = build_monthly_snapshots(res["orders"].assign(order_date=pd.to_datetime(res["orders"]["order_date"])), SIM_START)
-        df1 = attach_snapshot_features(df1, snaps1, months1)
-        df1 = add_edge_weight_before(df1)
+        def _extract(ord_in, list_in):
+            d, tc = build_features(ord_in, list_in, res["returns"], txn["buyers"], cat["sellers"], cat["products"])
+            d = attach_relationship_snapshot_features(d, base["address_sharing_log"], base["device_sharing_log"])
+            snaps, months = build_monthly_snapshots(ord_in.assign(order_date=pd.to_datetime(ord_in["order_date"])), SIM_START)
+            d = attach_snapshot_features(d, snaps, months)
+            return add_edge_weight_before(d), tc
 
-        # 2. Create permuted copies with scrambled labels
-        orders_perm = res["orders"].copy()
+        df1, tab_cols = _extract(res["orders"], res["listings"])
+
+        # Permuted copies with scrambled labels
         rng = np.random.RandomState(42)
+        orders_perm = res["orders"].copy()
         orders_perm["is_fraudulent"] = rng.permutation(orders_perm["is_fraudulent"].values)
         if "fraud_type" in orders_perm.columns:
             orders_perm["fraud_type"] = rng.permutation(orders_perm["fraud_type"].values)
-
         listings_perm = res["listings"].copy()
         listings_perm["is_fraudulent"] = rng.permutation(listings_perm["is_fraudulent"].values)
 
-        df2, _ = build_features(
-            orders_perm, listings_perm, res["returns"],
-            txn["buyers"], cat["sellers"], cat["products"]
-        )
-        df2 = attach_relationship_snapshot_features(df2, base["address_sharing_log"], base["device_sharing_log"])
-        snaps2, months2 = build_monthly_snapshots(orders_perm.assign(order_date=pd.to_datetime(orders_perm["order_date"])), SIM_START)
-        df2 = attach_snapshot_features(df2, snaps2, months2)
-        df2 = add_edge_weight_before(df2)
+        df2, _ = _extract(orders_perm, listings_perm)
 
-        graph_cols = [
+        eval_cols = tab_cols + [
             "share_degree", "share_component_size", "buyer_seller_degree", "buyer_pagerank",
-            "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi",
-            "buyer_seller_edge_weight_before"
+            "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi", "buyer_seller_edge_weight_before"
         ]
-        all_eval_cols = tab_cols + graph_cols
-        for col in all_eval_cols:
-            v1 = df1[col].to_numpy()
-            v2 = df2[col].to_numpy()
-            np.testing.assert_array_equal(
-                v1, v2,
-                err_msg=f"Feature '{col}' changed when ground truth labels were permuted! Target leakage detected!"
-            )
+        for col in eval_cols:
+            np.testing.assert_array_equal(df1[col].to_numpy(), df2[col].to_numpy(), err_msg=f"Feature '{col}' changed on label permutation!")
 
 
 class TestTemporalIntegrity:
@@ -164,103 +148,47 @@ class TestReturnTemporalSafety:
 # ---------------------------------------------------------------------------
 
 class TestSameTimestampOrderLeakage:
-    """Two orders for the same buyer at the exact same timestamp must both get
-    buyer_orders_before = 0.  The old cumcount() code would give one of them
-    count=1, creating temporal leakage.
-    """
-
     def test_same_timestamp_both_get_zero_prior_count(self):
         from baseline_model import _cumulative_count_asof
-        import pandas as pd
-
         ts = pd.Timestamp("2025-06-15 10:00:00")
-        orders = pd.DataFrame({
-            "buyer_id": ["B001", "B001"],
-            "order_date": [ts, ts],
-            "order_id": ["O1", "O2"],
-        })
-        orders["order_date"] = pd.to_datetime(orders["order_date"])
-
+        orders = pd.DataFrame({"buyer_id": ["B001", "B001"], "order_date": [ts, ts], "order_id": ["O1", "O2"]})
         result = _cumulative_count_asof(orders, group_col="buyer_id", date_col="order_date")
-
-        assert result.iloc[0] == 0, (
-            "First of two same-timestamp orders must see 0 prior orders (not 1)."
-        )
-        assert result.iloc[1] == 0, (
-            "Second of two same-timestamp orders must see 0 prior orders (not 1)."
-        )
+        assert result.iloc[0] == 0 and result.iloc[1] == 0
 
     def test_earlier_order_counted_for_later(self):
-        """An order placed before another must be counted in the later order's prior count."""
         from baseline_model import _cumulative_count_asof
-        import pandas as pd
-
-        orders = pd.DataFrame({
-            "buyer_id": ["B001", "B001"],
-            "order_date": [
-                pd.Timestamp("2025-06-01"),
-                pd.Timestamp("2025-06-15"),
-            ],
-            "order_id": ["O1", "O2"],
-        })
-        orders["order_date"] = pd.to_datetime(orders["order_date"])
-
+        orders = pd.DataFrame({"buyer_id": ["B001", "B001"], "order_date": [pd.Timestamp("2025-06-01"), pd.Timestamp("2025-06-15")], "order_id": ["O1", "O2"]})
         result = _cumulative_count_asof(orders, group_col="buyer_id", date_col="order_date")
-        assert result.iloc[0] == 0, "First (earliest) order should have 0 prior orders"
-        assert result.iloc[1] == 1, "Second (later) order should see 1 prior order"
+        assert result.iloc[0] == 0 and result.iloc[1] == 1
 
 
 class TestSameTimestampEdgeWeightLeakage:
-    """Two orders between the same buyer and seller at the exact same timestamp must
-    both get buyer_seller_edge_weight_before = 0.
-    """
-
     def test_same_timestamp_edge_weight_both_zero(self):
         from graph_features import add_edge_weight_before
-        import pandas as pd
-
         ts = pd.Timestamp("2025-07-01 12:00:00")
-        df = pd.DataFrame({
-            "buyer_id": ["B001", "B001"],
-            "seller_id": ["S001", "S001"],
-            "order_date": [ts, ts],
-            "order_id": ["O1", "O2"],
-        })
-        df["order_date"] = pd.to_datetime(df["order_date"])
-
+        df = pd.DataFrame({"buyer_id": ["B001", "B001"], "seller_id": ["S001", "S001"], "order_date": [ts, ts], "order_id": ["O1", "O2"]})
         result = add_edge_weight_before(df)
-
-        assert result["buyer_seller_edge_weight_before"].iloc[0] == 0, (
-            "First same-timestamp order must have edge_weight_before=0."
-        )
-        assert result["buyer_seller_edge_weight_before"].iloc[1] == 0, (
-            "Second same-timestamp order must have edge_weight_before=0 (not 1)."
-        )
+        assert result["buyer_seller_edge_weight_before"].iloc[0] == 0 and result["buyer_seller_edge_weight_before"].iloc[1] == 0
 
     def test_prior_order_counted_for_later_order(self):
-        """An earlier order must be counted for the later one."""
         from graph_features import add_edge_weight_before
-        import pandas as pd
-
-        df = pd.DataFrame({
-            "buyer_id": ["B001", "B001"],
-            "seller_id": ["S001", "S001"],
-            "order_date": [
-                pd.Timestamp("2025-06-01"),
-                pd.Timestamp("2025-06-15"),
-            ],
-            "order_id": ["O1", "O2"],
-        })
-        df["order_date"] = pd.to_datetime(df["order_date"])
-        result = add_edge_weight_before(df)
-        result = result.sort_values("order_date").reset_index(drop=True)
-        assert result.loc[0, "buyer_seller_edge_weight_before"] == 0
-        assert result.loc[1, "buyer_seller_edge_weight_before"] == 1
+        df = pd.DataFrame({"buyer_id": ["B001", "B001"], "seller_id": ["S001", "S001"], "order_date": [pd.Timestamp("2025-06-01"), pd.Timestamp("2025-06-15")], "order_id": ["O1", "O2"]})
+        result = add_edge_weight_before(df).sort_values("order_date").reset_index(drop=True)
+        assert result.loc[0, "buyer_seller_edge_weight_before"] == 0 and result.loc[1, "buyer_seller_edge_weight_before"] == 1
 
 
 # ---------------------------------------------------------------------------
 # Issue #4 — Graph features temporal safety tests
-# ---------------------------------------------------------------------------
+def _make_sharing_logs(first_seen_date):
+    import pandas as pd
+    d = {"buyer_id": ["B001"], "shared_with_buyer_id": ["B002"], "shared_address_id": ["ADDR_001"], "share_type": ["fraud_linked"]}
+    if first_seen_date is not None:
+        d["first_seen_date"] = [first_seen_date]
+    dev_cols = ["buyer_id", "shared_with_buyer_id", "shared_device_id", "share_type"]
+    if first_seen_date is not None:
+        dev_cols.append("first_seen_date")
+    return pd.DataFrame(d), pd.DataFrame(columns=dev_cols)
+
 
 class TestGraphTemporalSafety:
     """Prove that a sharing relationship created in the future cannot affect
@@ -275,201 +203,59 @@ class TestGraphTemporalSafety:
         from graph_features import build_relationship_graph, compute_relationship_features
 
         early_order_date = pd.Timestamp("2025-03-01")
-        # The sharing relationship is first seen AFTER the early order
         future_sharing_date = pd.Timestamp("2025-06-01")
 
-        addr_log = pd.DataFrame({
-            "buyer_id": ["B001"],
-            "shared_with_buyer_id": ["B002"],
-            "shared_address_id": ["ADDR_001"],
-            "share_type": ["fraud_linked"],
-            "first_seen_date": [future_sharing_date],
-        })
-        dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id",
-                                        "shared_device_id", "share_type", "first_seen_date"])
-
-        # Build graph as seen BEFORE the sharing relationship was established
+        addr_log, dev_log = _make_sharing_logs(future_sharing_date)
         G_early = build_relationship_graph(addr_log, dev_log, cutoff_date=early_order_date)
-        feats_early = compute_relationship_features(G_early, ["B001", "B002"])
-
-        b001_early = feats_early[feats_early["buyer_id"] == "B001"].iloc[0]
-        assert b001_early["share_degree"] == 0, (
-            "B001 must have share_degree=0 before the sharing relationship was established."
-        )
-        assert b001_early["share_component_size"] == 1, (
-            "B001 must be in a singleton component before sharing was observed."
-        )
+        b001_early = compute_relationship_features(G_early, ["B001", "B002"]).query("buyer_id == 'B001'").iloc[0]
+        assert b001_early["share_degree"] == 0
+        assert b001_early["share_component_size"] == 1
 
     def test_sharing_visible_after_first_seen_date(self):
-        """An order scored AFTER a sharing relationship's first_seen_date must see
-        the actual graph degree (i.e. the relationship IS included).
-        """
         import pandas as pd
         from graph_features import build_relationship_graph, compute_relationship_features
-
-        sharing_date = pd.Timestamp("2025-03-01")
-        later_order_date = pd.Timestamp("2025-06-01")
-
-        addr_log = pd.DataFrame({
-            "buyer_id": ["B001"],
-            "shared_with_buyer_id": ["B002"],
-            "shared_address_id": ["ADDR_001"],
-            "share_type": ["fraud_linked"],
-            "first_seen_date": [sharing_date],
-        })
-        dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id",
-                                        "shared_device_id", "share_type", "first_seen_date"])
-
-        # Build graph as seen AFTER the sharing relationship was established
-        G_later = build_relationship_graph(addr_log, dev_log, cutoff_date=later_order_date)
-        feats_later = compute_relationship_features(G_later, ["B001", "B002"])
-
-        b001_later = feats_later[feats_later["buyer_id"] == "B001"].iloc[0]
-        assert b001_later["share_degree"] == 1, (
-            "B001 must have share_degree=1 after the sharing relationship was established."
-        )
-        assert b001_later["share_component_size"] == 2, (
-            "B001 and B002 must be in the same component after sharing was observed."
-        )
+        addr_log, dev_log = _make_sharing_logs(pd.Timestamp("2025-03-01"))
+        G_later = build_relationship_graph(addr_log, dev_log, cutoff_date=pd.Timestamp("2025-06-01"))
+        b001_later = compute_relationship_features(G_later, ["B001", "B002"]).query("buyer_id == 'B001'").iloc[0]
+        assert b001_later["share_degree"] == 1
+        assert b001_later["share_component_size"] == 2
 
     def test_no_first_seen_date_column_falls_back_to_all_relationships(self):
-        """Legacy sharing logs without first_seen_date must not crash when cutoff=None."""
         import pandas as pd
         from graph_features import build_relationship_graph, compute_relationship_features
-
-        addr_log = pd.DataFrame({
-            "buyer_id": ["B001"],
-            "shared_with_buyer_id": ["B002"],
-            "shared_address_id": ["ADDR_001"],
-            "share_type": ["fraud_linked"],
-            # No first_seen_date column — legacy format
-        })
-        dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id",
-                                        "shared_device_id", "share_type"])
-
-        # cutoff=None means "include all" — must not raise
+        addr_log, dev_log = _make_sharing_logs(None)
         G = build_relationship_graph(addr_log, dev_log, cutoff_date=None)
-        feats = compute_relationship_features(G, ["B001", "B002"])
-        b001 = feats[feats["buyer_id"] == "B001"].iloc[0]
-        assert b001["share_degree"] == 1  # edge included since no filter applied
-
-
-# ---------------------------------------------------------------------------
-# FIX-28 — run_phase_3 temporal leakage regression test
-# ---------------------------------------------------------------------------
+        b001 = compute_relationship_features(G, ["B001", "B002"]).query("buyer_id == 'B001'").iloc[0]
+        assert b001["share_degree"] == 1
 
 class TestRunPhase3GraphTemporalSafety:
-    """Verify that the relationship graph used in run_phase_3() is built with
-    per-split cutoff dates, not a no-cutoff all-inclusive graph.
-
-    The bug (fixed in FIX-28): build_relationship_graph() was called without
-    cutoff_date, meaning future sharing relationships were included in training
-    features — a temporal leakage.  The test confirms the fix by showing that
-    a sharing relationship first_seen AFTER TRAIN_END does NOT affect features
-    computed for a training-period order when a cutoff is applied.
-    """
-
     def test_future_sharing_invisible_to_training_period_with_cutoff(self):
-        """Sharing first seen after TRAIN_END must not appear in the train graph."""
         import pandas as pd
         from baseline_model import TRAIN_END
         from graph_features import build_relationship_graph, compute_relationship_features
-
-        # Sharing relationship first observed 60 days after TRAIN_END
-        future_date = TRAIN_END + pd.Timedelta(days=60)
-
-        addr_log = pd.DataFrame({
-            "buyer_id": ["B001"],
-            "shared_with_buyer_id": ["B002"],
-            "shared_address_id": ["ADDR_001"],
-            "share_type": ["fraud_linked"],
-            "first_seen_date": [future_date],
-        })
-        dev_log = pd.DataFrame(columns=[
-            "buyer_id", "shared_with_buyer_id", "shared_device_id", "share_type", "first_seen_date"
-        ])
-
-        # Build graph with TRAIN_END cutoff — future relationship must be excluded
+        addr_log, dev_log = _make_sharing_logs(TRAIN_END + pd.Timedelta(days=60))
         G_train = build_relationship_graph(addr_log, dev_log, cutoff_date=TRAIN_END)
-        feats_train = compute_relationship_features(G_train, ["B001", "B002"])
-
-        b001_train = feats_train[feats_train["buyer_id"] == "B001"].iloc[0]
-        assert b001_train["share_degree"] == 0, (
-            "FIX-28 regression: Training graph must NOT include sharing relationships "
-            "first observed after TRAIN_END. share_degree should be 0."
-        )
+        b001_train = compute_relationship_features(G_train, ["B001", "B002"]).query("buyer_id == 'B001'").iloc[0]
+        assert b001_train["share_degree"] == 0
 
     def test_future_sharing_visible_after_val_end_cutoff(self):
-        """Sharing first seen before VAL_END must appear in the val/test graph."""
         import pandas as pd
         from baseline_model import TRAIN_END, VAL_END
         from graph_features import build_relationship_graph, compute_relationship_features
-
-        # Sharing relationship first observed 30 days after TRAIN_END (but before VAL_END)
-        mid_date = TRAIN_END + pd.Timedelta(days=30)
-
-        addr_log = pd.DataFrame({
-            "buyer_id": ["B001"],
-            "shared_with_buyer_id": ["B002"],
-            "shared_address_id": ["ADDR_001"],
-            "share_type": ["fraud_linked"],
-            "first_seen_date": [mid_date],
-        })
-        dev_log = pd.DataFrame(columns=[
-            "buyer_id", "shared_with_buyer_id", "shared_device_id", "share_type", "first_seen_date"
-        ])
-
+        addr_log, dev_log = _make_sharing_logs(TRAIN_END + pd.Timedelta(days=30))
         G_val = build_relationship_graph(addr_log, dev_log, cutoff_date=VAL_END)
-        feats_val = compute_relationship_features(G_val, ["B001", "B002"])
-
-        b001_val = feats_val[feats_val["buyer_id"] == "B001"].iloc[0]
-        assert b001_val["share_degree"] == 1, (
-            "Sharing observed before VAL_END must be visible in the val/test graph."
-        )
-
-
-# ---------------------------------------------------------------------------
-# FIX-04 — Feedback loop guard regression test
-# ---------------------------------------------------------------------------
+        b001_val = compute_relationship_features(G_val, ["B001", "B002"]).query("buyer_id == 'B001'").iloc[0]
+        assert b001_val["share_degree"] == 1
 
 class TestFeedbackLoopGuard:
-    """Verify that leakage_audit() blocks model-output columns from the feature set.
-
-    Model-derived columns (trust_score, risk_score, etc.) must never become
-    training features — this creates a feedback loop where the model predicts
-    its own past outputs, inflating apparent performance.
-    """
-
     def test_model_output_columns_are_banned(self):
-        """leakage_audit() must reject any model-output column in feature_cols."""
         import pandas as pd
+        import pytest
         from baseline_model import leakage_audit
-
-        # Minimal DataFrame that satisfies the audit's other checks
-        df = pd.DataFrame({
-            "buyer_returns_before": [0],
-            "buyer_orders_before": [1],
-            "seller_age_days": [30],
-            "buyer_age_days": [30],
-        })
-
-        forbidden_model_cols = [
-            "trust_score", "risk_score", "overall_fraud_probability",
-            "predicted_fraud", "decision", "model_reason_code", "model_probability",
-        ]
-        for col in forbidden_model_cols:
-            feature_cols = [col]
-            try:
-                leakage_audit(df, feature_cols)
-                raise AssertionError(
-                    f"FIX-04 regression: leakage_audit() should have rejected '{col}' "
-                    "as a banned model-output column, but did not."
-                )
-            except AssertionError as exc:
-                # The AssertionError raised by leakage_audit itself is expected
-                if "FIX-04 regression" in str(exc):
-                    raise  # re-raise our own assertion, not the expected one
-                # leakage_audit raised its own AssertionError — that's the correct behaviour
+        df = pd.DataFrame({"buyer_returns_before": [0], "buyer_orders_before": [1], "seller_age_days": [30], "buyer_age_days": [30]})
+        for col in ["trust_score", "risk_score", "overall_fraud_probability", "predicted_fraud", "decision", "model_reason_code", "model_probability"]:
+            with pytest.raises(AssertionError):
+                leakage_audit(df, [col])
 
     def test_legitimate_features_are_not_banned(self):
         """Legitimate feature columns must pass the feedback-loop guard."""
@@ -492,20 +278,13 @@ class TestFeedbackLoopGuard:
 # ---------------------------------------------------------------------------
 
 class TestPointInTimeGraphAndReturnLeakagePrevention:
-    """Verifies that future events (future orders, future returns, future graph edges)
-    strictly cannot alter feature representations of earlier transactions.
-    """
+    """Verifies that future events strictly cannot alter feature representations of earlier transactions."""
 
     def test_future_orders_do_not_affect_earlier_snapshot_features(self):
-        """Adding Month M+1 orders to the history must not change graph features for Month M orders."""
         import numpy as np
-        import pandas as pd
         from graph_features import build_monthly_snapshots, attach_snapshot_features
-
-        # Base orders across Month 1 and Month 2
         m1_dates = pd.date_range("2025-01-05", periods=5, freq="D")
         m2_dates = pd.date_range("2025-02-05", periods=5, freq="D")
-
         base_orders = pd.DataFrame({
             "order_id": [f"ORD_M1_{i}" for i in range(5)] + [f"ORD_M2_{i}" for i in range(5)],
             "buyer_id": ["B1", "B2", "B1", "B3", "B2", "B1", "B2", "B3", "B1", "B2"],
@@ -513,259 +292,111 @@ class TestPointInTimeGraphAndReturnLeakagePrevention:
             "order_date": list(m1_dates) + list(m2_dates),
             "amount": [100.0] * 10,
         })
-
         sim_start = pd.Timestamp("2025-01-01")
-
-        # Compute snapshots without Month 3
         snapshots_v1, months_v1 = build_monthly_snapshots(base_orders, sim_start)
         df_v1 = attach_snapshot_features(base_orders, snapshots_v1, months_v1)
 
-        # Now simulate adding 10 orders in Month 3 with a new dense collusion ring
-        m3_dates = pd.date_range("2025-03-05", periods=10, freq="D")
         m3_orders = pd.DataFrame({
             "order_id": [f"ORD_M3_{i}" for i in range(10)],
-            "buyer_id": ["B1", "B2", "B1", "B2", "B1", "B2", "B1", "B2", "B1", "B2"],
-            "seller_id": ["S1", "S1", "S1", "S1", "S1", "S1", "S1", "S1", "S1", "S1"],
-            "order_date": list(m3_dates),
+            "buyer_id": ["B1", "B2"] * 5,
+            "seller_id": ["S1"] * 10,
+            "order_date": list(pd.date_range("2025-03-05", periods=10, freq="D")),
             "amount": [500.0] * 10,
         })
         all_orders = pd.concat([base_orders, m3_orders], ignore_index=True)
-
         snapshots_v2, months_v2 = build_monthly_snapshots(all_orders, sim_start)
         df_v2 = attach_snapshot_features(all_orders, snapshots_v2, months_v2)
 
-        # Check features for base orders (Month 1 & 2) in df_v1 vs df_v2
-        check_cols = [
-            "buyer_seller_degree", "buyer_pagerank",
-            "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi"
-        ]
+        check_cols = ["buyer_seller_degree", "buyer_pagerank", "seller_buyer_degree", "seller_pagerank", "seller_buyer_concentration_hhi"]
         for col in check_cols:
-            v1_vals: np.typing.NDArray[np.float64] = np.array(df_v1.loc[:9, col], dtype=np.float64)
-            v2_vals: np.typing.NDArray[np.float64] = np.array(df_v2.loc[:9, col], dtype=np.float64)
-            np.testing.assert_allclose(
-                v1_vals, v2_vals, rtol=1e-5, atol=1e-5,
-                err_msg=f"Temporal leakage detected: Month 3 future orders changed '{col}' for earlier orders!"
-            )
+            np.testing.assert_allclose(np.array(df_v1.loc[:9, col], dtype=np.float64), np.array(df_v2.loc[:9, col], dtype=np.float64), rtol=1e-5, atol=1e-5)
 
     def test_future_returns_do_not_leak_into_earlier_order_features(self):
-        """A return occurring after an order date must not increment buyer_returns_before."""
-        import pandas as pd
         from baseline_model import build_features
-
-        buyers_df = pd.DataFrame({
-            "buyer_id": ["B_TEST"],
-            "signup_date": [pd.Timestamp("2025-01-01")],
-        })
-        sellers_df = pd.DataFrame({
-            "seller_id": ["S_TEST"],
-            "signup_date": [pd.Timestamp("2025-01-01")],
-        })
-        products_df = pd.DataFrame({
-            "product_id": ["P_TEST"],
-            "base_price": [50.0],
-        })
-        listings_df = pd.DataFrame({
-            "listing_id": ["L_TEST"],
-            "seller_id": ["S_TEST"],
-            "product_id": ["P_TEST"],
-            "category": ["electronics"],
-            "listing_date": [pd.Timestamp("2025-01-02")],
-            "price": [50.0],
-        })
-        orders_df = pd.DataFrame({
-            "order_id": ["ORD_1", "ORD_2"],
-            "buyer_id": ["B_TEST", "B_TEST"],
-            "seller_id": ["S_TEST", "S_TEST"],
-            "listing_id": ["L_TEST", "L_TEST"],
-            "order_date": [pd.Timestamp("2025-01-10"), pd.Timestamp("2025-01-20")],
-            "amount": [50.0, 50.0],
-            "device_id": ["DEV_TEST", "DEV_TEST"],
-        })
-        # Return for ORD_1 occurs on 2025-01-15 (after ORD_1, but before ORD_2)
-        returns_df = pd.DataFrame({
-            "return_id": ["RET_1"],
-            "order_id": ["ORD_1"],
-            "buyer_id": ["B_TEST"],
-            "return_date": [pd.Timestamp("2025-01-15")],
-        })
-
-        feat_df, _ = build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, products_df)
-
-        ord1_feat = feat_df[feat_df["order_id"] == "ORD_1"].iloc[0]
-        ord2_feat = feat_df[feat_df["order_id"] == "ORD_2"].iloc[0]
-
-        # At ORD_1 time (Jan 10), return RET_1 (Jan 15) has not happened yet -> must be 0
-        assert ord1_feat["buyer_returns_before"] == 0, (
-            "Temporal leakage: Future return on Jan 15 was counted before Jan 10 order!"
-        )
-        # At ORD_2 time (Jan 20), return RET_1 has happened -> must be 1
-        assert ord2_feat["buyer_returns_before"] == 1, (
-            "Historical return on Jan 15 must be counted for Jan 20 order."
-        )
+        b_df = pd.DataFrame({"buyer_id": ["B_TEST"], "signup_date": [pd.Timestamp("2025-01-01")]})
+        s_df = pd.DataFrame({"seller_id": ["S_TEST"], "signup_date": [pd.Timestamp("2025-01-01")]})
+        p_df = pd.DataFrame({"product_id": ["P_TEST"], "base_price": [50.0]})
+        l_df = pd.DataFrame({"listing_id": ["L_TEST"], "seller_id": ["S_TEST"], "product_id": ["P_TEST"], "category": ["electronics"], "listing_date": [pd.Timestamp("2025-01-02")], "price": [50.0]})
+        o_df = pd.DataFrame({"order_id": ["ORD_1", "ORD_2"], "buyer_id": ["B_TEST", "B_TEST"], "seller_id": ["S_TEST", "S_TEST"], "listing_id": ["L_TEST", "L_TEST"], "order_date": [pd.Timestamp("2025-01-10"), pd.Timestamp("2025-01-20")], "amount": [50.0, 50.0], "device_id": ["DEV_TEST", "DEV_TEST"]})
+        r_df = pd.DataFrame({"return_id": ["RET_1"], "order_id": ["ORD_1"], "buyer_id": ["B_TEST"], "return_date": [pd.Timestamp("2025-01-15")]})
+        feat_df, _ = build_features(o_df, l_df, r_df, b_df, s_df, p_df)
+        assert feat_df[feat_df["order_id"] == "ORD_1"].iloc[0]["buyer_returns_before"] == 0
+        assert feat_df[feat_df["order_id"] == "ORD_2"].iloc[0]["buyer_returns_before"] == 1
 
     def test_future_pair_orders_do_not_leak_into_earlier_edge_weight(self):
-        """Future buyer-seller orders must not increment buyer_seller_edge_weight_before."""
-        import pandas as pd
         from graph_features import add_edge_weight_before
-
-        df = pd.DataFrame({
-            "order_id": ["ORD_1", "ORD_2", "ORD_3"],
-            "buyer_id": ["B1", "B1", "B1"],
-            "seller_id": ["S1", "S1", "S1"],
-            "order_date": [pd.Timestamp("2025-02-01"), pd.Timestamp("2025-02-15"), pd.Timestamp("2025-03-01")],
-            "amount": [10.0, 10.0, 10.0],
-        })
-
+        df = pd.DataFrame({"order_id": ["ORD_1", "ORD_2", "ORD_3"], "buyer_id": ["B1", "B1", "B1"], "seller_id": ["S1", "S1", "S1"], "order_date": [pd.Timestamp("2025-02-01"), pd.Timestamp("2025-02-15"), pd.Timestamp("2025-03-01")], "amount": [10.0, 10.0, 10.0]})
         res = add_edge_weight_before(df)
-        weights = res.sort_values("order_date")["buyer_seller_edge_weight_before"].tolist()
-        # ORD_1: 0 prior orders
-        # ORD_2: 1 prior order
-        # ORD_3: 2 prior orders
-        assert weights == [0, 1, 2], f"Expected strictly prior counts [0, 1, 2], got {weights}"
+        assert res.sort_values("order_date")["buyer_seller_edge_weight_before"].tolist() == [0, 1, 2]
 
-
-# ---------------------------------------------------------------------------
-# Phase 2 — Shuffled-Label Canary, Point-in-Time Graph & GNN OOF Isolation
-# ---------------------------------------------------------------------------
 
 class TestShuffledLabelCanary:
-    """Canary test: shuffling training labels must degrade test ROC-AUC to chance (0.47 - 0.53).
-
-    If test ROC-AUC remains significantly above 0.50 after shuffling labels in train,
-    the feature pipeline contains target leakage (e.g. labels directly or indirectly
-    leaking through feature engineering).
-    """
-
     def test_shuffled_train_labels_yield_chance_test_auc(self):
         import numpy as np
-        import pandas as pd
         from xgboost import XGBClassifier
         from sklearn.metrics import roc_auc_score
         from baseline_model import build_features, TRAIN_END, VAL_END
-
-        orders = pd.read_csv("trustshield_project/synthetic_data_export/orders.csv")
-        orders["order_date"] = pd.to_datetime(orders["order_date"])
-        listings = pd.read_csv("trustshield_project/synthetic_data_export/listings.csv")
-        returns = pd.read_csv("trustshield_project/synthetic_data_export/returns.csv")
-        buyers = pd.read_csv("trustshield_project/synthetic_data_export/buyers.csv")
-        sellers = pd.read_csv("trustshield_project/synthetic_data_export/sellers.csv")
-        products = pd.read_csv("trustshield_project/synthetic_data_export/products.csv")
-
-        buyers["signup_date"] = pd.to_datetime(buyers["signup_date"])
-        sellers["signup_date"] = pd.to_datetime(sellers["signup_date"])
-        listings["listing_date"] = pd.to_datetime(listings["listing_date"])
-        returns["return_date"] = pd.to_datetime(returns["return_date"])
+        p = "trustshield_project/synthetic_data_export"
+        orders = pd.read_csv(f"{p}/orders.csv").assign(order_date=lambda d: pd.to_datetime(d["order_date"]))
+        listings = pd.read_csv(f"{p}/listings.csv").assign(listing_date=lambda d: pd.to_datetime(d["listing_date"]))
+        returns = pd.read_csv(f"{p}/returns.csv").assign(return_date=lambda d: pd.to_datetime(d["return_date"]))
+        buyers = pd.read_csv(f"{p}/buyers.csv").assign(signup_date=lambda d: pd.to_datetime(d["signup_date"]))
+        sellers = pd.read_csv(f"{p}/sellers.csv").assign(signup_date=lambda d: pd.to_datetime(d["signup_date"]))
+        products = pd.read_csv(f"{p}/products.csv")
 
         df, feat_cols = build_features(orders, listings, returns, buyers, sellers, products)
-        train = df[df["order_date"] <= TRAIN_END].copy()
-        test = df[df["order_date"] > VAL_END].copy()
-
-        # Shuffle training labels over 10 independent shuffles to eliminate real signal
-        y_test = test["is_fraudulent"].astype(int).to_numpy()
-        X_train = train[feat_cols].fillna(0)
-        X_test = test[feat_cols].fillna(0)
-        y_train_orig = train["is_fraudulent"].to_numpy()
+        train = pd.DataFrame(df[df["order_date"] <= TRAIN_END])
+        test = pd.DataFrame(df[df["order_date"] > VAL_END])
+        y_test = np.asarray(test["is_fraudulent"].astype(int))
+        X_train, X_test = pd.DataFrame(train[feat_cols]).fillna(0), pd.DataFrame(test[feat_cols]).fillna(0)
+        y_train_orig = np.asarray(train["is_fraudulent"])
 
         shuffled_aucs = []
         for seed in range(10):
             rng = np.random.RandomState(seed)
-            y_train_shuffled = rng.permutation(y_train_orig)
             clf = XGBClassifier(n_estimators=100, max_depth=4, random_state=42, eval_metric="logloss", verbosity=0)
-            clf.fit(X_train, y_train_shuffled)
-            scores = clf.predict_proba(X_test)[:, 1]
-            shuffled_aucs.append(roc_auc_score(y_test, scores))
+            clf.fit(X_train, rng.permutation(y_train_orig))
+            shuffled_aucs.append(roc_auc_score(y_test, clf.predict_proba(X_test)[:, 1]))
 
         mean_auc = float(np.mean(shuffled_aucs))
-        std_auc = float(np.std(shuffled_aucs))
-
-        assert 0.47 <= mean_auc <= 0.53, (
-            f"Target leakage canary failed! Mean test ROC-AUC over 10 shuffled runs was {mean_auc:.4f} +/- {std_auc:.4f}, "
-            f"which is outside the expected chance range [0.47, 0.53]. Individual values: {shuffled_aucs}"
-        )
+        assert 0.47 <= mean_auc <= 0.53, f"Canary failed: mean={mean_auc:.4f}"
 
 
 class TestPointInTimeMonthlyGraphIsolation:
-    """Verifies that an order in month M has graph features computed ONLY from edges with timestamp < order timestamp."""
-
     def test_month_m_orders_use_strictly_prior_month_bipartite_graph(self):
-        """Monthly bipartite transaction graph snapshot for Month M must only include edges from months < M."""
-        import pandas as pd
         from graph_features import build_monthly_snapshots
-
         orders = pd.DataFrame({
             "order_id": [f"O_{i}" for i in range(6)],
             "buyer_id": ["B1", "B2", "B1", "B3", "B2", "B1"],
             "seller_id": ["S1", "S1", "S2", "S2", "S1", "S2"],
-            "order_date": [
-                pd.Timestamp("2025-01-10"),
-                pd.Timestamp("2025-01-20"),
-                pd.Timestamp("2025-02-10"),
-                pd.Timestamp("2025-02-25"),
-                pd.Timestamp("2025-03-05"),
-                pd.Timestamp("2025-03-15"),
-            ],
+            "order_date": [pd.Timestamp(f"2025-0{m}-10") for m in [1, 1, 2, 2, 3, 3]],
             "amount": [100.0] * 6,
         })
-        sim_start = pd.Timestamp("2025-01-01")
-        snapshots, months = build_monthly_snapshots(orders, sim_start)
-
-        # Snapshot for month index 1 (February) must only contain January orders
-        # Snapshot for month index 2 (March) must only contain January & February orders
+        snapshots, _ = build_monthly_snapshots(orders, pd.Timestamp("2025-01-01"))
         assert len(snapshots) >= 2
-        buyer_feat_m1, seller_feat_m1 = snapshots[1]
-        assert set(buyer_feat_m1["buyer_id"]).issubset({"B1", "B2"}), "Month 1 snapshot saw Month 2 buyer!"
-        assert "B3" not in buyer_feat_m1["buyer_id"].values, "B3 first ordered in Feb, must not appear in Feb snapshot!"
+        buyer_feat_m1, _ = snapshots[1]
+        assert set(buyer_feat_m1["buyer_id"]).issubset({"B1", "B2"})
+        assert "B3" not in buyer_feat_m1["buyer_id"].values
 
     def test_sharing_features_derived_strictly_prior_to_order_date(self):
-        """Relationship snapshot features for an order must only include sharing edges observed strictly before order date."""
-        import pandas as pd
         from graph_features import attach_relationship_snapshot_features
-
-        # Order date: March 01, 2025 and May 01, 2025
-        orders = pd.DataFrame({
-            "order_id": ["O_TEST_1", "O_TEST_2"],
-            "buyer_id": ["B_AUDIT_1", "B_AUDIT_1"],
-            "order_date": [pd.Timestamp("2025-03-01"), pd.Timestamp("2025-05-01")],
-        })
-
-        # Sharing edge established on April 01, 2025 (between order 1 and order 2)
-        addr_log = pd.DataFrame({
-            "buyer_id": ["B_AUDIT_1"],
-            "shared_with_buyer_id": ["B_AUDIT_2"],
-            "shared_address_id": ["ADDR_999"],
-            "share_type": ["device_cluster"],
-            "first_seen_date": [pd.Timestamp("2025-04-01")],
-        })
+        orders = pd.DataFrame({"order_id": ["O1", "O2"], "buyer_id": ["B1", "B1"], "order_date": [pd.Timestamp("2025-03-01"), pd.Timestamp("2025-05-01")]})
+        addr_log = pd.DataFrame({"buyer_id": ["B1"], "shared_with_buyer_id": ["B2"], "shared_address_id": ["A1"], "share_type": ["device_cluster"], "first_seen_date": [pd.Timestamp("2025-04-01")]})
         dev_log = pd.DataFrame(columns=["buyer_id", "shared_with_buyer_id", "shared_device_id", "share_type", "first_seen_date"])
-
         res = attach_relationship_snapshot_features(orders, addr_log, dev_log, sim_start=pd.Timestamp("2025-01-01"))
-        o1 = res[res["order_id"] == "O_TEST_1"].iloc[0]
-        o2 = res[res["order_id"] == "O_TEST_2"].iloc[0]
-
-        assert o1["share_degree"] == 0, f"Order 1 on March 1 saw future April 1 edge! degree={o1['share_degree']}"
-        assert o1["share_component_size"] == 1, f"Order 1 on March 1 component size={o1['share_component_size']}"
-        assert o2["share_degree"] == 1, f"Order 2 on May 1 should see April 1 edge! degree={o2['share_degree']}"
-        assert o2["share_component_size"] == 2, f"Order 2 on May 1 component size={o2['share_component_size']}"
+        o1 = res[res["order_id"] == "O1"].iloc[0]
+        o2 = res[res["order_id"] == "O2"].iloc[0]
+        assert o1["share_degree"] == 0 and o1["share_component_size"] == 1
+        assert o2["share_degree"] == 1 and o2["share_component_size"] == 2
 
 
 class TestGNNOutOfFoldLabelIsolation:
-    """Verifies that no train row's GNN embedding came from an encoder that saw its label."""
-
     def test_train_rows_gnn_embeddings_come_from_held_out_fold_encoder(self):
-        """Asserts each train row's embedding was generated by an out-of-fold encoder where that row's buyer and label were held out."""
-        import numpy as np
-        import pandas as pd
-        import torch
-        from phase5_hybrid_model import (
-            generate_oof_gnn_embeddings, build_node_index, build_node_features,
-            build_edge_index, GNN_EDGE_FEAT_COLS
-        )
+        from phase5_hybrid_model import generate_oof_gnn_embeddings, build_node_index, build_node_features, build_edge_index, GNN_EDGE_FEAT_COLS
         from baseline_model import TRAIN_END, VAL_END
         from graph_features import build_relationship_graph
-
-        orders = pd.read_csv("trustshield_project/synthetic_data_export/orders.csv")
-        orders["order_date"] = pd.to_datetime(orders["order_date"])
-        orders["y"] = orders["is_fraudulent"].astype(int)
+        p = "trustshield_project/synthetic_data_export"
+        orders = pd.read_csv(f"{p}/orders.csv").assign(order_date=lambda d: pd.to_datetime(d["order_date"]), y=lambda d: d["is_fraudulent"].astype(int))
         for c in GNN_EDGE_FEAT_COLS:
             if c not in orders.columns:
                 orders[c] = 1.0
@@ -774,10 +405,10 @@ class TestGNNOutOfFoldLabelIsolation:
         val_sample = orders[(orders["order_date"] > TRAIN_END) & (orders["order_date"] <= VAL_END)].iloc[:200].copy()
         test_sample = orders[orders["order_date"] > VAL_END].iloc[:200].copy()
 
-        buyers = pd.read_csv("trustshield_project/synthetic_data_export/buyers.csv")
-        sellers = pd.read_csv("trustshield_project/synthetic_data_export/sellers.csv")
-        addr_log = pd.read_csv("trustshield_project/synthetic_data_export/address_sharing_log.csv")
-        dev_log = pd.read_csv("trustshield_project/synthetic_data_export/device_sharing_log.csv")
+        buyers = pd.read_csv(f"{p}/buyers.csv")
+        sellers = pd.read_csv(f"{p}/sellers.csv")
+        addr_log = pd.read_csv(f"{p}/address_sharing_log.csv")
+        dev_log = pd.read_csv(f"{p}/device_sharing_log.csv")
 
         buyer_idx, seller_idx, n_buyers, n_total = build_node_index(buyers["buyer_id"], sellers["seller_id"])
         rel_graph_train = build_relationship_graph(addr_log, dev_log, cutoff_date=TRAIN_END)
@@ -795,15 +426,9 @@ class TestGNNOutOfFoldLabelIsolation:
             X_nodes_test, edge_index_test,
             n_splits=3, epochs=3
         )
-
-        # 1. Assert every row in train_aug was assigned a valid OOF fold >= 0
-        assert (train_aug["_oof_fold"] >= 0).all(), "Some train rows were not assigned to an OOF fold!"
-
-        # 2. Assert buyer-grouping: all orders for any given buyer belong to the EXACT same OOF fold
-        buyer_folds = train_aug.groupby("buyer_id")["_oof_fold"].nunique()
-        assert (buyer_folds == 1).all(), "Buyer grouping violated! Same buyer appeared in multiple folds."
-
-        # 3. Exactly K folds populated
+        assert (train_aug["_oof_fold"] >= 0).all()
+        assert (train_aug.groupby("buyer_id")["_oof_fold"].nunique() == 1).all()
         assert train_aug["_oof_fold"].nunique() == 3
+
 
 

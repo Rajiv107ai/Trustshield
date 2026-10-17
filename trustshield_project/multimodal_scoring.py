@@ -227,11 +227,12 @@ class CLIPMultimodalScorer:
             import torch
             has_torch = True
         except ImportError:
+            torch = None
             has_torch = False
 
         if device is not None:
             self.device = device
-        elif has_torch:
+        elif has_torch and torch is not None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.device = "cpu"

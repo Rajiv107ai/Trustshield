@@ -35,6 +35,8 @@ import pytest
 
 _ROOT_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 _PROJECT_DIR = os.path.join(_ROOT_DIR, "trustshield_project")
+_DOCKER_DIR = os.path.join(_ROOT_DIR, "docker")
+_MODELS_STAGE34_DIR = os.path.join(_ROOT_DIR, "models", "stage34")
 
 if _ROOT_DIR not in sys.path:
     sys.path.insert(0, _ROOT_DIR)
@@ -318,58 +320,29 @@ class TestPredictionSerializationAndContract:
 class TestAuthorizationAndTokenExpiry:
     """Verifies fail-closed authorization semantics and token lifecycle."""
 
+    TOKEN = "evaluator_ephemeral_token_2026"
+    TOKEN_HASH = hashlib.sha256(b"evaluator_ephemeral_token_2026").hexdigest()
+
     def test_missing_auth_token_fails_closed(self, tmp_path):
         """Missing authorization token raises PermissionError."""
-        audit_log = str(tmp_path / "audit.jsonl")
-        expected_hash = hashlib.sha256(b"secret_token").hexdigest()
-
         with pytest.raises(PermissionError, match="Holdout authorization token is missing"):
-            verify_holdout_authorization(
-                auth_token=None,
-                authorized_token_hash=expected_hash,
-                audit_log_path=audit_log,
-            )
+            verify_holdout_authorization(None, hashlib.sha256(b"secret").hexdigest(), audit_log_path=str(tmp_path / "a.jsonl"))
 
     def test_invalid_auth_token_hash_fails_closed(self, tmp_path):
         """Token with mismatching SHA-256 digest fails closed."""
-        audit_log = str(tmp_path / "audit.jsonl")
-        expected_hash = hashlib.sha256(b"authorized_governance_secret").hexdigest()
-
         with pytest.raises(PermissionError, match="Invalid authorization token hash"):
-            verify_holdout_authorization(
-                auth_token="unauthorized_developer_key",
-                authorized_token_hash=expected_hash,
-                audit_log_path=audit_log,
-            )
+            verify_holdout_authorization("unauthorized_key", hashlib.sha256(b"auth_sec").hexdigest(), audit_log_path=str(tmp_path / "a.jsonl"))
 
     def test_expired_auth_token_fails_closed(self, tmp_path):
         """Token with past expiration timestamp fails closed."""
-        audit_log = str(tmp_path / "audit.jsonl")
-        valid_token = "evaluator_ephemeral_token_2026"
-        token_hash = hashlib.sha256(valid_token.encode("utf-8")).hexdigest()
-        expired_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-
+        expired = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         with pytest.raises(PermissionError, match="Holdout authorization token has expired"):
-            verify_holdout_authorization(
-                auth_token=valid_token,
-                authorized_token_hash=token_hash,
-                audit_log_path=audit_log,
-                expires_at_utc=expired_time,
-            )
+            verify_holdout_authorization(self.TOKEN, self.TOKEN_HASH, audit_log_path=str(tmp_path / "a.jsonl"), expires_at_utc=expired)
 
     def test_valid_token_within_expiry_passes(self, tmp_path):
         """Valid token with future expiration succeeds."""
-        audit_log = str(tmp_path / "audit.jsonl")
-        valid_token = "evaluator_ephemeral_token_2026"
-        token_hash = hashlib.sha256(valid_token.encode("utf-8")).hexdigest()
-        future_time = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
-
-        assert verify_holdout_authorization(
-            auth_token=valid_token,
-            authorized_token_hash=token_hash,
-            audit_log_path=audit_log,
-            expires_at_utc=future_time,
-        ) is True
+        future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+        assert verify_holdout_authorization(self.TOKEN, self.TOKEN_HASH, audit_log_path=str(tmp_path / "a.jsonl"), expires_at_utc=future) is True
 
 
 # ===========================================================================
@@ -485,6 +458,24 @@ class TestManifestTamperingAndDataIntegrity:
         with pytest.raises(ValueError, match="TOCTOU violation: File 'orders.csv' hash mismatch"):
             load_and_verify_dataset_file(str(file_path), approved_hash)
 
+    def test_disallowed_historical_v21_dataset_version_rejected(self):
+        """Attempting to use historical v2.1 dataset manifest for a v2.2 evaluation is rejected."""
+        manifest = {
+            "dataset_version": "2.1",
+            "schema_version": "1.0.0",
+            "files": {"orders.csv": "a" * 64},
+            "row_counts": {"orders.csv": 100},
+        }
+        canonical_bytes = json.dumps(manifest, sort_keys=True, indent=2).encode("utf-8")
+        digest = hashlib.sha256(canonical_bytes).hexdigest()
+
+        with pytest.raises(ValueError, match="explicitly disallowed"):
+            verify_input_manifest(
+                manifest_data=manifest,
+                expected_manifest_sha256=digest,
+                disallowed_dataset_versions=["2.1", "synthetic_v2_1"],
+            )
+
 
 # ===========================================================================
 # 5. Simultaneous Run Claims & Optimistic Concurrency Control (CAS)
@@ -589,6 +580,75 @@ class TestProcessRestartAndLedgerUnavailability:
         with pytest.raises(RuntimeError, match="Authoritative remote ledger communication failed or ambiguous|Remote ledger internal server error"):
             client.claim_run("run-fault-test")
 
+    def test_authenticated_lifecycle_transitions_and_versioning(self):
+        """Clean execution through all lifecycle states increments version monotonically."""
+        api_key = "evaluator_lifecycle_key"
+        mock_service = MockRemoteLedgerService(valid_api_key=api_key)
+        client = RemoteLedgerAdapter("https://ledger", api_key, transport=mock_service.handle_request, active=True)
+        run_id = "run-20261009-remote-001"
+
+        client.register_authorized_run(run_id)
+        entry = client.get_run_entry(run_id)
+        assert entry["state"] == EvaluationRunState.AUTHORIZED
+        assert entry["version"] == 1
+
+        client.claim_run(run_id)
+        entry = client.get_run_entry(run_id)
+        assert entry["state"] == EvaluationRunState.CLAIMED
+        assert entry["version"] == 2
+
+        client.commit_predictions(run_id, "pred_sha_123", {"bound": "data"})
+        entry = client.get_run_entry(run_id)
+        assert entry["state"] == EvaluationRunState.PREDICTIONS_COMMITTED
+        assert entry["version"] == 3
+
+        client.start_evaluation(run_id)
+        entry = client.get_run_entry(run_id)
+        assert entry["state"] == EvaluationRunState.EVALUATING
+        assert entry["labels_accessed"] is True
+        assert entry["version"] == 4
+
+    def test_server_side_terminal_states_cannot_be_reset(self):
+        """Terminal states (COMPLETED and FAILED) cannot be re-claimed or transitioned."""
+        api_key = "evaluator_term_key"
+        mock_service = MockRemoteLedgerService(valid_api_key=api_key)
+        client = RemoteLedgerAdapter("https://ledger", api_key, transport=mock_service.handle_request, active=True)
+        run_failed = "run-failed-terminal"
+        client.register_authorized_run(run_failed)
+        client.claim_run(run_failed)
+        client.fail_evaluation(run_failed, "Fatal crash", "EVALUATION_STEP")
+
+        with pytest.raises(RuntimeError, match="already been consumed"):
+            client.claim_run(run_failed)
+
+        with pytest.raises(RuntimeError, match="already in terminal state"):
+            client.fail_evaluation(run_failed, "Secondary failure", "STEP_2")
+
+    def test_corrupted_and_persistent_durable_file_ledger(self, tmp_path):
+        """Corrupted JSON fails closed, and file persistence preserves completed state across re-instantiation."""
+        ledger_path = str(tmp_path / "ledger.json")
+        ledger = DurableFileLedger(ledger_path)
+        run_id = "run-persist-001"
+        ledger.claim_run(run_id)
+        ledger.commit_predictions(run_id, "pred_sha", {"info": "test"})
+        ledger.start_evaluation(run_id)
+        ledger.complete_evaluation(run_id, {"cost": 1000})
+
+        # Re-instantiate ledger on same file
+        reloaded = DurableFileLedger(ledger_path)
+        entry = reloaded.get_run_entry(run_id)
+        assert entry["state"] == EvaluationRunState.COMPLETED
+        assert entry["labels_accessed"] is True
+
+        with pytest.raises(RuntimeError, match="already been consumed"):
+            reloaded.claim_run(run_id)
+
+        # Corrupt file
+        with open(ledger_path, "w", encoding="utf-8") as f:
+            f.write("{ invalid json corrupted")
+        with pytest.raises(RuntimeError, match="Corrupted evaluation ledger detected"):
+            ledger.claim_run("run-corrupt-new")
+
 
 # ===========================================================================
 # 7. Scoring Exceptions After Label Access (Fail-Closed & No Retry)
@@ -659,55 +719,39 @@ class TestScoringExceptionAndNoAutomaticRetry:
 class TestAES256GCMEnvelopeSecurity:
     """Verifies authenticated encryption envelope, nonce integrity, and tamper rejection."""
 
+    KEY = b"k" * 32
+    PLAINTEXT = b"sensitive_holdout_labels_json_blob"
+
     def test_valid_aes_gcm_roundtrip(self):
         """Valid 32-byte key produces authentic envelope that decrypts cleanly."""
-        key = b"k" * 32
-        plaintext = b"sensitive_holdout_labels_json_blob"
-        envelope = encrypt_holdout_labels_envelope(plaintext, key)
-
+        envelope = encrypt_holdout_labels_envelope(self.PLAINTEXT, self.KEY)
         assert len(envelope) >= 28  # 12 nonce + ciphertext + 16 tag
-        decrypted = decrypt_holdout_labels_envelope(envelope, key)
-        assert decrypted == plaintext
+        assert decrypt_holdout_labels_envelope(envelope, self.KEY) == self.PLAINTEXT
 
     def test_corrupted_ciphertext_fails_tag_verification(self):
         """Single-bit corruption in ciphertext causes fail-closed authentication failure."""
-        key = b"k" * 32
-        plaintext = b"sensitive_holdout_labels_json_blob"
-        envelope = bytearray(encrypt_holdout_labels_envelope(plaintext, key))
-
-        # Corrupt one byte in ciphertext portion (byte 15)
+        envelope = bytearray(encrypt_holdout_labels_envelope(self.PLAINTEXT, self.KEY))
         envelope[15] ^= 0x01
-
         with pytest.raises(PermissionError, match="AES-256-GCM .* failed"):
-            decrypt_holdout_labels_envelope(bytes(envelope), key)
+            decrypt_holdout_labels_envelope(bytes(envelope), self.KEY)
 
     def test_corrupted_auth_tag_fails_tag_verification(self):
         """Tampering with trailing 16-byte authentication tag causes fail-closed failure."""
-        key = b"k" * 32
-        plaintext = b"sensitive_holdout_labels_json_blob"
-        envelope = bytearray(encrypt_holdout_labels_envelope(plaintext, key))
-
-        # Corrupt one byte in authentication tag (last byte)
+        envelope = bytearray(encrypt_holdout_labels_envelope(self.PLAINTEXT, self.KEY))
         envelope[-1] ^= 0x01
-
         with pytest.raises(PermissionError, match="AES-256-GCM .* failed"):
-            decrypt_holdout_labels_envelope(bytes(envelope), key)
+            decrypt_holdout_labels_envelope(bytes(envelope), self.KEY)
 
     def test_wrong_key_fails_authentication(self):
         """Decrypting envelope with incorrect 32-byte key fails closed."""
-        correct_key = b"k" * 32
-        wrong_key = b"w" * 32
-        plaintext = b"sensitive_holdout_labels_json_blob"
-        envelope = encrypt_holdout_labels_envelope(plaintext, correct_key)
-
+        envelope = encrypt_holdout_labels_envelope(self.PLAINTEXT, self.KEY)
         with pytest.raises(PermissionError, match="AES-256-GCM .* failed"):
-            decrypt_holdout_labels_envelope(envelope, wrong_key)
+            decrypt_holdout_labels_envelope(envelope, b"w" * 32)
 
     def test_truncated_envelope_fails_closed(self):
         """Payload smaller than 28 bytes violates envelope specification."""
-        key = b"k" * 32
         with pytest.raises(ValueError, match="Payload must be at least 28 bytes"):
-            decrypt_holdout_labels_envelope(b"too_short_blob", key)
+            decrypt_holdout_labels_envelope(b"too_short_blob", self.KEY)
 
     def test_invalid_key_length_rejected(self):
         """Keys that are not exactly 32 bytes are rejected."""
@@ -719,111 +763,71 @@ class TestAES256GCMEnvelopeSecurity:
 # 9. Spy Function Proving Preconditions Never Invoke Scoring Boundary
 # ===========================================================================
 
+def _setup_gate_spy(fix: Dict[str, Any], tmp_path: Any, **kwargs: Any) -> Tuple[Dict[str, Any], MagicMock]:
+    ledger = DurableFileLedger(str(tmp_path / "ledger.json"))
+    spy_scorer = MagicMock()
+    manifest_data = {
+        "dataset_version": "2.2",
+        "schema_version": "1.0",
+        "files": {"orders.csv": "abc"},
+        "row_counts": {"orders.csv": 5},
+    }
+    m_bytes = json.dumps(manifest_data, sort_keys=True, indent=2).encode("utf-8")
+    m_hash = hashlib.sha256(m_bytes).hexdigest()
+    fix["approved_manifest"]["input_manifest_sha256"] = m_hash
+    fix["commitment"]["bound_input_manifest_sha256"] = m_hash
+
+    auth_token = kwargs.get("auth_token", "valid_token")
+    auth_hash = kwargs.get("authorized_token_hash", hashlib.sha256(auth_token.encode("utf-8")).hexdigest())
+
+    gate_args: Dict[str, Any] = dict(
+        run_id=fix["run_id"],
+        auth_token=auth_token,
+        authorized_token_hash=auth_hash,
+        predictions=kwargs.get("predictions", fix["predictions"]),
+        submitted_order_ids=fix["order_ids"],
+        expected_order_ids=fix["order_ids"],
+        commitment=kwargs.get("commitment", fix["commitment"]),
+        approved_manifest=fix["approved_manifest"],
+        input_manifest_data=kwargs.get("input_manifest_data", manifest_data),
+        ledger=ledger,
+        label_scoring_fn=spy_scorer,
+    )
+    return gate_args, spy_scorer
+
+
 class TestSpyScoringFunctionIsolation:
     """Proves that under ANY invalid precondition, label scoring is NEVER invoked."""
 
     def test_spy_scorer_never_invoked_on_auth_failure(self, ten_artifact_fixtures, tmp_path):
         """Invalid auth token halts execution before label scorer is reached."""
         fix = ten_artifact_fixtures
-        ledger = DurableFileLedger(str(tmp_path / "ledger.json"))
-        spy_scorer = MagicMock()
-
+        args, spy = _setup_gate_spy(
+            fix, tmp_path, auth_token="wrong_token",
+            authorized_token_hash=hashlib.sha256(b"correct_token").hexdigest(),
+            input_manifest_data={"dummy": "data"},
+        )
         with pytest.raises(PermissionError):
-            execute_holdout_evaluation_gate(
-                run_id=fix["run_id"],
-                auth_token="wrong_token",
-                authorized_token_hash=hashlib.sha256(b"correct_token").hexdigest(),
-                predictions=fix["predictions"],
-                submitted_order_ids=fix["order_ids"],
-                expected_order_ids=fix["order_ids"],
-                commitment=fix["commitment"],
-                approved_manifest=fix["approved_manifest"],
-                input_manifest_data={"dummy": "data"},
-                ledger=ledger,
-                label_scoring_fn=spy_scorer,
-            )
-
-        assert spy_scorer.call_count == 0
+            execute_holdout_evaluation_gate(**args)
+        assert spy.call_count == 0
 
     def test_spy_scorer_never_invoked_on_commitment_mismatch(self, ten_artifact_fixtures, tmp_path):
         """Tampered model hash in commitment halts execution before label scorer is reached."""
         fix = ten_artifact_fixtures
-        ledger = DurableFileLedger(str(tmp_path / "ledger.json"))
-        spy_scorer = MagicMock()
-
-        auth_token = "valid_token"
-        auth_hash = hashlib.sha256(auth_token.encode("utf-8")).hexdigest()
-
-        manifest_data = {
-            "dataset_version": "2.2",
-            "schema_version": "1.0",
-            "files": {"orders.csv": "abc"},
-            "row_counts": {"orders.csv": 5},
-        }
-        manifest_bytes = json.dumps(manifest_data, sort_keys=True, indent=2).encode("utf-8")
-        manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
-        fix["approved_manifest"]["input_manifest_sha256"] = manifest_hash
-        fix["commitment"]["bound_input_manifest_sha256"] = manifest_hash
-
-        # Tamper commitment
-        tampered_commitment = copy.deepcopy(fix["commitment"])
-        tampered_commitment["bound_model_sha256"] = "tampered_hash_00000000000000000000000"
-
+        tampered = copy.deepcopy(fix["commitment"])
+        tampered["bound_model_sha256"] = "tampered_hash_00000000000000000000000"
+        args, spy = _setup_gate_spy(fix, tmp_path, commitment=tampered)
         with pytest.raises(ValueError):
-            execute_holdout_evaluation_gate(
-                run_id=fix["run_id"],
-                auth_token=auth_token,
-                authorized_token_hash=auth_hash,
-                predictions=fix["predictions"],
-                submitted_order_ids=fix["order_ids"],
-                expected_order_ids=fix["order_ids"],
-                commitment=tampered_commitment,
-                approved_manifest=fix["approved_manifest"],
-                input_manifest_data=manifest_data,
-                ledger=ledger,
-                label_scoring_fn=spy_scorer,
-            )
-
-        assert spy_scorer.call_count == 0
+            execute_holdout_evaluation_gate(**args)
+        assert spy.call_count == 0
 
     def test_spy_scorer_never_invoked_on_prediction_contract_violation(self, ten_artifact_fixtures, tmp_path):
         """Non-finite predictions halt execution before label scorer is reached."""
         fix = ten_artifact_fixtures
-        ledger = DurableFileLedger(str(tmp_path / "ledger.json"))
-        spy_scorer = MagicMock()
-
-        auth_token = "valid_token"
-        auth_hash = hashlib.sha256(auth_token.encode("utf-8")).hexdigest()
-
-        manifest_data = {
-            "dataset_version": "2.2",
-            "schema_version": "1.0",
-            "files": {"orders.csv": "abc"},
-            "row_counts": {"orders.csv": 5},
-        }
-        manifest_bytes = json.dumps(manifest_data, sort_keys=True, indent=2).encode("utf-8")
-        manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
-        fix["approved_manifest"]["input_manifest_sha256"] = manifest_hash
-        fix["commitment"]["bound_input_manifest_sha256"] = manifest_hash
-
-        bad_predictions = np.array([0.1, np.nan, 0.3, 0.4, 0.5])
-
+        args, spy = _setup_gate_spy(fix, tmp_path, predictions=np.array([0.1, np.nan, 0.3, 0.4, 0.5]))
         with pytest.raises(ValueError, match="non-finite values"):
-            execute_holdout_evaluation_gate(
-                run_id=fix["run_id"],
-                auth_token=auth_token,
-                authorized_token_hash=auth_hash,
-                predictions=bad_predictions,
-                submitted_order_ids=fix["order_ids"],
-                expected_order_ids=fix["order_ids"],
-                commitment=fix["commitment"],
-                approved_manifest=fix["approved_manifest"],
-                input_manifest_data=manifest_data,
-                ledger=ledger,
-                label_scoring_fn=spy_scorer,
-            )
-
-        assert spy_scorer.call_count == 0
+            execute_holdout_evaluation_gate(**args)
+        assert spy.call_count == 0
 
 
 # ===========================================================================
@@ -881,3 +885,49 @@ class TestCapacityMetricAndTieBreaking:
         shuffled_selected = shuffled_sorted.iloc[:capacity_cap]
 
         assert list(shuffled_selected["order_id"]) == list(selected["order_id"])
+
+    def test_zero_capacity_budget(self):
+        """Zero budget fraction results in zero reviews."""
+        assert math.floor(0.0 * 12129) == 0
+
+
+class TestEnvironmentSealingAndArtifacts:
+    """Tests environment pinning files and candidate model artifact integrity."""
+
+    def test_evaluator_dockerfile_and_lockfile_exist(self):
+        """Dockerfile.evaluator and pinned requirements lockfile must be present."""
+        df_path = os.path.join(_DOCKER_DIR, "Dockerfile.evaluator")
+        lock_path = os.path.join(_DOCKER_DIR, "requirements-evaluator.lock")
+
+        assert os.path.exists(df_path), f"Missing Dockerfile: {df_path}"
+        assert os.path.exists(lock_path), f"Missing lockfile: {lock_path}"
+
+        with open(lock_path, "r", encoding="utf-8") as f:
+            lock_content = f.read()
+        assert "scikit-learn==1.9.0" in lock_content
+        assert "xgboost==3.4.1" in lock_content
+
+    def test_candidate_tabular_model_and_calibrator_hashes(self):
+        """Verifies exact SHA-256 hashes of candidate model and calibrator."""
+        model_path = os.path.join(_MODELS_STAGE34_DIR, "stage34_tabular_model.joblib")
+        cal_path = os.path.join(_MODELS_STAGE34_DIR, "stage34_tabular_calibrator.joblib")
+
+        assert os.path.exists(model_path)
+        assert os.path.exists(cal_path)
+
+        with open(model_path, "rb") as f:
+            model_hash = hashlib.sha256(f.read()).hexdigest()
+        with open(cal_path, "rb") as f:
+            cal_hash = hashlib.sha256(f.read()).hexdigest()
+
+        assert model_hash == "1310b43c3c8d23a1d4054200a5321f815de113b1a07793bb0d17f508c6cac22a"
+        assert cal_hash == "152f287e8f4d478285eeac13d380f4312ceb453bed85b3ff1f99d799424148a8"
+
+    def test_candidate_model_feature_schema(self):
+        """Tabular model artifact expects exactly 10 tabular features."""
+        import joblib
+        model_path = os.path.join(_MODELS_STAGE34_DIR, "stage34_tabular_model.joblib")
+        m = joblib.load(model_path)
+        assert hasattr(m, "feature_names_in_")
+        assert len(m.feature_names_in_) == 10
+        assert m.n_features_in_ == 10

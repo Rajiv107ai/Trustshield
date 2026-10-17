@@ -53,14 +53,14 @@ def _asof_cumulative_from_events(orders_df: pd.DataFrame, events_df: pd.DataFram
     if events_df.empty:
         return pd.Series(0, index=orders_df.index)
 
-    events_sub = events_df[[group_col, event_date_col]].copy()
-    events_sub["_event_date"] = pd.to_datetime(events_sub[event_date_col]).dt.as_unit("ns")
+    events_sub = pd.DataFrame(events_df[[group_col, event_date_col]]).copy()
+    events_sub["_event_date"] = pd.to_datetime(events_sub[event_date_col]).astype("datetime64[ns]")
     events_sorted = events_sub.sort_values(by="_event_date", kind="mergesort")
     events_sorted["running_count"] = events_sorted.groupby(group_col).cumcount() + 1
 
     orders_sub = pd.DataFrame(orders_df[[group_col, order_date_col]]).copy()
     orders_sub["_orig_index"] = orders_sub.index
-    orders_sub["_order_date"] = pd.to_datetime(orders_sub[order_date_col]).dt.as_unit("ns")
+    orders_sub["_order_date"] = pd.to_datetime(orders_sub[order_date_col]).astype("datetime64[ns]")
     orders_sorted = orders_sub.sort_values(by="_order_date", kind="mergesort")
 
     merged = pd.merge_asof(
@@ -87,20 +87,19 @@ def _device_shared_buyer_count_asof(
     if orders_df.empty or device_col not in orders_df.columns or buyer_col not in orders_df.columns:
         return pd.Series(0.0, index=orders_df.index)
 
-    orders_sub = orders_df[[device_col, buyer_col, date_col]].copy()
+    orders_sub = pd.DataFrame(orders_df[[device_col, buyer_col, date_col]]).copy()
     orders_sub[date_col] = pd.to_datetime(orders_sub[date_col])
 
     # Earliest order date for each (device_id, buyer_id) pair
     first_use = (
-        orders_sub.groupby([device_col, buyer_col], as_index=False)[date_col]
-        .min()
+        pd.DataFrame(orders_sub.groupby([device_col, buyer_col], as_index=False)[date_col].min())
         .sort_values(by=date_col, kind="mergesort")
         .reset_index(drop=True)
     )
     # Running count of distinct buyers on device up to that first_use date
     first_use["_distinct_buyers"] = first_use.groupby(device_col).cumcount() + 1
 
-    left = orders_sub[[device_col, date_col]].copy()
+    left = pd.DataFrame(orders_sub[[device_col, date_col]]).copy()
     left["_orig_idx"] = left.index
     left_sorted = left.sort_values(by=date_col, kind="mergesort")
 

@@ -67,8 +67,10 @@ This directory contains the core machine learning models, relational graph neura
   SHA-256 artifact hashing and catalog manifest generation for deployed models.
 - **`mlops_pipeline.py`**:  
   Offline-to-online feature store simulation and population stability index (PSI) drift monitoring.
-- **`test_repair_pipeline_regression.py`**:  
-  20-point temporal invariant regression suite asserting no future leakage, monotonic stacking, FAISS self-match exclusion, and offline-online scoring parity.
+- **`test_data_integrity.py`**:  
+  Temporal invariant regression suite asserting no future leakage, entity timeline validity, and fraud ground-truth invariants.
+- **`test_phase2_suite.py`**:  
+  Multi-phase research regression suite verifying HeteroGNN cutoff, monotonic stacking, and FAISS self-match exclusion.
 - **`test_seed_mesh.py`**:  
   Unit test suite for Neo4j Cypher constraint/collusion generation and Redis RESP serialization protocols.
 
@@ -77,8 +79,8 @@ This directory contains the core machine learning models, relational graph neura
 ## 🧪 Running the Intelligence Test Suite
 
 ```bash
-# 1. Run master technical repair regression suite (20 tests)
-pytest trustshield_project/test_repair_pipeline_regression.py -v
+# 1. Run master technical repair regression suite (53 tests)
+pytest trustshield_project/test_data_integrity.py -v
 
 # 2. Run TreeSHAP explainability unit & integration tests (8 tests)
 pytest trustshield_project/test_shap_explainer.py -v
