@@ -11,10 +11,7 @@ xgboost==3.4.1
 pyarrow>=14.0
 faiss-cpu>=1.7.4
 
-# Phase 4 — Real CLIP multimodal scoring (openai/clip-vit-base-patch32)
-transformers>=4.37
-Pillow>=10.0
-torch==2.13.0
+
 
 # API layer (FastAPI backend)
 fastapi>=0.110
