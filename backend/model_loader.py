@@ -139,9 +139,6 @@ class ModelStore:
         # Prioritize Phase 3 calibration arrays; fallback to Stage 3.4 validation arrays if missing
         val_pred_path = os.path.join(MODELS_DIR, "phase3_val_predictions.npy")
         val_label_path = os.path.join(MODELS_DIR, "phase3_val_labels.npy")
-        if not (os.path.isfile(val_pred_path) and os.path.isfile(val_label_path)):
-            val_pred_path = os.path.join(MODELS_DIR, "stage34", "stage342_val_predictions.npy")
-            val_label_path = os.path.join(MODELS_DIR, "stage34", "stage342_val_labels.npy")
 
         if os.path.isfile(val_pred_path) and os.path.isfile(val_label_path):
             try:

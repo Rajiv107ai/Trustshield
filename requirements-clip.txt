@@ -1,0 +1,7 @@
+# TrustShield AI — Multimodal CLIP Scorer Dependencies (Optional)
+# Install when building or updating offline CLIP embedding cache:
+# pip install -r requirements-clip.txt
+
+transformers>=4.37
+Pillow>=10.0
+torch==2.13.0
