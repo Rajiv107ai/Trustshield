@@ -9,7 +9,7 @@ from __future__ import annotations
 import bisect
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import pandas as pd
 
@@ -57,10 +57,10 @@ class PointInTimeHistoryStore:
             df_sorted = df.sort_values(by="order_date", kind="mergesort")
 
             history: Dict[Tuple[str, str], List[pd.Timestamp]] = {}
-            for _, row in df_sorted.iterrows():
-                b_id = str(row["buyer_id"]).strip()
-                s_id = str(row["seller_id"]).strip()
-                history.setdefault((b_id, s_id), []).append(row["order_date"])
+            for b_id, s_id, o_date in zip(df_sorted["buyer_id"], df_sorted["seller_id"], df_sorted["order_date"]):
+                b_str = str(b_id).strip()
+                s_str = str(s_id).strip()
+                history.setdefault((b_str, s_str), []).append(cast(pd.Timestamp, pd.Timestamp(o_date)))
 
             self._history = history
             self.is_loaded = True

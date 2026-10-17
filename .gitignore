@@ -27,9 +27,7 @@ htmlcov/
 *.log
 
 # Project specific: large data archives & unpacked image directory
-trustshield_project/data/external/abo/*.tar
-trustshield_project/data/external/abo/*.tar.gz
-trustshield_project/data/external/abo/images/
+trustshield_project/data/external/
 trustshield_project/synthetic_data_export/*.csv
 trustshield_project/synthetic_data_export/*.gz
 

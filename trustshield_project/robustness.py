@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 import numpy as np
-from typing import Dict, List, Callable, Tuple
+from scipy import stats
+from xgboost import XGBClassifier
+from typing import Dict, List, Callable, Tuple, Any, Sequence
+
+SEEDS_20: List[int] = [
+    42, 101, 202, 303, 404, 505, 606, 707, 808, 909,
+    1001, 1102, 1203, 1304, 1405, 1506, 1607, 1708, 1809, 1910
+]
 
 
 
@@ -100,3 +107,70 @@ def simulate_prevalence_shift(
     rng.shuffle(combined_idx)
 
     return y[combined_idx], p[combined_idx]
+
+
+def paired_stats_calc(baseline_vals: Sequence[float], new_vals: Sequence[float]) -> Dict[str, Any]:
+    """Calculate paired differences, t-statistic, two-tailed p-value, Cohen's d, and 95% CI."""
+    diffs = np.array(new_vals) - np.array(baseline_vals)
+    n = len(diffs)
+    mean_d = float(np.mean(diffs))
+    std_d = float(np.std(diffs, ddof=1)) if n > 1 else 0.0
+    se_d = std_d / np.sqrt(n) if n > 1 else 0.0
+    t_crit = float(stats.t.ppf(0.975, df=n - 1)) if n > 1 else 1.96
+    ci_lower = mean_d - t_crit * se_d
+    ci_upper = mean_d + t_crit * se_d
+    cohens_d = (mean_d / std_d) if std_d > 1e-9 else 0.0
+    t_res = stats.ttest_rel(new_vals, baseline_vals) if (std_d > 1e-9 and n > 1) else None
+    p_val = float(t_res.pvalue) if t_res is not None and not np.isnan(t_res.pvalue) else 1.0
+    t_stat = float(t_res.statistic) if t_res is not None and not np.isnan(t_res.statistic) else 0.0
+    return {
+        "mean_diff": mean_d,
+        "std_diff": std_d,
+        "ci_95": [float(ci_lower), float(ci_upper)],
+        "cohens_d": float(cohens_d),
+        "t_stat": t_stat,
+        "p_value": p_val,
+        "paired_diffs": [float(d) for d in diffs],
+    }
+
+
+def holm_bonferroni_correction(tests_dict: Dict[str, float]) -> List[Dict[str, Any]]:
+    """Applies step-down Holm-Bonferroni correction with ascending sort and running max."""
+    items = list(tests_dict.items())
+    items.sort(key=lambda x: x[1])
+    m = len(items)
+    adjusted = []
+    running_max = 0.0
+    for i, (name, raw_p) in enumerate(items):
+        rank = i + 1
+        adj_p = min(1.0, (m - rank + 1) * raw_p)
+        running_max = max(running_max, adj_p)
+        adjusted.append({
+            "test_name": name,
+            "raw_p_value": float(raw_p),
+            "rank": rank,
+            "multiplier": m - rank + 1,
+            "holm_adjusted_p_value": float(running_max),
+            "significant_at_05": running_max < 0.05,
+        })
+    return adjusted
+
+
+def train_xgb(X_tr: Any, y_tr: Any, random_state: int = 42) -> XGBClassifier:
+    """Standardized XGBoost classifier for multi-seed benchmarks."""
+    pos = int(y_tr.sum())
+    neg = len(y_tr) - pos
+    clf = XGBClassifier(
+        n_estimators=300,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        scale_pos_weight=neg / max(pos, 1),
+        eval_metric="aucpr",
+        random_state=random_state,
+        n_jobs=-1,
+        verbosity=0,
+    )
+    clf.fit(X_tr.fillna(0.0), y_tr)
+    return clf

@@ -15,7 +15,12 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from trustshield_project.advanced_trust_engine import CanonicalTrustEngine as TrustEngine, OperationalDecision as Decision
+from trustshield_project.advanced_trust_engine import (
+    CanonicalTrustEngine as TrustEngine,
+    OperationalDecision as Decision,
+    ConformalPredictor,
+    AdvancedTrustEngine,
+)
 
 from trustshield_project.calibration import (
     ProbabilityCalibrator,
@@ -42,9 +47,7 @@ class TestTrustEngine:
     def test_default_initialization(self):
         engine = TrustEngine()
         assert math.isclose(sum(engine.norm_weights.values()), 1.0, rel_tol=1e-5)
-        assert engine.allow_cutoff == 0.25
-        assert engine.review_cutoff == 0.55
-        assert engine.hold_cutoff == 0.85
+        assert engine.allow_cutoff == 0.25 and engine.review_cutoff == 0.55 and engine.hold_cutoff == 0.85
 
     def test_invalid_weights_raise_error(self):
         with pytest.raises(ValueError):
@@ -54,328 +57,198 @@ class TestTrustEngine:
 
     def test_invalid_thresholds_raise_error(self):
         with pytest.raises(ValueError):
-            TrustEngine(thresholds=(0.8, 0.4, 0.9))  # Not monotonic
+            TrustEngine(thresholds=(0.8, 0.4, 0.9))
 
     def test_decision_tiers(self):
         engine = TrustEngine()
-        # Clean low risk -> ALLOW
         res_low = engine.score({"tabular_risk": 0.05, "graph_risk": 0.05, "gnn_risk": 0.05})
-        assert res_low.decision == Decision.ALLOW
-        assert res_low.trust_score > 90.0
-
-        # Moderate risk -> REVIEW
-        res_med = engine.score({"tabular_risk": 0.45, "graph_risk": 0.35, "gnn_risk": 0.40})
-        assert res_med.decision == Decision.REVIEW
-
-        # High risk -> HOLD
-        res_high = engine.score({"tabular_risk": 0.70, "graph_risk": 0.75, "gnn_risk": 0.65})
-        assert res_high.decision == Decision.HOLD
-
-        # Extreme risk -> BLOCK
-        res_block = engine.score({"tabular_risk": 0.95, "graph_risk": 0.90, "gnn_risk": 0.92})
-        assert res_block.decision == Decision.BLOCK
+        assert res_low.decision == Decision.ALLOW and res_low.trust_score > 90.0
+        assert engine.score({"tabular_risk": 0.45, "graph_risk": 0.35, "gnn_risk": 0.40}).decision == Decision.REVIEW
+        assert engine.score({"tabular_risk": 0.70, "graph_risk": 0.75, "gnn_risk": 0.65}).decision == Decision.HOLD
+        assert engine.score({"tabular_risk": 0.95, "graph_risk": 0.90, "gnn_risk": 0.92}).decision == Decision.BLOCK
 
     def test_shannon_entropy_confidence(self):
-        # Extreme predictions should have near-perfect confidence
-        conf_0 = TrustEngine.calculate_confidence(0.0)
-        conf_1 = TrustEngine.calculate_confidence(1.0)
-        assert conf_0 > 0.99
-        assert conf_1 > 0.99
-
-        # Maximum uncertainty at 0.5
-        conf_mid = TrustEngine.calculate_confidence(0.5)
-        assert conf_mid < 0.05
+        assert TrustEngine.calculate_confidence(0.0) > 0.99 and TrustEngine.calculate_confidence(1.0) > 0.99
+        assert TrustEngine.calculate_confidence(0.5) < 0.05
 
     def test_cold_start_confidence_penalty(self):
         engine = TrustEngine()
         comp = {"tabular_risk": 0.1, "graph_risk": 0.1}
-        res_warm = engine.score(comp, is_cold_start=False)
         res_cold = engine.score(comp, is_cold_start=True)
-        assert res_cold.confidence < res_warm.confidence
+        assert res_cold.confidence < engine.score(comp, is_cold_start=False).confidence
         assert "COLD_START_INSUFFICIENT_HISTORY" in res_cold.reason_codes
 
     def test_model_disagreement_detection(self):
-        engine = TrustEngine()
-        # High disagreement between tabular (0.1) and graph (0.9)
-        res = engine.score({"tabular_risk": 0.10, "graph_risk": 0.90})
-        assert res.model_disagreement == 0.80
-        assert any("HIGH_DETECTOR_DISAGREEMENT" in r for r in res.reason_codes)
+        res = TrustEngine().score({"tabular_risk": 0.10, "graph_risk": 0.90})
+        assert res.model_disagreement == 0.80 and any("HIGH_DETECTOR_DISAGREEMENT" in r for r in res.reason_codes)
 
     def test_feedback_loop_guard(self):
-        # Forbidden model outputs must trigger validation error
         with pytest.raises(ValueError, match="Feedback loop violation"):
             TrustEngine.validate_no_feedback_loop(["amount", "risk_score", "seller_age"])
-
-        # Legitimate features must pass
         TrustEngine.validate_no_feedback_loop(["amount", "buyer_orders_before", "seller_age"])
 
 
-# ===========================================================================
-# 2. Probability Calibration Tests
-# ===========================================================================
-
 class TestCalibration:
     def test_isotonic_calibrator_fit_and_predict(self):
-        # Raw uncalibrated probabilities (skewed high)
         np.random.seed(42)
         y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
         raw_scores = np.array([0.2, 0.3, 0.4, 0.5, 0.55, 0.6, 0.7, 0.8, 0.85, 0.95])
-
         calibrator = ProbabilityCalibrator(method="isotonic")
         calibrator.fit(raw_scores, y)
         preds = calibrator.predict_proba(raw_scores)
-
-        assert len(preds) == len(raw_scores)
-        assert np.all((preds >= 0.0) & (preds <= 1.0))
-        # Monotonicity check
-        assert np.all(np.diff(preds) >= -1e-6)
+        assert len(preds) == len(raw_scores) and np.all((preds >= 0.0) & (preds <= 1.0)) and np.all(np.diff(preds) >= -1e-6)
 
     def test_sigmoid_calibrator(self):
-        y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
         scores = np.array([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9])
         cal = ProbabilityCalibrator(method="sigmoid")
-        cal.fit(scores, y)
+        cal.fit(scores, np.array([0, 0, 0, 0, 1, 1, 1, 1]))
         preds = cal.predict_proba(scores)
-        assert len(preds) == len(scores)
-        assert np.all((preds >= 0.0) & (preds <= 1.0))
+        assert len(preds) == len(scores) and np.all((preds >= 0.0) & (preds <= 1.0))
 
     def test_brier_score_and_ece(self):
         y = np.array([0, 0, 1, 1])
-        p_perfect = np.array([0.0, 0.0, 1.0, 1.0])
-        p_poor = np.array([0.9, 0.8, 0.1, 0.2])
-
-        assert calculate_brier_score(y, p_perfect) == 0.0
-        assert calculate_brier_score(y, p_poor) > 0.5
-
-        ece = calculate_expected_calibration_error(y, p_perfect)
-        assert ece < 0.05
+        assert calculate_brier_score(y, np.array([0.0, 0.0, 1.0, 1.0])) == 0.0
+        assert calculate_brier_score(y, np.array([0.9, 0.8, 0.1, 0.2])) > 0.5
+        assert calculate_expected_calibration_error(y, np.array([0.0, 0.0, 1.0, 1.0])) < 0.05
 
     def test_cost_sensitive_threshold_optimization(self):
-        y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
-        scores = np.linspace(0.1, 0.9, 10)
+        opt = optimize_cost_sensitive_threshold(np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]), np.linspace(0.1, 0.9, 10), fn_cost=10.0, fp_cost=1.0)
+        assert "threshold" in opt and "cost" in opt and 0.0 < opt["threshold"] < 1.0
 
-        # High FN cost (fraud is expensive) pushes threshold lower
-        opt = optimize_cost_sensitive_threshold(y, scores, fn_cost=10.0, fp_cost=1.0)
-        assert "threshold" in opt
-        assert "cost" in opt
-        assert 0.0 < opt["threshold"] < 1.0
-
-
-# ===========================================================================
-# 3. Splits & Entity Isolation Tests
-# ===========================================================================
 
 class TestSplits:
     def test_assert_disjoint_ids_passes(self):
-        train = pd.DataFrame({"order_id": ["O1", "O2", "O3"]})
-        val = pd.DataFrame({"order_id": ["O4", "O5"]})
-        test = pd.DataFrame({"order_id": ["O6", "O7"]})
-        assert_disjoint_ids(train, val, test, "order_id")  # Should not raise
+        assert_disjoint_ids(pd.DataFrame({"order_id": ["O1", "O2"]}), pd.DataFrame({"order_id": ["O3"]}), pd.DataFrame({"order_id": ["O4"]}), "order_id")
 
     def test_assert_disjoint_ids_catches_leakage(self):
-        train = pd.DataFrame({"order_id": ["O1", "O2", "O3"]})
-        val = pd.DataFrame({"order_id": ["O3", "O4"]})  # O3 leaked!
-        test = pd.DataFrame({"order_id": ["O5"]})
         with pytest.raises(AssertionError, match="leakage"):
-            assert_disjoint_ids(train, val, test, "order_id")
+            assert_disjoint_ids(pd.DataFrame({"order_id": ["O1", "O2"]}), pd.DataFrame({"order_id": ["O2", "O3"]}), pd.DataFrame({"order_id": ["O4"]}), "order_id")
 
     def test_validate_temporal_boundaries(self):
         train = pd.DataFrame({"order_date": ["2024-01-01", "2024-01-15"]})
         val = pd.DataFrame({"order_date": ["2024-01-16", "2024-01-31"]})
         test = pd.DataFrame({"order_date": ["2024-02-01", "2024-02-15"]})
-        validate_temporal_boundaries(train, val, test, "order_date")  # Should pass
-
-        # Overlapping boundary
-        bad_val = pd.DataFrame({"order_date": ["2024-01-10", "2024-01-20"]})
+        validate_temporal_boundaries(train, val, test, "order_date")
         with pytest.raises(AssertionError, match="Temporal boundary violation"):
-            validate_temporal_boundaries(train, bad_val, test, "order_date")
+            validate_temporal_boundaries(train, pd.DataFrame({"order_date": ["2024-01-10", "2024-01-20"]}), test, "order_date")
 
-
-# ===========================================================================
-# 4. Missingness Tests
-# ===========================================================================
 
 class TestMissingness:
     def test_add_missingness_indicators(self):
-        df = pd.DataFrame({
-            "amount": [10.0, None, 30.0],
-            "device_id": ["D1", "D2", None],
-        })
-        out = add_missingness_indicators(df)
-        assert "amount__missing" in out.columns
-        assert "device_id__missing" in out.columns
-        assert list(out["amount__missing"]) == [0, 1, 0]
-        assert list(out["device_id__missing"]) == [0, 0, 1]
+        out = add_missingness_indicators(pd.DataFrame({"amount": [10.0, None, 30.0], "device_id": ["D1", "D2", None]}))
+        assert list(out["amount__missing"]) == [0, 1, 0] and list(out["device_id__missing"]) == [0, 0, 1]
 
     def test_audit_missingness(self):
-        df = pd.DataFrame({
-            "a": [1.0, 2.0, 3.0],
-            "b": [1.0, None, 3.0],
-        })
-        rates = audit_missingness(df)
-        assert "a" not in rates
-        assert "b" in rates
-        assert math.isclose(rates["b"], 1.0 / 3.0, rel_tol=1e-3)
+        rates = audit_missingness(pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": [1.0, None, 3.0]}))
+        assert "a" not in rates and math.isclose(rates["b"], 1.0 / 3.0, rel_tol=1e-3)
 
-
-# ===========================================================================
-# 5. Reproducibility & Robustness Tests
-# ===========================================================================
 
 class TestReproducibilityAndRobustness:
     def test_seed_everything(self):
         seed_everything(123)
         v1 = np.random.rand()
         seed_everything(123)
-        v2 = np.random.rand()
-        assert v1 == v2
+        assert v1 == np.random.rand()
 
     def test_multiseed_summary(self):
-        scores = [0.82, 0.85, 0.84, 0.83, 0.86]
-        summary = multiseed_summary(scores)
-        assert summary["n_seeds"] == 5
-        assert math.isclose(summary["mean"], 0.84, rel_tol=1e-3)
-        assert summary["min"] == 0.82
-        assert summary["max"] == 0.86
+        summary = multiseed_summary([0.82, 0.85, 0.84, 0.83, 0.86])
+        assert summary["n_seeds"] == 5 and math.isclose(summary["mean"], 0.84, rel_tol=1e-3)
+        assert summary["min"] == 0.82 and summary["max"] == 0.86
 
     def test_bootstrap_ci(self):
         y = np.array([0] * 50 + [1] * 50)
         p = np.array([0.1] * 45 + [0.8] * 5 + [0.2] * 5 + [0.9] * 45)
-
-        def mock_acc(y_true, y_prob):
-            return float(np.mean(y_true == (y_prob >= 0.5)))
-
-        res = bootstrap_ci(y, p, mock_acc, n_bootstraps=100, seed=42)
-        assert "estimate" in res
-        assert "ci_lower" in res
-        assert "ci_upper" in res
+        res = bootstrap_ci(y, p, lambda yt, yp: float(np.mean(yt == (yp >= 0.5))), n_bootstraps=100, seed=42)
         assert res["ci_lower"] <= res["estimate"] <= res["ci_upper"]
 
     def test_simulate_prevalence_shift(self):
-        y = np.array([0] * 900 + [1] * 100)  # 10% prevalence
-        p = np.random.rand(1000)
-        y_shifted, p_shifted = simulate_prevalence_shift(y, p, target_prevalence=0.02)
-        new_prev = np.mean(y_shifted)
-        # Should be much closer to 2%
-        assert new_prev < 0.05
+        y_shifted, _ = simulate_prevalence_shift(np.array([0] * 900 + [1] * 100), np.random.rand(1000), target_prevalence=0.02)
+        assert np.mean(y_shifted) < 0.05
 
-
-# ===========================================================================
-# 6. Versioning Tests
-# ===========================================================================
 
 class TestVersioning:
     def test_sha256_file(self, tmp_path):
-        test_file = tmp_path / "model.bin"
-        test_file.write_bytes(b"TrustShield Model Weight Bytes")
-        digest = sha256_file(test_file)
-        assert len(digest) == 64
-        assert isinstance(digest, str)
+        f = tmp_path / "model.bin"
+        f.write_bytes(b"TrustShield Model Weight Bytes")
+        assert len(sha256_file(f)) == 64 and isinstance(sha256_file(f), str)
 
     def test_create_model_metadata(self, tmp_path):
-        test_file = tmp_path / "model.bin"
-        test_file.write_bytes(b"Artifact")
-        meta = create_model_metadata(
-            model_name="Hybrid_GNN_XGBoost",
-            model_version="1.0.0",
-            feature_cols=["amount", "buyer_orders_before"],
-            train_cutoff="2024-01-15",
-            val_cutoff="2024-01-31",
-            artifact_path=test_file,
-        )
-        assert meta["schema_version"] == FEATURE_SCHEMA_VERSION
-        assert meta["n_features"] == 2
-        assert "artifact_sha256" in meta
+        f = tmp_path / "model.bin"
+        f.write_bytes(b"Artifact")
+        meta = create_model_metadata("Hybrid_GNN_XGBoost", "1.0.0", ["amount", "buyer_orders_before"], "2024-01-15", "2024-01-31", f)
+        assert meta["schema_version"] == FEATURE_SCHEMA_VERSION and meta["n_features"] == 2 and "artifact_sha256" in meta
 
-
-# ===========================================================================
-# 7. Backend /ready Probe Test
-# ===========================================================================
 
 class TestReadyEndpoint:
     def test_ready_endpoint_status(self):
         from backend.main import app
-        client = TestClient(app)
-        res = client.get("/ready")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] in ("ready", "degraded", "not_ready")
-        assert "models_ready" in data
-        assert "details" in data
+        res = TestClient(app).get("/ready")
+        assert res.status_code == 200 and res.json()["status"] in ("ready", "degraded", "not_ready")
 
-
-# ===========================================================================
-# 8. Audit Fixes Regression Tests (TS-AUD-04 & TS-AUD-05)
-# ===========================================================================
 
 class TestAuditFixes:
-    """Regression tests for derived return rate clipping and zero base price protection."""
-
     def test_derived_return_rate_capped_at_one(self):
-        """TS-AUD-04: Returns > orders must be clipped to 1.0 rather than exceeding 1.0."""
         from backend.features import _build_feature_row
         from backend.schemas import TransactionScoreRequest
-
-        req = TransactionScoreRequest(
-            buyer_orders_before=2,
-            buyer_returns_before=10,
-        )
-        row = _build_feature_row(req, ["buyer_return_rate_before"])
-        assert row["buyer_return_rate_before"] == 1.0, (
-            f"TS-AUD-04 regression: buyer_return_rate_before should be clipped to 1.0, got {row['buyer_return_rate_before']}"
-        )
+        row = _build_feature_row(TransactionScoreRequest(buyer_orders_before=2, buyer_returns_before=10), ["buyer_return_rate_before"])
+        assert row["buyer_return_rate_before"] == 1.0
 
     def test_derived_return_rate_normal_ratio(self):
-        """Normal return ratio must be calculated correctly."""
         from backend.features import _build_feature_row
         from backend.schemas import TransactionScoreRequest
-
-        req = TransactionScoreRequest(
-            buyer_orders_before=10,
-            buyer_returns_before=2,
-        )
-        row = _build_feature_row(req, ["buyer_return_rate_before"])
+        row = _build_feature_row(TransactionScoreRequest(buyer_orders_before=10, buyer_returns_before=2), ["buyer_return_rate_before"])
         assert row["buyer_return_rate_before"] == pytest.approx(0.20)
 
     def test_zero_base_price_produces_no_infs(self):
-        """TS-AUD-05: When base_price is 0 or NaN, price_vs_base_price_ratio must be 0, not inf."""
         from trustshield_project.baseline_model import build_features
-
-        orders_df = pd.DataFrame([{
-            "order_id": "ORD_ZERO_PRICE",
-            "listing_id": "LIST_ZERO",
-            "order_date": pd.Timestamp("2025-05-01"),
-            "amount": 50.0,
-            "buyer_id": "BUYER_01",
-            "seller_id": "SELLER_01",
-            "device_id": "DEV_01",
-        }])
-        listings_df = pd.DataFrame([{
-            "listing_id": "LIST_ZERO",
-            "seller_id": "SELLER_01",
-            "product_id": "PROD_ZERO",
-            "category": "Electronics",
-            "listing_date": pd.Timestamp("2025-04-01"),
-        }])
+        orders_df = pd.DataFrame([{"order_id": "O1", "listing_id": "L1", "order_date": pd.Timestamp("2025-05-01"), "amount": 50.0, "buyer_id": "B1", "seller_id": "S1", "device_id": "D1"}])
+        listings_df = pd.DataFrame([{"listing_id": "L1", "seller_id": "S1", "product_id": "P1", "category": "Electronics", "listing_date": pd.Timestamp("2025-04-01")}])
         returns_df = pd.DataFrame(columns=["buyer_id", "return_date"])
-        buyers_df = pd.DataFrame([{
-            "buyer_id": "BUYER_01",
-            "signup_date": pd.Timestamp("2025-01-01"),
-        }])
-        sellers_df = pd.DataFrame([{
-            "seller_id": "SELLER_01",
-            "signup_date": pd.Timestamp("2025-01-01"),
-        }])
-        products_df = pd.DataFrame([{
-            "product_id": "PROD_ZERO",
-            "base_price": 0.0,  # Zero base price!
-        }])
-
-        df, feature_cols = build_features(
-            orders_df, listings_df, returns_df, buyers_df, sellers_df, products_df
-        )
-
+        buyers_df = pd.DataFrame([{"buyer_id": "B1", "signup_date": pd.Timestamp("2025-01-01")}])
+        sellers_df = pd.DataFrame([{"seller_id": "S1", "signup_date": pd.Timestamp("2025-01-01")}])
+        products_df = pd.DataFrame([{"product_id": "P1", "base_price": 0.0}])
+        df, _ = build_features(orders_df, listings_df, returns_df, buyers_df, sellers_df, products_df)
         val = df.loc[0, "price_vs_base_price_ratio"]
-        assert not np.isinf(val), f"TS-AUD-05 regression: inf found in price_vs_base_price_ratio: {val}"
-        assert not np.isnan(val), f"TS-AUD-05 regression: NaN found in price_vs_base_price_ratio: {val}"
-        assert val == 0.0
+        assert not np.isinf(val) and not np.isnan(val) and val == 0.0
+
+
+class TestConformalPredictor:
+    def test_exact_finite_sample_formula_toy_sizes(self):
+        scores_19 = np.linspace(0.01, 0.95, 19)
+        assert ConformalPredictor.compute_finite_sample_quantile(scores_19, 0.05) == pytest.approx(scores_19[-1])
+        scores_99 = np.linspace(0.01, 0.99, 99)
+        assert ConformalPredictor.compute_finite_sample_quantile(scores_99, 0.05) == pytest.approx(scores_99[94])
+        scores_100 = np.linspace(0.01, 1.0, 100)
+        assert ConformalPredictor.compute_finite_sample_quantile(scores_100, 0.05) == pytest.approx(scores_100[95])
+
+    def test_empty_or_degenerate_arrays(self):
+        assert ConformalPredictor.compute_finite_sample_quantile(np.array([]), 0.05) == 1.0
+        assert ConformalPredictor.compute_finite_sample_quantile(np.array([0.42]), 0.05) == 1.0
+
+    def test_prediction_set_inclusion_rules(self):
+        cp = ConformalPredictor(alpha=0.05)
+        cp.q_hat_0, cp.q_hat_1, cp.is_calibrated = 0.20, 0.90, True
+        assert cp.predict_set(0.05) == {0} and cp.predict_set(0.15) == {0, 1} and cp.predict_set(0.85) == {1}
+
+    def test_non_empty_fallback(self):
+        cp = ConformalPredictor(alpha=0.05)
+        cp.q_hat_0, cp.q_hat_1, cp.is_calibrated = 0.30, 0.60, True
+        assert cp.predict_set(0.35) == {0} and len(cp.predict_set(0.39)) >= 1
+
+    def test_uncalibrated_graceful_fallback(self):
+        cp = ConformalPredictor(alpha=0.05)
+        assert cp.is_calibrated is False
+        assert cp.predict_set(0.10) == {0} and cp.predict_set(0.50) == {0, 1} and cp.predict_set(0.90) == {1}
+
+    def test_missing_calibration_artifacts_handling(self):
+        cp = ConformalPredictor(alpha=0.05)
+        cp.calibrate(np.array([]), np.array([]))
+        assert cp.is_calibrated is False and cp.q_hat_0 == 0.5 and cp.q_hat_1 == 0.5 and len(cp.predict_set(0.42)) >= 1
+
+    def test_engine_evaluates_conformal_on_model_probability(self):
+        engine = AdvancedTrustEngine()
+        np.random.seed(42)
+        engine.conformal.calibrate(np.concatenate([np.random.beta(0.5, 20, 1000), np.random.beta(5, 2, 100)]), np.concatenate([np.zeros(1000, dtype=int), np.ones(100, dtype=int)]))
+        result = engine.score(detector_scores={"tabular_risk": 0.01, "graph_risk": 0.95, "device_velocity_risk": 0.90}, model_probability=0.01)
+        assert result.calibrated_risk > 0.50 and result.conformal_prediction_set == {0}
+

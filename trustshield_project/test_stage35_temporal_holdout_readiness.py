@@ -63,6 +63,14 @@ def saved_stage34_validation_arrays():
 
 
 @pytest.fixture(scope="module")
+def stage34_policy():
+    policy_path = os.path.join(_MODELS_STAGE34_DIR, "stage34_decision_policy.json")
+    assert os.path.exists(policy_path), f"Policy JSON missing at {policy_path}"
+    with open(policy_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@pytest.fixture(scope="module")
 def v2_1_orders_and_returns():
     """Loads frozen v2.1 orders and returns tables with parsed dates."""
     orders_path = os.path.join(_DATA_DIR, "orders.csv")
@@ -258,6 +266,46 @@ class TestArtifactIntegrityAndSchema:
 class TestThresholdCostReconciliation:
     """Reconciles coarse grid (0.07 -> $101,590) vs fine step optimization ($101,130 / $101,090)."""
 
+    def test_confusion_matrix_conservation_identities(self, saved_stage34_validation_arrays):
+        p, y = saved_stage34_validation_arrays
+        n = len(y)
+        t = 0.07
+
+        flagged = p >= t
+        tp = int((flagged & (y == 1)).sum())
+        fp = int((flagged & (y == 0)).sum())
+        fn = int((~flagged & (y == 1)).sum())
+        tn = int((~flagged & (y == 0)).sum())
+        total_fraud = int(y.sum())
+        total_flagged = int(flagged.sum())
+
+        assert tp + fn == total_fraud
+        assert tp + fp == total_flagged
+        assert tn + fp + fn + tp == n
+        assert tp == 424 and fp == 3285 and fn == 430 and tn == 7990
+        assert total_flagged == 3709 and total_fraud == 854 and n == 12129
+
+    def test_cost_formula_mathematical_equivalence(self, saved_stage34_validation_arrays):
+        p, y = saved_stage34_validation_arrays
+        t = 0.07
+        flagged = p >= t
+        tp = int((flagged & (y == 1)).sum())
+        fp = int((flagged & (y == 0)).sum())
+        fn = int((~flagged & (y == 1)).sum())
+        total_flagged = int(flagged.sum())
+
+        c_fp, c_fn, c_tp = 10.0, 150.0, 10.0
+        cost1 = fp * c_fp + fn * c_fn + tp * c_tp
+        cost2 = total_flagged * c_fp + fn * c_fn
+        assert cost1 == cost2 == 101590.0
+
+    def test_threshold_boundary_behavior_scores_equal_to_threshold(self):
+        scores = np.array([0.05, 0.07, 0.07, 0.09])
+        flagged_ge = scores >= 0.07
+        assert int(flagged_ge.sum()) == 3
+        flagged_gt = scores > 0.07
+        assert int(flagged_gt.sum()) == 1
+
     def test_threshold_cost_calculation_and_boundary_semantics(self, saved_stage34_validation_arrays):
         p, y = saved_stage34_validation_arrays
         t = 0.07
@@ -356,6 +404,14 @@ class TestCapacityConstraintsAndTieHandling:
         assert best_t == 0.8
         assert (scores >= best_t).sum() == 2 <= capacity_ceiling
 
+    def test_strict_capacity_enforcement_rejects_over_budget(self, saved_stage34_validation_arrays):
+        p, y = saved_stage34_validation_arrays
+        cap_5pct = math.floor(0.05 * len(y))  # 606 orders
+        vol_013 = int((p >= 0.13).sum())
+        assert vol_013 == 699 > cap_5pct
+        vol_015 = int((p >= 0.15).sum())
+        assert vol_015 == 477 <= cap_5pct
+
 
 # ===========================================================================
 # 7. Calibration Separation & Contract Integrity
@@ -363,6 +419,20 @@ class TestCapacityConstraintsAndTieHandling:
 
 class TestCalibrationAndContractIntegrity:
     """Verifies calibration cohort separation and contract validation."""
+
+    def test_controlled_small_example_ece_calculation(self):
+        """Computes ECE on a hand-calculated 2-bin fixture to verify implementation logic."""
+        from calibration import calculate_expected_calibration_error
+        p = np.array([0.1, 0.3, 0.7, 0.9])
+        y = np.array([0, 1, 1, 1])
+        computed_ece = calculate_expected_calibration_error(y, p, n_bins=2)
+        assert abs(computed_ece - 0.25) < 1e-6
+
+    def test_ensemble_transaction_label_consistency(self, saved_stage34_validation_arrays):
+        p, y = saved_stage34_validation_arrays
+        assert len(y) == 12129
+        assert int(y.sum()) == 854
+        assert abs(float(y.mean()) - 0.0704) < 1e-4
 
     def test_calibration_cohort_separation_enforcement(self, saved_stage34_validation_arrays):
         """Fitting cohort ECE cannot be claimed as generalization evidence."""
@@ -449,3 +519,75 @@ class TestProtectedArtifactImmutability:
         with open(manifest_path, "rb") as f:
             h = hashlib.sha256(f.read()).hexdigest()
         assert h == "3eaa93d7b36487d7c565cf1098790c5d117e2ef0e090651519b25fa828714b9d"
+
+
+# ===========================================================================
+# 9. Stage 3.4 Decision Policy and Artifacts
+# ===========================================================================
+
+class TestStage34DecisionPolicyAndArtifacts:
+    """Verifies Stage 3.4 model artifacts, policy thresholds, and decision routing."""
+
+    def test_versioned_artifacts_on_disk(self):
+        expected_files = [
+            "stage34_tabular_model.joblib",
+            "stage34_graph_model.joblib",
+            "stage34_early_fusion_model.joblib",
+            "stage34_late_fusion_stacker.joblib",
+            "stage34_tabular_calibrator.joblib",
+            "stage34_early_fusion_calibrator.joblib",
+            "stage34_noisyor_calibrator.joblib",
+            "stage34_decision_policy.json",
+        ]
+        for fname in expected_files:
+            assert os.path.exists(os.path.join(_MODELS_STAGE34_DIR, fname)), f"Missing artifact {fname}"
+
+    def test_threshold_boundaries_are_strictly_increasing(self, stage34_policy):
+        thresholds = stage34_policy["action_thresholds"]
+        assert 0.0 < thresholds["allow_cutoff"] < thresholds["review_cutoff"] < thresholds["hold_cutoff"] < 1.0
+
+    def test_action_routing_partitions_probability_space(self, stage34_policy):
+        thresholds = stage34_policy["action_thresholds"]
+        t_allow, t_review, t_hold = thresholds["allow_cutoff"], thresholds["review_cutoff"], thresholds["hold_cutoff"]
+
+        def route_action(p: float) -> str:
+            if not isinstance(p, (int, float)) or math.isnan(p):
+                raise ValueError("Invalid probability")
+            if not (0.0 <= p <= 1.0):
+                raise ValueError("Probability out of bounds [0, 1]")
+            if p < t_allow:
+                return "ALLOW"
+            elif p < t_review:
+                return "REVIEW"
+            elif p < t_hold:
+                return "HOLD"
+            else:
+                return "BLOCK"
+
+        assert route_action(0.0) == "ALLOW"
+        assert route_action(t_allow - 1e-6) == "ALLOW"
+        assert route_action(t_allow) == "REVIEW"
+        assert route_action(t_review - 1e-6) == "REVIEW"
+        assert route_action(t_review) == "HOLD"
+        assert route_action(t_hold - 1e-6) == "HOLD"
+        assert route_action(t_hold) == "BLOCK"
+        assert route_action(1.0) == "BLOCK"
+
+        with pytest.raises(ValueError, match="out of bounds"):
+            route_action(-0.01)
+        with pytest.raises(ValueError, match="out of bounds"):
+            route_action(1.05)
+        with pytest.raises(ValueError, match="Invalid"):
+            route_action(float("nan"))
+
+    def test_missing_scores_handled_with_fallback(self):
+        score_map = {"L100": 0.45}
+        assert score_map.get("L100", 0.05) == 0.45
+        assert score_map.get("L999_MISSING", 0.05) == 0.05
+
+    def test_review_capacity_constraints_defined(self, stage34_policy):
+        caps = stage34_policy["capacity_operating_points"]
+        for cap_key in ["capacity_1_pct", "capacity_2_pct", "capacity_5_pct", "capacity_10_pct"]:
+            assert cap_key in caps
+            assert caps[cap_key]["operational_threshold"] > 0.0
+

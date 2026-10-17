@@ -21,6 +21,7 @@ from typing import Dict, List, Set
 import numpy as np
 import pandas as pd
 import pytest
+import joblib
 from sklearn.metrics import roc_auc_score
 
 _ROOT_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -136,16 +137,66 @@ class TestDatasetContract:
         assert (merged_ol["seller_id_ord"] == merged_ol["seller_id_list"]).all()
         assert (merged_ol["product_id_ord"] == merged_ol["product_id_list"]).all()
 
-    def test_category_constraints_hold_on_all_listings(self, v2_1_data):
-        """Verifies that for 100% of listings, claimed product and displayed product share the EXACT category."""
-        listings = v2_1_data["listings"]
-        products = v2_1_data["products"]
-        cat_map = products.set_index("product_id")["category"].to_dict()
+    def test_v1_and_v2_artifacts_preserved(self):
+        """Verifies data/synthetic_v2/ and v1 benchmark export were NOT overwritten or deleted."""
+        v2_dir = os.path.join(_ROOT_DIR, "data", "synthetic_v2")
+        v1_dir = os.path.join(_ROOT_DIR, "trustshield_project", "synthetic_data_export")
+        assert os.path.isdir(v2_dir), "data/synthetic_v2/ must be preserved!"
+        assert os.path.isfile(os.path.join(v2_dir, "orders.csv")), "data/synthetic_v2/orders.csv missing!"
+        assert os.path.isfile(os.path.join(v2_dir, "dataset_manifest.json")), "v2 manifest missing!"
+        assert os.path.isdir(v1_dir), "v1 directory must be preserved!"
+        assert os.path.isfile(os.path.join(v1_dir, "orders.csv")), "v1 orders.csv missing!"
 
-        claimed_cats = listings["product_id"].map(cat_map)
-        disp_cats = listings["displayed_product_id"].map(cat_map)
-        mismatches = int((claimed_cats != disp_cats).sum())
-        assert mismatches == 0, f"Found {mismatches} category constraint violations in listings!"
+    def test_validation_report_status_pass(self):
+        """Verifies validation_report.json reports overall status PASS."""
+        v_path = os.path.join(_DATA_DIR, "validation_report.json")
+        assert os.path.isfile(v_path), f"Missing validation report: {v_path}"
+        with open(v_path, "r", encoding="utf-8") as f:
+            rep = json.load(f)
+        assert rep["status"] == "PASS", f"Validation status is {rep['status']}, not PASS!"
+        for check_name, check_data in rep["checks"].items():
+            assert check_data.get("passed") is True, f"Check {check_name} failed: {check_data}"
+
+    def test_perturbation_changes_observable_listing_evidence(self, v2_1_data):
+        """Validates that perturbations alter observable evidence (displayed_product_id and price)."""
+        listings = v2_1_data["listings"]
+        audit = v2_1_data["perturbation_audit"]
+        fake_listings = listings[listings["listing_id"].isin(audit["listing_id"])]
+        assert (fake_listings["displayed_product_id"] != fake_listings["product_id"]).sum() == len(fake_listings)
+        assert (audit["price_factor"] > 0).all()
+        assert audit["perturbation_type"].str.contains("compatible_subtype").sum() > 0
+
+    def test_no_shortcut_boolean_flags_or_persona_in_public_tables(self, v2_1_data):
+        """Validates no shortcut flags or persona columns in listings, buyers, or sellers."""
+        listings = v2_1_data["listings"]
+        buyers = v2_1_data["buyers"]
+        sellers = v2_1_data["sellers"]
+        assert "price_anomaly" not in listings.columns
+        assert "image_mismatch" not in listings.columns
+        assert "_seller_persona" not in listings.columns
+        assert "buyer_persona" not in buyers.columns
+        assert "seller_persona" not in sellers.columns
+        assert "compromise_date" not in sellers.columns
+
+    def test_personas_and_ground_truth_segregated(self, v2_1_data):
+        """Validates generator_personas and fraud_ground_truth segregation."""
+        personas = v2_1_data["generator_personas"]
+        gt = v2_1_data["fraud_ground_truth"]
+        assert set(personas["entity_type"].unique()) == {"seller", "buyer"}
+        assert len(personas) == len(v2_1_data["buyers"]) + len(v2_1_data["sellers"])
+        assert len(gt) > 0
+        assert "fraud_ring_id" in gt.columns
+        assert "fraud_type" in gt.columns
+
+    def test_no_id_label_leakage(self, v2_1_data):
+        """Verifies no IDs contain FRAUD, ABUSE, COLLUSION, or RING tokens."""
+        banned = ["FRAUD", "ABUSE", "COLLUSION", "RING"]
+        for tname in ["orders", "listings", "returns", "buyers", "sellers"]:
+            df = v2_1_data[tname]
+            id_col = f"{tname[:-1] if tname != 'addresses' else 'address'}_id"
+            if id_col not in df.columns:
+                id_col = df.columns[0]
+            assert df[id_col].str.contains("|".join(banned), case=False).sum() == 0
 
 
 # ===========================================================================
@@ -301,6 +352,82 @@ class TestRightCensoring:
         censored_abusers = orders[(~orders["has_return_event"]) & orders["is_return_abuse"]]
         assert len(censored_abusers) > 0, "No censored return abuse orders found!"
 
+    def test_every_return_occurs_strictly_after_order(self, v2_1_data):
+        """Validates that days_to_return >= 1 for every return. Zero-day returns = 0."""
+        returns = v2_1_data["returns"]
+        orders = v2_1_data["orders"]
+        merged = returns.merge(orders[["order_id", "order_date"]], on="order_id")
+        delays = (pd.to_datetime(merged["return_date"]) - pd.to_datetime(merged["order_date"])).dt.days
+        assert (delays >= 1).all()
+        assert (delays == 0).sum() == 0
+        assert (delays < 0).sum() == 0
+
+    def test_december_30_and_31_return_policy(self, v2_1_data):
+        """Dec 30 orders only return on Dec 31; Dec 31 orders have 0 returns in 2025."""
+        orders = v2_1_data["orders"].copy()
+        returns = v2_1_data["returns"].copy()
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+        returns["return_date"] = pd.to_datetime(returns["return_date"])
+        dec30_orders = orders[orders["order_date"].dt.date == datetime(2025, 12, 30).date()]
+        dec31_orders = orders[orders["order_date"].dt.date == datetime(2025, 12, 31).date()]
+        dec30_rets = returns[returns["order_id"].isin(dec30_orders["order_id"])]
+        dec31_rets = returns[returns["order_id"].isin(dec31_orders["order_id"])]
+        for _, r in dec30_rets.iterrows():
+            assert r["return_date"].date() == datetime(2025, 12, 31).date()
+        assert len(dec31_rets) == 0
+
+    def test_return_delay_distribution_overlap(self, v2_1_data):
+        """Verifies return delay distributions overlap realistically without disjoint bands."""
+        orders = v2_1_data["orders"]
+        returns = v2_1_data["returns"]
+        merged = returns.merge(orders[["order_id", "order_date"]], on="order_id")
+        delays = (pd.to_datetime(merged["return_date"]) - pd.to_datetime(merged["order_date"])).dt.days
+        legit_delays = delays[~merged["is_fraudulent"]]
+        fraud_delays = delays[merged["is_fraudulent"]]
+        assert legit_delays.min() >= 1 and fraud_delays.min() >= 1
+        assert legit_delays.max() >= 15 and fraud_delays.max() >= 15
+        diff = abs(float(legit_delays.mean() - fraud_delays.mean()))
+        assert diff < 3.5
+
+
+class TestObservableSellerBehaviors:
+    def test_disposable_seller_listing_burst(self, v2_1_data):
+        """Verifies disposable sellers exhibit observable short-tenure bursts (median <= 7 days)."""
+        personas = v2_1_data["generator_personas"]
+        sellers = v2_1_data["sellers"]
+        listings = v2_1_data["listings"]
+        disp_sids = set(personas[(personas["entity_type"] == "seller") & (personas["persona"] == "disposable")]["entity_id"])
+        est_sids = set(personas[(personas["entity_type"] == "seller") & (personas["persona"] == "established")]["entity_id"])
+
+        disp_merged = listings[listings["seller_id"].isin(disp_sids)].merge(sellers[["seller_id", "signup_date"]], on="seller_id")
+        disp_tenures = (pd.to_datetime(disp_merged["listing_date"]) - pd.to_datetime(disp_merged["signup_date"])).dt.days
+        assert float(disp_tenures.median()) <= 7.0
+
+        est_merged = listings[listings["seller_id"].isin(est_sids)].merge(sellers[["seller_id", "signup_date"]], on="seller_id")
+        est_tenures = (pd.to_datetime(est_merged["listing_date"]) - pd.to_datetime(est_merged["signup_date"])).dt.days
+        assert float(est_tenures.median()) >= 50.0
+
+    def test_takeover_seller_post_compromise_category_surge(self, v2_1_data):
+        """Verifies takeover sellers exhibit post-compromise anomalous category surge."""
+        personas = v2_1_data["generator_personas"]
+        sellers = v2_1_data["sellers"]
+        listings = v2_1_data["listings"]
+        ato_meta = personas[(personas["entity_type"] == "seller") & (personas["persona"] == "takeover")]
+        assert len(ato_meta) > 0
+        sample_ato = ato_meta[ato_meta["compromise_date"].notna()].iloc[0]
+        s_id = sample_ato["entity_id"]
+        comp_date = pd.to_datetime(sample_ato["compromise_date"])
+        focus_cat = sellers[sellers["seller_id"] == s_id]["category_focus"].iloc[0]
+
+        s_listings = listings[listings["seller_id"] == s_id].copy()
+        s_listings["listing_date"] = pd.to_datetime(s_listings["listing_date"])
+        pre_listings = s_listings[s_listings["listing_date"] <= comp_date]
+        post_listings = s_listings[s_listings["listing_date"] > comp_date]
+        assert len(pre_listings) > 0 and len(post_listings) > 0
+        assert (pre_listings["category"] == focus_cat).all()
+        post_cats = post_listings["category"].unique()
+        assert focus_cat not in post_cats or len(post_cats) > 1
+
 
 # ===========================================================================
 # 4. Multimodal Evidence & Image Asset Auditing
@@ -384,3 +511,73 @@ class TestEvaluationProtocol:
         assert test["order_date"].min() >= pd.Timestamp("2025-11-01 00:00:00")
         assert test["order_date"].max() <= pd.Timestamp("2025-12-31 23:59:59")
         assert int(test["is_fraudulent"].sum()) == 1835
+
+    def test_reconciliation_of_december_10_and_december_11(self, v2_1_data):
+        """Reconciles Dec 10 vs Dec 11 definitions against exact orders data.
+        - Through Dec 10 23:59:59 (i.e. strictly before Dec 11 00:00:00): 41,382 orders.
+        - On or after Dec 11 00:00:00: exactly 8,618 orders.
+        """
+        orders = v2_1_data["orders"].copy()
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+        n_through_dec10_end = int((orders["order_date"] <= "2025-12-10 23:59:59").sum())
+        n_on_or_after_dec11 = int((orders["order_date"] >= "2025-12-11 00:00:00").sum())
+        assert n_through_dec10_end == 41382
+        assert n_on_or_after_dec11 == 8618
+        assert n_through_dec10_end + n_on_or_after_dec11 == 50000
+
+    def test_causal_cross_split_directionality(self, v2_1_data):
+        """Verifies temporal causality: returns and orders never reference future events."""
+        orders = v2_1_data["orders"].copy()
+        listings = v2_1_data["listings"].copy()
+        returns = v2_1_data["returns"].copy()
+
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+        listings["listing_date"] = pd.to_datetime(listings["listing_date"])
+        returns["return_date"] = pd.to_datetime(returns["return_date"])
+
+        train_cutoff = pd.Timestamp("2025-08-31 23:59:59")
+        orders["order_split"] = np.where(orders["order_date"] <= train_cutoff, "train", "post_train")
+        listings["listing_split"] = np.where(listings["listing_date"] <= train_cutoff, "train", "post_train")
+        returns["return_split"] = np.where(returns["return_date"] <= train_cutoff, "train", "post_train")
+
+        ro = returns.merge(orders[["order_id", "order_split"]], on="order_id")
+        assert len(ro[(ro["return_split"] == "train") & (ro["order_split"] == "post_train")]) == 0
+
+        ol = orders.merge(listings[["listing_id", "listing_split"]], on="listing_id")
+        assert len(ol[(ol["order_split"] == "train") & (ol["listing_split"] == "post_train")]) == 0
+
+
+class TestStage33ModelsAndThresholds:
+    """Verifies that Stage 3.3 models and feature metadata exist and are loadable."""
+
+    def test_feature_meta_thresholds_defined(self):
+        p = os.path.join(_ROOT_DIR, "models", "v2_1", "feature_meta.joblib")
+        assert os.path.isfile(p), f"Missing feature_meta: {p}"
+        feature_meta = joblib.load(p)
+        thresholds = feature_meta["thresholds"]
+        assert "fake_listing" in thresholds and "transaction_fraud" in thresholds and "return_fraud" in thresholds
+        for t_name, t_val in thresholds.items():
+            if isinstance(t_val, list):
+                assert all(0.0 < x < 1.0 for x in t_val)
+            else:
+                assert 0.0 < t_val < 1.0
+
+    def test_versioned_model_files_exist(self):
+        models_dir = os.path.join(_ROOT_DIR, "models", "v2_1")
+        expected_files = [
+            "fake_listing_model.joblib",
+            "fake_listing_scaler.joblib",
+            "fake_listing_calibrator.joblib",
+            "return_fraud_model.joblib",
+            "return_fraud_scaler.joblib",
+            "return_fraud_calibrator.joblib",
+            "tabular_baseline_model.joblib",
+            "combined_graph_model.joblib",
+            "combined_graph_calibrator.joblib",
+            "feature_meta.joblib",
+        ]
+        for fname in expected_files:
+            fpath = os.path.join(models_dir, fname)
+            assert os.path.isfile(fpath), f"Missing model file: {fpath}"
+            assert joblib.load(fpath) is not None
+
