@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import bisect
 import logging
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
@@ -30,6 +31,7 @@ class PointInTimeHistoryStore:
     """
 
     def __init__(self, orders_csv_path: Optional[str] = None):
+        self._lock = threading.RLock()
         self.is_loaded: bool = False
         self.source_path: Optional[str] = None
         # Map: (buyer_id, seller_id) -> sorted list of pd.Timestamp
@@ -100,63 +102,64 @@ class PointInTimeHistoryStore:
         s_clean = str(seller_id).strip()
         pair_key = (b_clean, s_clean)
 
-        # 1. Historical replay mode: order_date is provided
-        if order_date is not None:
-            try:
-                target_dt = pd.to_datetime(order_date)
-            except Exception:
-                target_dt = None
+        with self._lock:
+            # 1. Historical replay mode: order_date is provided
+            if order_date is not None:
+                try:
+                    target_dt = pd.to_datetime(order_date)
+                except Exception:
+                    target_dt = None
 
-            if target_dt is not None:
-                if not self.is_loaded:
+                if target_dt is not None:
+                    if not self.is_loaded:
+                        return (
+                            0.0,
+                            "fallback_history_unavailable",
+                            "Server point-in-time history unavailable; defaulted to 0.0 (lifetime count NOT substituted)",
+                        )
+
+                    pair_ts = self._history.get(pair_key)
+                    if not pair_ts:
+                        # Check live history
+                        pair_ts_live = self._live_history.get(pair_key)
+                        if not pair_ts_live:
+                            return 0.0, "fallback_unobserved_zero", "First transaction between buyer and seller (count=0)"
+                        pair_ts = pair_ts_live
+
+                    # Strict point-in-time causality: count only transactions strictly before target_dt
+                    # bisect_left locates first index where t >= target_dt.
+                    # Therefore all indices < idx have t < target_dt.
+                    # Duplicate timestamps: any transaction at t == target_dt is at index >= idx, so excluded!
+                    idx = bisect.bisect_left(pair_ts, target_dt)
                     return (
-                        0.0,
-                        "fallback_history_unavailable",
-                        "Server point-in-time history unavailable; defaulted to 0.0 (lifetime count NOT substituted)",
+                        float(idx),
+                        "server_point_in_time",
+                        f"Point-in-time prior order count before {target_dt.strftime('%Y-%m-%d %H:%M:%S')}",
                     )
 
-                pair_ts = self._history.get(pair_key)
-                if not pair_ts:
-                    # Check live history
-                    pair_ts_live = self._live_history.get(pair_key)
-                    if not pair_ts_live:
-                        return 0.0, "fallback_unobserved_zero", "First transaction between buyer and seller (count=0)"
-                    pair_ts = pair_ts_live
-
-                # Strict point-in-time causality: count only transactions strictly before target_dt
-                # bisect_left locates first index where t >= target_dt.
-                # Therefore all indices < idx have t < target_dt.
-                # Duplicate timestamps: any transaction at t == target_dt is at index >= idx, so excluded!
-                idx = bisect.bisect_left(pair_ts, target_dt)
+            # 2. Live decision-time scoring mode: order_date not provided
+            # Definition: all confirmed prior transactions for this pair recorded prior to decision time.
+            # The pending order being scored is not in prior history.
+            if not self.is_loaded and not self._live_history:
                 return (
-                    float(idx),
-                    "server_point_in_time",
-                    f"Point-in-time prior order count before {target_dt.strftime('%Y-%m-%d %H:%M:%S')}",
+                    0.0,
+                    "fallback_history_unavailable",
+                    "Server transaction history store unavailable; defaulted to 0.0 (lifetime count NOT substituted)",
                 )
 
-        # 2. Live decision-time scoring mode: order_date not provided
-        # Definition: all confirmed prior transactions for this pair recorded prior to decision time.
-        # The pending order being scored is not in prior history.
-        if not self.is_loaded and not self._live_history:
+            # Total confirmed prior count = historical count + any live confirmed count
+            hist_count = len(self._history.get(pair_key, [])) if self.is_loaded else 0
+            live_count = len(self._live_history.get(pair_key, []))
+            total_prior = float(hist_count + live_count)
+
+            if total_prior == 0.0:
+                return 0.0, "fallback_unobserved_zero", "No prior recorded transactions for buyer-seller pair at decision time (count=0)"
+
             return (
-                0.0,
-                "fallback_history_unavailable",
-                "Server transaction history store unavailable; defaulted to 0.0 (lifetime count NOT substituted)",
+                total_prior,
+                "server_point_in_time",
+                f"Live decision-time confirmed prior transactions: {int(total_prior)}",
             )
-
-        # Total confirmed prior count = historical count + any live confirmed count
-        hist_count = len(self._history.get(pair_key, [])) if self.is_loaded else 0
-        live_count = len(self._live_history.get(pair_key, []))
-        total_prior = float(hist_count + live_count)
-
-        if total_prior == 0.0:
-            return 0.0, "fallback_unobserved_zero", "No prior recorded transactions for buyer-seller pair at decision time (count=0)"
-
-        return (
-            total_prior,
-            "server_point_in_time",
-            f"Live decision-time confirmed prior transactions: {int(total_prior)}",
-        )
 
     def record_live_transaction(
         self,
@@ -171,10 +174,12 @@ class PointInTimeHistoryStore:
         pair_key = (b_clean, s_clean)
         ts = pd.to_datetime(timestamp) if timestamp is not None else pd.Timestamp.now(timezone.utc)
 
-        live_list = self._live_history.setdefault(pair_key, [])
-        live_list.append(ts)
-        live_list.sort()
+        with self._lock:
+            live_list = self._live_history.setdefault(pair_key, [])
+            live_list.append(ts)
+            live_list.sort()
 
     def reset_live_history(self) -> None:
         """Clears live session transactions (for testing and isolation)."""
-        self._live_history.clear()
+        with self._lock:
+            self._live_history.clear()
