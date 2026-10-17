@@ -69,13 +69,14 @@ def run_e2e_suite():
             "base_price": 50.0,
             "category_median_price": 50.0,
             "buyer_orders_before": 25,
+            "buyer_returns_before": 20,
             "seller_total_listings_before": 5,
             "buyer_age_days": 10.0,
             "seller_age_days": 15.0,
             "device_shared_buyer_count": 8.0,
             "share_degree": 12.0,
             "share_component_size": 15.0,
-            "buyer_pagerank": 0.05,
+            "buyer_pagerank": 0.0,
             "buyer_return_rate_before": 0.85,
         }
         r2 = client.post("/transaction/score", json=c2_req)

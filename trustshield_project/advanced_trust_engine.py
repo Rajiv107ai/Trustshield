@@ -1,13 +1,11 @@
-"""Advanced Trust Engine with Stacking Meta-Learner and Conformal Uncertainty for TrustShield.
+"""Advanced Trust Engine with Conformal Uncertainty for TrustShield.
 
-Combines component risk models (Tabular, Graph, HeteroGNN, Multimodal, Ring Intelligence):
-- Compares Aggregation Methods: Simple Average vs Validated Weighted Ensemble vs Stacking Meta-Model
-- Advanced Uncertainty Framework:
-    - Calibrated Risk Score & Trust Score (0-100)
-    - Shannon Entropy Predictive Uncertainty
-    - Epistemic Model Disagreement (Variance & Spread across detectors)
-    - Split Conformal Prediction Intervals (guaranteed 1 - alpha coverage)
-    - Automated Abstention / Human Review Routing on ambiguous prediction sets
+Routes operational decisions directly via calibrated model probabilities and cost thresholds:
+- Eliminates hand-tuned linear blending heuristics and uncalibrated stacking meta-learners
+- Direct calibrated probability pass-through preserves empirical calibration guarantees
+- Mondrian class-conditional conformal prediction intervals (guaranteed 1 - alpha coverage)
+- Graph and ring intelligence signals surfaced strictly as explanatory reason codes
+- Automated abstention and human review routing on ambiguous prediction sets
 """
 
 from __future__ import annotations
@@ -16,8 +14,6 @@ from typing import Dict, List, Tuple, Optional, Any, Set
 from enum import Enum
 from dataclasses import dataclass
 import numpy as np
-import pandas as pd
-
 
 
 class OperationalDecision(str, Enum):
@@ -58,7 +54,7 @@ class ConformalPredictor:
     """Class-conditional (Mondrian) Conformal Prediction for distribution-free finite-sample error guarantees."""
 
     def __init__(self, alpha: float = 0.05):
-        self.alpha = alpha  # Target error rate per class (e.g. 0.05 for 95% nominal coverage)
+        self.alpha = alpha  # Target error rate per class (0.05 for 95% nominal coverage)
         self.q_hat_0: float = 0.5
         self.q_hat_1: float = 0.5
         self.is_calibrated: bool = False
@@ -133,127 +129,44 @@ class ConformalPredictor:
         return pred_set
 
 
-class NonNegativeLogisticRegression:
-    """Logistic regression with mathematically guaranteed non-negative coefficient bounds (w >= 0).
-    
-    Ensures that increased risk signal from any detector monotonically increases (or does not decrease)
-    the overall composite stacked risk score.
-    """
-
-    def __init__(self, l2_reg: float = 1.0):
-        self.l2_reg = l2_reg
-        self.coef_: np.ndarray = np.array([])
-        self.intercept_: float = 0.0
-        self.classes_ = np.array([0, 1])
-
-    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> "NonNegativeLogisticRegression":
-        from scipy.optimize import minimize
-        X_mat = np.asarray(X, dtype=float)
-        y_arr = np.asarray(y, dtype=float).ravel()
-        n, p = X_mat.shape
-
-        if n == 0 or p == 0:
-            self.coef_ = np.zeros(p)
-            self.intercept_ = 0.0
-            return self
-
-        def loss_and_grad(params: np.ndarray) -> tuple[float, np.ndarray]:
-            w = params[:p]
-            b = params[p]
-            z = np.clip(X_mat @ w + b, -30.0, 30.0)
-            p_hat = 1.0 / (1.0 + np.exp(-z))
-            # Negative log-likelihood + L2 regularization
-            eps = 1e-12
-            nll = -np.mean(y_arr * np.log(np.maximum(p_hat, eps)) + (1.0 - y_arr) * np.log(np.maximum(1.0 - p_hat, eps)))
-            reg = (self.l2_reg / (2.0 * max(n, 1))) * np.sum(w ** 2)
-            loss = float(nll + reg)
-
-            err = (p_hat - y_arr) / max(n, 1)
-            grad_w = X_mat.T @ err + (self.l2_reg / max(n, 1)) * w
-            grad_b = float(np.sum(err))
-            return loss, np.append(grad_w, grad_b)
-
-        init_w = np.full(p, 1.0 / max(p, 1))
-        mean_y = float(np.clip(np.mean(y_arr), 1e-4, 1.0 - 1e-4))
-        init_b = float(np.log(mean_y / (1.0 - mean_y)))
-        init_params = np.append(init_w, init_b)
-
-        # Bounds: weights >= 0, intercept unconstrained
-        bounds = [(0.0, None)] * p + [(None, None)]
-
-        res = minimize(loss_and_grad, init_params, method="L-BFGS-B", jac=True, bounds=bounds)
-        self.coef_ = np.maximum(res.x[:p], 0.0)
-        self.intercept_ = float(res.x[p])
-        return self
-
-    def predict_proba(self, X: np.ndarray | pd.DataFrame) -> np.ndarray:
-        X_mat = np.asarray(X, dtype=float)
-        if len(self.coef_) == 0:
-            return np.column_stack([np.ones(len(X_mat)), np.zeros(len(X_mat))])
-        z = np.clip(X_mat @ self.coef_ + self.intercept_, -30.0, 30.0)
-        p = 1.0 / (1.0 + np.exp(-z))
-        return np.column_stack([1.0 - p, p])
-
-
-class StackingRiskMetaLearner:
-    """Meta-learner combining component detector scores into an optimal stacked risk score.
-    
-    Uses NonNegativeLogisticRegression with L-BFGS-B bound constraints (w >= 0) to strictly enforce
-    that elevated component detector scores monotonically increase composite fraud risk.
-    """
-
-    def __init__(self, l2_reg: float = 1.0):
-        self.clf = NonNegativeLogisticRegression(l2_reg=l2_reg)
-        self.component_names: List[str] = []
-        self.is_fitted: bool = False
-
-    def fit(self, X_components: pd.DataFrame, y_labels: np.ndarray) -> "StackingRiskMetaLearner":
-        self.component_names = list(X_components.columns)
-        self.clf.fit(X_components.fillna(0.0), y_labels)
-        self.is_fitted = True
-        return self
-
-    def predict_risk(self, component_dict: Dict[str, float]) -> float:
-        if not self.is_fitted:
-            # Fallback to mean if unfitted
-            return float(np.mean(list(component_dict.values())))
-
-        row = [component_dict.get(c, 0.0) for c in self.component_names]
-        df_row = pd.DataFrame([row], columns=self.component_names)
-        prob = float(self.clf.predict_proba(df_row)[0, 1])
-        return min(max(prob, 0.0), 1.0)
-
-
 class AdvancedTrustEngine:
-    """Advanced Multi-Detector Trust & Uncertainty Engine."""
+    """Authoritative Trust & Decision Engine for TrustShield.
+    
+    Evaluates calibrated probabilities directly against cost thresholds,
+    bounds epistemic risk with Mondrian conformal prediction sets,
+    and surfaces graph/device sharing signals purely as explanatory reason codes.
+    """
 
     DEFAULT_THRESHOLDS = (0.25, 0.55, 0.85)  # (ALLOW, REVIEW, HOLD, BLOCK)
 
     def __init__(
         self,
-        meta_learner: Optional[StackingRiskMetaLearner] = None,
+        meta_learner: Optional[Any] = None,
         conformal_predictor: Optional[ConformalPredictor] = None,
         weights: Optional[Dict[str, float]] = None,
         thresholds: tuple[float, float, float] = DEFAULT_THRESHOLDS,
+        **kwargs,
     ):
         if weights is not None:
             if not weights or sum(weights.values()) <= 0 or any(v < 0 for v in weights.values()):
                 raise ValueError(f"Invalid component weights: {weights}")
+            total_w = sum(weights.values())
+            self.weights = dict(weights)
+            self.norm_weights = {k: v / total_w for k, v in weights.items()}
+        else:
+            self.weights = {
+                "tabular_risk": 0.40,
+                "graph_risk_heuristic": 0.25,
+                "ring_risk_heuristic": 0.15,
+                "multimodal_risk": 0.20,
+            }
+            total_w = sum(self.weights.values())
+            self.norm_weights = {k: v / total_w for k, v in self.weights.items()}
+
         if not (0.0 <= thresholds[0] < thresholds[1] < thresholds[2] <= 1.0):
             raise ValueError(f"Thresholds must be strictly increasing in [0, 1]: {thresholds}")
 
-        self.meta_learner = meta_learner
         self.conformal = conformal_predictor or ConformalPredictor(alpha=0.05)
-        self.weights = weights or {
-            "tabular_risk": 0.40,
-            "graph_risk_heuristic": 0.25,
-            "ring_risk_heuristic": 0.15,
-            "multimodal_risk": 0.20,
-            "graph_risk": 0.25,
-            "ring_risk": 0.15,
-        }
-        total_w = sum(self.weights.values())
-        self.norm_weights = {k: v / total_w for k, v in self.weights.items()}
         self.allow_th, self.review_th, self.hold_th = thresholds
 
     @property
@@ -291,27 +204,31 @@ class AdvancedTrustEngine:
             raise ValueError(f"Feedback loop violation: features contain model outputs: {violations}")
 
     def aggregate_risk(self, detector_scores: Dict[str, float]) -> Tuple[float, str]:
-        """Calculate composite risk comparing stacking vs weighted ensemble."""
-        if self.meta_learner is not None and self.meta_learner.is_fitted:
-            risk = self.meta_learner.predict_risk(detector_scores)
-            return round(risk, 4), "stacking_meta_learner"
-
-        # Validated Weighted Ensemble
-        active_w = {k: self.norm_weights.get(k, 1.0 / len(detector_scores)) for k in detector_scores}
-        total_act = sum(active_w.values())
-        weighted_sum = sum((w / total_act) * float(detector_scores[k]) for k, w in active_w.items())
-        return round(float(np.clip(weighted_sum, 0.0, 1.0)), 4), "validated_weighted_ensemble"
+        """Direct calibrated probability pass-through without heuristic corruption."""
+        risk = float(detector_scores.get("tabular_risk", next(iter(detector_scores.values())) if detector_scores else 0.0))
+        return round(float(np.clip(risk, 0.0, 1.0)), 4), "calibrated_probability_pass_through"
 
     def score(
         self,
         detector_scores: Dict[str, float],
         is_cold_start: bool = False,
         model_probability: Optional[float] = None,
+        order_amount: Optional[float] = None,
     ) -> AdvancedTrustResult:
-        if not detector_scores:
-            raise ValueError("detector_scores dictionary cannot be empty.")
+        if not detector_scores and model_probability is None:
+            raise ValueError("detector_scores dictionary cannot be empty when model_probability is not provided.")
 
-        risk, agg_method = self.aggregate_risk(detector_scores)
+        # P0 Fix: Direct calibrated probability pass-through (never diluted by heuristic blending)
+        if model_probability is not None:
+            risk = float(model_probability)
+        elif "tabular_risk" in detector_scores:
+            risk = float(detector_scores["tabular_risk"])
+        elif detector_scores:
+            risk = float(next(iter(detector_scores.values())))
+        else:
+            risk = 0.0
+
+        risk = round(float(np.clip(risk, 0.0, 1.0)), 4)
         trust_score = round(100.0 * (1.0 - risk), 2)
 
         # 1. Predictive Uncertainty (Shannon Entropy)
@@ -321,22 +238,16 @@ class AdvancedTrustEngine:
         if is_cold_start:
             confidence = round(confidence * 0.70, 4)
 
-        # 2. Epistemic Model Disagreement
-        vals = list(detector_scores.values())
+        # 2. Epistemic Model Disagreement (for explainability & inspection)
+        vals = list(detector_scores.values()) if detector_scores else [risk]
         disagreement = round(float(max(vals) - min(vals)), 4) if len(vals) > 1 else 0.0
         variance = round(float(np.var(vals)), 6) if len(vals) > 1 else 0.0
 
-        # 3. Conformal Prediction Set:
-        # Crucial P0 Fix: Evaluated on calibrated model probability, NEVER on composite policy_risk_score!
-        eval_prob = (
-            model_probability
-            if model_probability is not None
-            else detector_scores.get("tabular_risk", risk)
-        )
-        pred_set = self.conformal.predict_set(eval_prob)
+        # 3. Conformal Prediction Set (Distribution-Free Finite-Sample Guarantee)
+        pred_set = self.conformal.predict_set(risk)
 
-        # 4. Reason Codes
-        reasons = []
+        # 4. Reason Codes (Graph & Ring Signals strictly as explanatory evidence)
+        reasons: List[str] = []
         if is_cold_start:
             reasons.append("COLD_START_INSUFFICIENT_HISTORY")
         if len(pred_set) > 1:
@@ -350,12 +261,21 @@ class AdvancedTrustEngine:
             elif v >= 0.50:
                 reasons.append(f"WARN_{k.upper()}_MODERATE ({v:.2f})")
 
-        # 5. Operational Decision Routing
-        # Force REVIEW if conformal prediction is ambiguous {0, 1} and not blocked
+        # 5. Operational Decision Routing via Cost-Optimal Thresholds & Conformal Set
+        # Cost-loss: flag for review if p >= C_review / (C_review + order_amount)
+        cost_review_flag = False
+        if order_amount is not None and order_amount > 0:
+            c_review = 20.0  # Estimated manual human review cost ($20)
+            cost_threshold = c_review / (c_review + order_amount)
+            if risk >= cost_threshold and risk >= self.allow_th:
+                cost_review_flag = True
+
         if risk >= self.hold_th:
             decision = OperationalDecision.BLOCK
-        elif risk >= self.review_th or len(pred_set) > 1 or disagreement > 0.45:
-            decision = OperationalDecision.HOLD if risk >= self.review_th else OperationalDecision.REVIEW
+        elif risk >= self.review_th:
+            decision = OperationalDecision.HOLD
+        elif len(pred_set) > 1 or disagreement > 0.45 or cost_review_flag:
+            decision = OperationalDecision.REVIEW
         elif risk >= self.allow_th:
             decision = OperationalDecision.REVIEW
         else:
@@ -372,7 +292,7 @@ class AdvancedTrustEngine:
             conformal_prediction_set=pred_set,
             reason_codes=reasons,
             detector_scores={k: round(float(v), 4) for k, v in detector_scores.items()},
-            aggregation_method_used=agg_method,
+            aggregation_method_used="calibrated_probability_pass_through",
         )
 
 

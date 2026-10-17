@@ -250,5 +250,6 @@ class TestConformalPredictor:
         np.random.seed(42)
         engine.conformal.calibrate(np.concatenate([np.random.beta(0.5, 20, 1000), np.random.beta(5, 2, 100)]), np.concatenate([np.zeros(1000, dtype=int), np.ones(100, dtype=int)]))
         result = engine.score(detector_scores={"tabular_risk": 0.01, "graph_risk": 0.95, "device_velocity_risk": 0.90}, model_probability=0.01)
-        assert result.calibrated_risk > 0.50 and result.conformal_prediction_set == {0}
+        assert result.calibrated_risk == 0.01 and result.conformal_prediction_set == {0}
+
 
