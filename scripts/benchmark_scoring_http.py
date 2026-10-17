@@ -46,8 +46,6 @@ BENCHMARK_PAYLOADS = [
 def collect_environment_metadata() -> Dict[str, Any]:
     """Capture runtime environment, hardware specs, and service states."""
     import psutil
-    from backend.services.neo4j_service import neo4j_service
-    from backend.services.redis_service import redis_service
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -59,11 +57,11 @@ def collect_environment_metadata() -> Dict[str, Any]:
         "python_version": sys.version.split()[0],
         "fastapi_version": "0.135.2",
         "pydantic_version": "2.12.5",
-        "redis_live": redis_service.is_available,
-        "neo4j_live": neo4j_service.is_available,
+        "redis_live": False,
+        "neo4j_live": False,
         "scoring_model_loaded": store.is_loaded,
-        "phase5_model_loaded": store.phase5_loaded,
-        "classifier_name": "Phase 5 XGBoost + GNN" if store.phase5_loaded else "Phase 3 Random Forest",
+        "phase5_model_loaded": False,
+        "classifier_name": "Phase 3 XGBoost",
     }
 
 

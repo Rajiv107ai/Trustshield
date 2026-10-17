@@ -299,33 +299,4 @@ def test_scoring_response_identifies_real_inference(auth_client):
     assert data["scoring_mode"] in ("production_model_phase5_hybrid", "production_model_phase3_combined")
 
 
-# ==============================================================================
-# 7. Streaming Endpoint Authentication Controls
-# ==============================================================================
 
-def test_stream_transactions_rejects_unauthenticated(auth_client):
-    """Calling /stream/transactions without credentials must return 401."""
-    response = auth_client.get("/stream/transactions")
-    assert response.status_code == 401
-    assert "authentication required" in response.json()["detail"].lower()
-
-
-def test_stream_transactions_allows_header_auth(auth_client, monkeypatch):
-    """Calling /stream/transactions with valid X-API-Key header must succeed."""
-    async def finite_gen(*args, **kwargs):
-        yield 'data: {"event": "connected"}\n\n'
-    monkeypatch.setattr("backend.main.transaction_event_generator", finite_gen)
-    headers = {"X-API-Key": "test-operator-api-key-32chars!!"}
-    response = auth_client.get("/stream/transactions", headers=headers)
-    assert response.status_code == 200
-    assert "text/event-stream" in response.headers.get("content-type", "")
-
-
-def test_stream_transactions_allows_query_param_auth(auth_client, monkeypatch):
-    """Calling /stream/transactions with valid api_key query param must succeed for browser SSE."""
-    async def finite_gen(*args, **kwargs):
-        yield 'data: {"event": "connected"}\n\n'
-    monkeypatch.setattr("backend.main.transaction_event_generator", finite_gen)
-    response = auth_client.get("/stream/transactions?api_key=test-operator-api-key-32chars!!")
-    assert response.status_code == 200
-    assert "text/event-stream" in response.headers.get("content-type", "")

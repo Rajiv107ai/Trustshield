@@ -26,8 +26,6 @@ from backend.schemas import (
     DossierResponse,
     TransactionScoreRequest,
 )
-from backend.services.neo4j_service import neo4j_service
-from backend.services.redis_service import redis_service
 
 logger = logging.getLogger(__name__)
 
@@ -117,12 +115,7 @@ class InvestigationService:
             data.setdefault("order_id", entity_id if "ord" in entity_id.lower() else f"ORD_{entity_id}")
             return data
 
-        # 2. Redis cached context lookup
-        cached = redis_service.get_feature_context(entity_type, entity_id)
-        if cached:
-            return cached
-
-        # 3. Known preset lookup
+        # 2. Known preset lookup
         if entity_id in PRESET_ENTITIES:
             return dict(PRESET_ENTITIES[entity_id])
 
@@ -245,24 +238,30 @@ class InvestigationService:
         )
 
         if req.include_graph_evidence:
-            graph_res = neo4j_service.find_shared_devices(
-                buyer_id=buyer_id,
-                decision_time=decision_time,
-                rings_df_fallback=getattr(store_instance, "rings_df", None),
-            )
             matched_ring_id = tx_data.get("ring_id")
-            cluster_size = int(tx_data.get("share_component_size", max(1, len(graph_res.nodes))))
+            cluster_size = int(tx_data.get("share_component_size", 1))
+            nodes = [{"id": buyer_id, "labels": ["Buyer"]}]
+            relationships = []
+            if getattr(store_instance, "rings_df", None) is not None:
+                for _, r in store_instance.rings_df.iterrows():
+                    m = r.get("members", [])
+                    if buyer_id in m:
+                        matched_ring_id = str(r.get("ring_id"))
+                        cluster_size = max(cluster_size, len(m))
+                        nodes.append({"id": f"DEV_{matched_ring_id}", "labels": ["Device"]})
+                        relationships.append({
+                            "source": buyer_id,
+                            "target": f"DEV_{matched_ring_id}",
+                            "type": "SHARED_HARDWARE",
+                        })
+                        break
 
             graph_findings = DossierGraphFindings(
-                graph_source=graph_res.graph_source,
+                graph_source="disk_artifact",
                 cluster_id=matched_ring_id,
                 cluster_size=cluster_size,
-                topology_summary=(
-                    f"Identified {len(graph_res.nodes)} entities connected via "
-                    f"{len(graph_res.relationships)} relationships (Source: {graph_res.graph_source}, "
-                    f"Cutoff: {graph_res.temporal_cutoff_applied})."
-                ),
-                suspicious_relationships=graph_res.relationships[:10],
+                topology_summary=f"Identified {len(nodes)} entities connected via {len(relationships)} relationships (Source: disk_artifact).",
+                suspicious_relationships=relationships[:10],
             )
 
         # 4. Generate Grounded Dossier via Investigation Agent

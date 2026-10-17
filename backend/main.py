@@ -4,7 +4,7 @@ TrustShield AI — FastAPI Application Entry Point & Serving Layer.
 Composes domain routers, application lifespan, Prometheus metrics middleware,
 and security policies:
 - Scoring Router:     /transaction/score, /transaction/explain
-- Operations Router:  /fraud-rings, /listing/analyze, /return/analyze, /investigation/generate-dossier, /stream/transactions
+- Operations Router:  /fraud-rings, /listing/analyze, /return/analyze, /investigation/generate-dossier
 - System Router:      /health, /ready, /results, /metrics, /system/benchmark
 
 Start:
@@ -34,9 +34,6 @@ from backend.routers.operations import router as operations_router
 from backend.routers.scoring import router as scoring_router, score_transaction
 from backend.routers.system import router as system_router
 from backend.services.metrics_service import metrics_service
-from backend.services.neo4j_service import neo4j_service
-from backend.services.redis_service import redis_service
-from backend.services.stream_service import transaction_event_generator
 
 try:
     from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
@@ -54,29 +51,21 @@ _canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load models once at startup and probe infrastructure connectivity."""
+    """Load models once at startup."""
     validate_security_configuration()
     if _canonical_trust_engine is None:
         logger.error("FATAL: CanonicalTrustEngine failed to load. Server cannot safely score transactions.")
     try:
         store.load()
         logger.info(
-            "TrustShield models loaded successfully (Phase 3: %s, Phase 5: %s, CLIP: %s, Rings: %s)",
-            store.is_loaded, store.phase5_loaded, store.clip_loaded,
+            "TrustShield models loaded successfully (Phase 3: %s, CLIP: %s, Rings: %s)",
+            store.is_loaded, store.clip_loaded,
             len(store.rings_df) if store.rings_df is not None else 0,
         )
     except Exception as exc:
         logger.warning("Models could not be loaded at startup: %s. Will retry on first request.", exc)
 
-    if redis_service.enabled:
-        redis_service.ping()
-    if neo4j_service.enabled:
-        neo4j_service.verify_connectivity()
-
     yield
-
-    redis_service.close()
-    neo4j_service.close()
 
 
 app = FastAPI(
@@ -135,5 +124,4 @@ __all__ = [
     "_build_feature_row",
     "_risk_label",
     "_canonical_trust_engine",
-    "transaction_event_generator",
 ]

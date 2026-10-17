@@ -14,10 +14,9 @@ faiss-cpu>=1.7.4
 # Phase 4 — Real CLIP multimodal scoring (openai/clip-vit-base-patch32)
 transformers>=4.37
 Pillow>=10.0
-
 torch==2.13.0
 
-# API layer (Priority 2 — FastAPI backend)
+# API layer (FastAPI backend)
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.0
@@ -30,8 +29,3 @@ sqlalchemy>=2.0
 
 # Explainability Layer (TreeSHAP exact local & global attributions)
 shap>=0.44
-
-# MLOps & Infrastructure Layer
-redis>=5.0
-neo4j>=5.20
-prometheus-client>=0.20.0

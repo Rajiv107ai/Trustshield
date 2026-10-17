@@ -18,7 +18,6 @@ from fastapi import HTTPException
 from backend.model_loader import store
 from backend.schemas import TransactionScoreRequest
 from backend.services.metrics_service import metrics_service
-from backend.services.redis_service import redis_service
 
 logger = logging.getLogger(__name__)
 

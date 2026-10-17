@@ -31,8 +31,6 @@ from backend.schemas import (
     TransactionScoreResponse,
 )
 from backend.services.metrics_service import metrics_service
-from backend.services.neo4j_service import neo4j_service
-from backend.services.redis_service import redis_service
 
 try:
     from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
@@ -257,7 +255,7 @@ def score_transaction(req: TransactionScoreRequest, request: Request = None):  #
         )
 
     infra_sources = {
-        "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
+        "graph_topology": "disk_artifact",
         "embeddings": "not_used_in_phase3",
     }
 

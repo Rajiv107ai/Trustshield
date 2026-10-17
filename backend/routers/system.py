@@ -3,9 +3,9 @@ TrustShield AI — System, Observability & Benchmark Router.
 
 Endpoints:
 - GET /health            -- Liveness probe
-- GET /ready             -- Multi-component readiness probe
+- GET /ready             -- Single-container readiness probe
 - GET /api/results       -- Canonical audited benchmark metrics
-- GET /metrics           -- Prometheus metrics exposition
+- GET /metrics           -- Structured metrics exposition
 - GET /system/benchmark  -- Latency and throughput benchmarks
 """
 
@@ -17,7 +17,6 @@ from datetime import datetime, timezone
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from prometheus_client import CONTENT_TYPE_LATEST
 
 from backend.auth import Role, require_role
 from backend.model_loader import store
@@ -25,8 +24,6 @@ from backend.routers.scoring import score_transaction
 from backend.schemas import HealthResponse, ReadyResponse, ServiceState, TransactionScoreRequest
 from backend.services.investigation_service import investigation_service
 from backend.services.metrics_service import metrics_service
-from backend.services.neo4j_service import neo4j_service
-from backend.services.redis_service import redis_service
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +53,7 @@ def health():
 def ready(response: Response):
     """
     Readiness probe for orchestrators. Returns service state:
-    - 'ready' when models and graph data are fully loaded
-    - 'degraded' when Phase 3 baseline runs without Phase 5/CLIP or with offline infrastructure
+    - 'ready' when Phase 3 models and precomputed rings are fully loaded
     - 'not_ready' when core models are unavailable
     """
     if not store.is_loaded:
@@ -68,14 +64,12 @@ def ready(response: Response):
 
     models_ready = store.is_loaded and (store.combined_graph_model is not None)
     phase3_ready = store.combined_graph_model is not None
-    phase5_ready = store.phase5_loaded
-    clip_ready = store.clip_loaded
-    shap_ready = store.shap_loaded
+    phase5_ready = False
+    clip_ready = getattr(store, "clip_loaded", False)
+    shap_ready = getattr(store, "shap_loaded", False)
     rings_ready = store.rings_df is not None
-    redis_ready = redis_service.is_available
-    neo4j_ready = neo4j_service.is_available
 
-    if models_ready and phase5_ready and rings_ready:
+    if models_ready and rings_ready:
         status = ServiceState.READY
     elif models_ready:
         status = ServiceState.DEGRADED
@@ -91,24 +85,21 @@ def ready(response: Response):
         clip_ready=clip_ready,
         shap_ready=shap_ready,
         rings_ready=rings_ready,
-        redis_ready=redis_ready,
-        neo4j_ready=neo4j_ready,
+        redis_ready=False,
+        neo4j_ready=False,
         components={
             "models": "ready" if models_ready else "unavailable",
             "explainability": "available" if shap_ready else "unavailable",
-            "redis": "available" if redis_ready else "unavailable",
-            "neo4j": "available" if neo4j_ready else "unavailable",
-            "prometheus": "available",
+            "graph_topology": "ready" if rings_ready else "unavailable",
             "investigation": "available" if investigation_service.agent is not None else "unavailable",
         },
         details={
             "n_rings": len(store.rings_df) if store.rings_df is not None else 0,
-            "phase5_loaded": phase5_ready,
+            "phase3_loaded": phase3_ready,
             "clip_loaded": clip_ready,
             "shap_loaded": shap_ready,
-            "redis_status": "connected" if redis_ready else ("disabled" if not redis_service.enabled else "unavailable"),
-            "neo4j_status": "connected" if neo4j_ready else ("disabled" if not neo4j_service.enabled else "unavailable"),
-            "prometheus_instrumented": True,
+            "redis_status": "disabled",
+            "neo4j_status": "disabled",
             "investigation_agent_ready": investigation_service.agent is not None,
         },
     )
@@ -128,23 +119,16 @@ def get_canonical_results():
 @router.get("/metrics", tags=["monitoring"])
 def prometheus_metrics():
     """
-    Prometheus metrics exposition endpoint for scraping by Prometheus and Grafana.
+    Lightweight metrics exposition endpoint.
     """
-    return Response(content=metrics_service.export_metrics(), media_type=CONTENT_TYPE_LATEST)
+    return Response(content=metrics_service.export_metrics(), media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 @router.get("/system/benchmark", tags=["monitoring"], dependencies=[Depends(require_role(Role.ADMIN))])
 def system_benchmark(iterations: int = Query(default=25, ge=5, le=50, description="Repetition count (bounded <=50 to prevent denial of service)")):
     """
-    Measure empirical p50, p95, and p99 latencies across system components:
-    - Model inference
-    - Redis embedding cache
-    - Neo4j Cypher graph engine
-    - Full transaction scoring pipeline
+    Measure empirical p50, p95, and p99 latencies for the scoring pipeline.
     """
-    redis_bench = redis_service.benchmark_latency(iterations=iterations)
-    neo4j_bench = neo4j_service.benchmark_latency(iterations=iterations)
-
     test_req = TransactionScoreRequest(
         order_id="BENCHMARK_PROBE",
         buyer_id="BUYER_000001",
@@ -172,6 +156,6 @@ def system_benchmark(iterations: int = Query(default=25, ge=5, le=50, descriptio
         "iterations": iterations,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "scoring_pipeline": scoring_bench,
-        "redis_feature_store": redis_bench,
-        "neo4j_graph_engine": neo4j_bench,
+        "redis_feature_store": {"status": "disabled", "p50_ms": 0.0},
+        "neo4j_graph_engine": {"status": "disabled", "p50_ms": 0.0},
     }
