@@ -13,8 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt && \
-    pip install --no-cache-dir --prefix=/install faiss-cpu
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Stage 2: Minimal runtime image
 FROM python:3.11-slim as runner

@@ -41,7 +41,7 @@ jobs:
 
       - name: Install Production & Model Dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Pyright Static Type Analysis
         run: |
@@ -67,15 +67,11 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Execute Core Test Suite (Excluding heavy offline CLIP downloads)
         run: |
           pytest -v -m "not clip" --tb=short
-
-      - name: Verify Strict Temporal Invariant Regression Suite
-        run: |
-          pytest trustshield_project/test_repair_pipeline_regression.py -v --tb=short
 
       - name: Verify FastAPI Backend Serving Layer Integration
         run: |
