@@ -23,7 +23,6 @@ from trustshield_project.multimodal_clip_faiss import (
 from trustshield_project.advanced_trust_engine import (
     AdvancedTrustEngine,
     ConformalPredictor,
-    StackingRiskMetaLearner,
     OperationalDecision,
 )
 from trustshield_project.advanced_ring_intelligence import (
@@ -94,25 +93,24 @@ class TestAdvancedTrustEngineAndUncertainty:
         conf.calibrate(np.array([0.05, 0.10, 0.15, 0.85, 0.90, 0.95]), np.array([0, 0, 0, 1, 1, 1]))
         assert 0 in conf.predict_set(0.02) and 1 in conf.predict_set(0.98)
 
-    def test_stacking_meta_learner(self):
-        meta = StackingRiskMetaLearner()
-        X = pd.DataFrame({"tabular_risk": [0.05, 0.1, 0.15, 0.2, 0.25, 0.75, 0.8, 0.85, 0.9, 0.95], "graph_risk": [0.05, 0.08, 0.12, 0.18, 0.22, 0.7, 0.78, 0.82, 0.88, 0.92]})
-        meta.fit(X, np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]))
-        r_low, r_high = meta.predict_risk({"tabular_risk": 0.1, "graph_risk": 0.1}), meta.predict_risk({"tabular_risk": 0.9, "graph_risk": 0.9})
-        assert r_low < 0.35 and r_high > 0.65 and r_low < r_high
+    def test_calibrated_probability_pass_through(self):
+        # P0 Fix: High-risk calibrated probability must never be downgraded by heuristics
+        engine = AdvancedTrustEngine()
+        res_high = engine.score({"tabular_risk": 0.95, "graph_risk": 0.0}, model_probability=0.95)
+        assert res_high.calibrated_risk == 0.95
+        assert res_high.decision == OperationalDecision.BLOCK
 
     def test_advanced_trust_engine_scoring(self):
-        res = AdvancedTrustEngine().score({"tabular_risk": 0.85, "graph_risk": 0.90, "hetero_gnn_risk": 0.88})
+        res = AdvancedTrustEngine().score({"tabular_risk": 0.88, "graph_risk": 0.90})
         assert res.calibrated_risk > 0.80 and res.decision in (OperationalDecision.HOLD, OperationalDecision.BLOCK)
         assert res.predictive_uncertainty < 0.60 and res.detector_disagreement < 0.10
 
-    def test_regression_non_negative_monotonicity(self):
-        np.random.seed(42)
-        d1 = np.random.uniform(0, 1, 100)
-        meta = StackingRiskMetaLearner(l2_reg=1.0)
-        meta.fit(pd.DataFrame({"d1": d1, "d2": d1 + np.random.normal(0, 0.1, 100)}), (d1 > 0.5).astype(int))
-        assert (meta.clf.coef_ >= 0.0).all()
-        assert meta.predict_risk({"d1": 0.8, "d2": 0.8}) >= meta.predict_risk({"d1": 0.2, "d2": 0.2})
+    def test_cost_matrix_and_reason_codes(self):
+        engine = AdvancedTrustEngine()
+        # Low risk with shared hardware signal surfaced as reason code, not corrupting probability
+        res = engine.score({"tabular_risk": 0.10, "graph_risk": 0.85}, model_probability=0.10)
+        assert res.calibrated_risk == 0.10
+        assert any("GRAPH_RISK" in r for r in res.reason_codes)
 
 
 class TestAdvancedRingIntelligence:
