@@ -92,8 +92,8 @@ class InvestigationService:
 
     def __init__(self):
         try:
-            from trustshield_project.investigation_agent import GenAIInvestigationAgent
-            from trustshield_project.investigation_rag import ForensicRAGIndex
+            from trustshield_project.dossier_generator import GenAIInvestigationAgent
+            from trustshield_project.policy_rules import ForensicRAGIndex
             self.rag = ForensicRAGIndex()
             self.agent = GenAIInvestigationAgent(rag_index=self.rag)
         except Exception as exc:

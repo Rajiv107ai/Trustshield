@@ -10,8 +10,8 @@ from fraud_injection import inject_all_fraud
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "synthetic_data_export")
 
 
-def export_dataset(db_url: str | None = None):
-    """Executes pipeline generation and exports tabular results."""
+def export_dataset(output_dir: str | None = None):
+    """Executes pipeline generation and exports tabular results as CSV."""
     base = build_base_entities()
     catalog = build_catalog_and_listings(base["sellers"])
     txn = build_orders_and_returns(base["buyers"], catalog["sellers"], catalog["listings"], base["device_mapping"])
@@ -35,26 +35,16 @@ def export_dataset(db_url: str | None = None):
         "fraud_ground_truth": result["fraud_ground_truth"],
     }
 
-    if db_url:
-        from sqlalchemy import create_engine
-        engine = create_engine(db_url)
-        with engine.begin() as conn:
-            for name, df in tables.items():
-                print(f"Exporting {name} ({len(df)} rows) to database...")
-                df_export = df.copy()
-                df_export.columns = [c.lower() for c in df_export.columns]
-                df_export.to_sql(name, conn, if_exists="replace", index=False)  # type: ignore[call-overload]
-        print("Database export complete.")
-    else:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        for name, df in tables.items():
-            path = os.path.join(OUTPUT_DIR, f"{name}.csv")
-            df.to_csv(path, index=False)
-            print(f"Exported {name}.csv ({len(df):,} rows)")
+    target_dir = output_dir or OUTPUT_DIR
+    os.makedirs(target_dir, exist_ok=True)
+    for name, df in tables.items():
+        path = os.path.join(target_dir, f"{name}.csv")
+        df.to_csv(path, index=False)
+        print(f"Exported {name}.csv ({len(df):,} rows)")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Export synthetic dataset")
-    parser.add_argument("--db-url", type=str, default=None, help="Database connection string")
+    parser = argparse.ArgumentParser(description="Export synthetic dataset as CSV files")
+    parser.add_argument("--output-dir", type=str, default=None, help="Directory to save CSV files")
     args = parser.parse_args()
-    export_dataset(db_url=args.db_url)
+    export_dataset(output_dir=args.output_dir)
