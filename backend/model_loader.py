@@ -53,13 +53,6 @@ _REQUIRED = [
     "feature_meta.joblib",
 ]
 
-_PHASE5_OPTIONAL = [
-    "hybrid_model.joblib",
-    "buyer_embeddings.joblib",
-    "seller_embeddings.joblib",
-    "phase5_feature_meta.joblib",
-]
-
 
 class ModelStore:
     """Singleton holding all loaded model artifacts."""
@@ -257,63 +250,6 @@ class ModelStore:
             print(
                 "[model_loader] Phase 4 CLIP cache not found — "
                 "run scripts/build_clip_embeddings.py to enable real CLIP scoring."
-            )
-
-        # ---- Phase 5 (optional — graceful skip if absent or disabled) ----
-        phase5_enabled = os.getenv("PHASE5_ENABLED", "true").lower() in ("true", "1", "yes")
-        phase5_present = phase5_enabled and all(
-            os.path.exists(os.path.join(MODELS_DIR, f))
-            for f in _PHASE5_OPTIONAL
-        )
-        if not phase5_enabled:
-            print("[model_loader] Phase 5 hybrid model disabled via PHASE5_ENABLED=false. Serving Phase 3 predictions.")
-            self._phase5_loaded = False
-        elif phase5_present:
-            self.hybrid_model       = joblib.load(
-                os.path.join(MODELS_DIR, "hybrid_model.joblib")
-            )
-            self.buyer_embeddings   = joblib.load(
-                os.path.join(MODELS_DIR, "buyer_embeddings.joblib")
-            )
-            self.seller_embeddings  = joblib.load(
-                os.path.join(MODELS_DIR, "seller_embeddings.joblib")
-            )
-            self.phase5_meta        = joblib.load(
-                os.path.join(MODELS_DIR, "phase5_feature_meta.joblib")
-            )
-            p5_cal_path = os.path.join(MODELS_DIR, "phase5_calibrator.joblib")
-            if os.path.isfile(p5_cal_path):
-                self.phase5_calibrator = joblib.load(p5_cal_path)
-                print("[model_loader] Loaded Phase 5 ProbabilityCalibrator from models/phase5_calibrator.joblib")
-            self._phase5_loaded = True
-            meta = self.phase5_meta
-            if meta is not None:
-                print(
-                    f"[model_loader] Phase 5 hybrid model loaded  "
-                    f"({len(self.buyer_embeddings):,} buyer embeddings, "
-                    f"{len(self.seller_embeddings):,} seller embeddings, "
-                    f"{len(meta['hybrid_feature_cols'])} features, "
-                    f"classifier={meta.get('classifier', 'XGBoost')})"
-                )
-                try:
-                    from shap_explainer import TrustShieldSHAPExplainer
-                    self.phase5_shap_explainer = TrustShieldSHAPExplainer(
-                        model=self.hybrid_model,
-                        feature_names=meta.get("hybrid_feature_cols", []),
-                        model_name="Hybrid GNN Detector (Phase 5)",
-                    )
-                    print(
-                        f"[model_loader] Phase 5 TreeSHAP explainer initialized "
-                        f"({len(meta.get('hybrid_feature_cols', []))} features)"
-                    )
-                except Exception as exc:
-                    print(f"[model_loader] TreeSHAP Phase 5 explainer init failed: {exc}")
-                    self.phase5_shap_explainer = None
-        else:
-            print(
-                "[model_loader] Phase 5 artifacts not found — "
-                "serving Phase 3 predictions.  "
-                "Run scripts/train_phase5.py to enable hybrid scoring."
             )
 
     @property

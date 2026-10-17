@@ -15,9 +15,7 @@ faiss-cpu>=1.7.4
 transformers>=4.37
 Pillow>=10.0
 
-# Phase 5 — Hybrid GNN (required for train_phase5.py)
 torch==2.13.0
-torch-geometric>=2.4
 
 # API layer (Priority 2 — FastAPI backend)
 fastapi>=0.110
