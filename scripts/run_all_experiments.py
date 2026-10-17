@@ -47,16 +47,21 @@ from graph_features import (
     attach_snapshot_features,
     add_edge_weight_before,
 )
-from phase5_hybrid_model import (
-    build_node_index,
-    build_node_features,
-    build_edge_index,
-    generate_oof_gnn_embeddings,
-    extract_embeddings,
-    attach_gnn_embeddings,
-    GraphSAGEEncoder,
-    EdgeClassifier,
-)
+try:
+    from phase5_hybrid_model import (
+        build_node_index,
+        build_node_features,
+        build_edge_index,
+        generate_oof_gnn_embeddings,
+        extract_embeddings,
+        attach_gnn_embeddings,
+        GraphSAGEEncoder,
+        EdgeClassifier,
+    )
+    HAS_PHASE5_GNN = True
+except ImportError:
+    HAS_PHASE5_GNN = False
+
 from phase2_specialized_models import (
     build_listing_features,
     build_return_features,
@@ -502,121 +507,131 @@ def run_all_experiments():
     hybrid_coherent_results = []
     gnn_real_graph_stats = {}
 
-    def _prepare_gnn_inputs(pipe_data):
-        res = pipe_data["result"]
-        cat = pipe_data["catalog"]
-        txn = pipe_data["txn"]
-        base = pipe_data["base"]
+    if not HAS_PHASE5_GNN:
+        print("  [Notice] Phase 5 GNN models retired from active serving; preserving audited hybrid results.")
+        canonical_res_path = os.path.join(ROOT_DIR, "results", "results.json")
+        if os.path.exists(canonical_res_path):
+            with open(canonical_res_path, "r", encoding="utf-8") as rf:
+                cdata = json.load(rf)
+            hybrid_standard_results = cdata.get("tuned_hybrid_model_5_seeds", {}).get("standard_dataset", [])
+            hybrid_coherent_results = cdata.get("tuned_hybrid_model_5_seeds", {}).get("coherent_dataset", [])
+            gnn_real_graph_stats = cdata.get("real_gnn_graph_topology_stats", {})
+    else:
+        def _prepare_gnn_inputs(pipe_data):
+            res = pipe_data["result"]
+            cat = pipe_data["catalog"]
+            txn = pipe_data["txn"]
+            base = pipe_data["base"]
 
-        df, tab_cols = build_tabular_features(res["orders"], res["listings"], res["returns"], txn["buyers"], cat["sellers"], cat["products"])
-        df["order_date"] = pd.to_datetime(df["order_date"])
-        df["y"] = df["is_fraudulent"].astype(int)
-        df = attach_relationship_snapshot_features(df, base["address_sharing_log"], base["device_sharing_log"])
-        snapshots, months = build_monthly_snapshots(res["orders"].assign(order_date=pd.to_datetime(res["orders"]["order_date"])), SIM_START)
-        df = attach_snapshot_features(df, snapshots, months)
-        df = add_edge_weight_before(df)
+            df, tab_cols = build_tabular_features(res["orders"], res["listings"], res["returns"], txn["buyers"], cat["sellers"], cat["products"])
+            df["order_date"] = pd.to_datetime(df["order_date"])
+            df["y"] = df["is_fraudulent"].astype(int)
+            df = attach_relationship_snapshot_features(df, base["address_sharing_log"], base["device_sharing_log"])
+            snapshots, months = build_monthly_snapshots(res["orders"].assign(order_date=pd.to_datetime(res["orders"]["order_date"])), SIM_START)
+            df = attach_snapshot_features(df, snapshots, months)
+            df = add_edge_weight_before(df)
 
-        train_s = df[df["order_date"] <= TRAIN_END]
-        val_s = df[(df["order_date"] > TRAIN_END) & (df["order_date"] <= VAL_END)]
-        test_s = df[df["order_date"] > VAL_END]
-        trainval_s = df[df["order_date"] <= VAL_END]
+            train_s = df[df["order_date"] <= TRAIN_END]
+            val_s = df[(df["order_date"] > TRAIN_END) & (df["order_date"] <= VAL_END)]
+            test_s = df[df["order_date"] > VAL_END]
+            trainval_s = df[df["order_date"] <= VAL_END]
 
-        buyer_idx, seller_idx, n_b, n_tot = build_node_index(txn["buyers"]["buyer_id"], cat["sellers"]["seller_id"])
-        rel_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
-        rel_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
+            buyer_idx, seller_idx, n_b, n_tot = build_node_index(txn["buyers"]["buyer_id"], cat["sellers"]["seller_id"])
+            rel_train = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=TRAIN_END)
+            rel_val = build_relationship_graph(base["address_sharing_log"], base["device_sharing_log"], cutoff_date=VAL_END)
 
-        X_n_train = build_node_features(buyer_idx, seller_idx, n_tot, train_s, rel_train, txn["buyers"], cat["sellers"], cutoff_date=TRAIN_END)
-        e_idx_train = build_edge_index(buyer_idx, seller_idx, train_s, rel_train)
-        X_n_val = build_node_features(buyer_idx, seller_idx, n_tot, trainval_s, rel_val, txn["buyers"], cat["sellers"], cutoff_date=VAL_END)
-        e_idx_val = build_edge_index(buyer_idx, seller_idx, trainval_s, rel_val)
+            X_n_train = build_node_features(buyer_idx, seller_idx, n_tot, train_s, rel_train, txn["buyers"], cat["sellers"], cutoff_date=TRAIN_END)
+            e_idx_train = build_edge_index(buyer_idx, seller_idx, train_s, rel_train)
+            X_n_val = build_node_features(buyer_idx, seller_idx, n_tot, trainval_s, rel_val, txn["buyers"], cat["sellers"], cutoff_date=VAL_END)
+            e_idx_val = build_edge_index(buyer_idx, seller_idx, trainval_s, rel_val)
 
-        return (df, tab_cols, train_s, val_s, test_s, buyer_idx, seller_idx, n_tot,
-                X_n_train, e_idx_train, X_n_val, e_idx_val)
+            return (df, tab_cols, train_s, val_s, test_s, buyer_idx, seller_idx, n_tot,
+                    X_n_train, e_idx_train, X_n_val, e_idx_val)
 
-    for seed in seeds_5:
-        # Standard Dataset Hybrid
-        print(f"  Hybrid Seed {seed} (Standard)...", end="", flush=True)
-        t_hyb = time.time()
-        pipe_std = generate_full_pipeline(seed=seed, ring_coherent=False)
-        (df_s, tab_cols_s, train_s, val_s, test_s, buyer_idx_s, seller_idx_s, n_tot_s,
-         X_n_tr_s, e_tr_s, X_n_v_s, e_v_s) = _prepare_gnn_inputs(pipe_std)
+        for seed in seeds_5:
+            # Standard Dataset Hybrid
+            print(f"  Hybrid Seed {seed} (Standard)...", end="", flush=True)
+            t_hyb = time.time()
+            pipe_std = generate_full_pipeline(seed=seed, ring_coherent=False)
+            (df_s, tab_cols_s, train_s, val_s, test_s, buyer_idx_s, seller_idx_s, n_tot_s,
+             X_n_tr_s, e_tr_s, X_n_v_s, e_v_s) = _prepare_gnn_inputs(pipe_std)
 
-        if seed == 42:
-            gnn_real_graph_stats = analyze_real_gnn_graph(e_tr_s, buyer_idx_s, seller_idx_s, train_s)
+            if seed == 42:
+                gnn_real_graph_stats = analyze_real_gnn_graph(e_tr_s, buyer_idx_s, seller_idx_s, train_s)
 
-        # Validation-selected learning rate per seed
-        tr_b = torch.tensor(np.clip(train_s["buyer_id"].map(buyer_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
-        tr_s_ids = torch.tensor(np.clip(train_s["seller_id"].map(seller_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
-        tr_f = torch.tensor(train_s[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
-        tr_y = torch.tensor(train_s["y"].to_numpy(), dtype=torch.float32)
+            # Validation-selected learning rate per seed
+            tr_b = torch.tensor(np.clip(train_s["buyer_id"].map(buyer_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
+            tr_s_ids = torch.tensor(np.clip(train_s["seller_id"].map(seller_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
+            tr_f = torch.tensor(train_s[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
+            tr_y = torch.tensor(train_s["y"].to_numpy(), dtype=torch.float32)
 
-        v_b = torch.tensor(np.clip(val_s["buyer_id"].map(buyer_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
-        v_s_ids = torch.tensor(np.clip(val_s["seller_id"].map(seller_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
-        v_f = torch.tensor(val_s[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
-        v_y = torch.tensor(val_s["y"].to_numpy(), dtype=torch.float32)
+            v_b = torch.tensor(np.clip(val_s["buyer_id"].map(buyer_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
+            v_s_ids = torch.tensor(np.clip(val_s["seller_id"].map(seller_idx_s).fillna(0).astype(int).to_numpy(), 0, n_tot_s - 1), dtype=torch.long)
+            v_f = torch.tensor(val_s[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
+            v_y = torch.tensor(val_s["y"].to_numpy(), dtype=torch.float32)
 
-        chosen_lr_std, best_v_auc_std = select_best_gnn_lr_on_validation(
-            X_n_tr_s, e_tr_s, tr_b, tr_s_ids, tr_f, tr_y,
-            X_n_v_s, e_v_s, v_b, v_s_ids, v_f, v_y,
-            candidate_lrs=(0.005, 0.01)
-        )
+            chosen_lr_std, best_v_auc_std = select_best_gnn_lr_on_validation(
+                X_n_tr_s, e_tr_s, tr_b, tr_s_ids, tr_f, tr_y,
+                X_n_v_s, e_v_s, v_b, v_s_ids, v_f, v_y,
+                candidate_lrs=(0.005, 0.01)
+            )
 
-        tr_aug_s, v_aug_s, te_aug_s, gnn_cols_s = generate_oof_gnn_embeddings(
-            train_s, val_s, test_s, buyer_idx_s, seller_idx_s, n_tot_s,
-            X_n_tr_s, e_tr_s, X_n_v_s, e_v_s,
-            n_splits=5, epochs=40, random_state=seed, fold_strategy="time_aware",
-            lr=chosen_lr_std,
-        )
-        hyb_m_s = train_xgb(tr_aug_s[tab_cols_s + GRAPH_COLS + gnn_cols_s], train_s["y"])
-        hyb_preds_s = hyb_m_s.predict_proba(te_aug_s[tab_cols_s + GRAPH_COLS + gnn_cols_s].fillna(0.0))[:, 1]
-        hybrid_standard_results.append({
-            "seed": seed,
-            "chosen_lr": chosen_lr_std,
-            "val_order_level_fraud_auc": best_v_auc_std,
-            "roc": float(roc_auc_score(test_s["y"].to_numpy(), hyb_preds_s)),
-            "pr": float(average_precision_score(test_s["y"].to_numpy(), hyb_preds_s)),
-        })
-        print(f" Done ({time.time()-t_hyb:.1f}s, lr={chosen_lr_std}, ROC={hybrid_standard_results[-1]['roc']:.4f})")
+            tr_aug_s, v_aug_s, te_aug_s, gnn_cols_s = generate_oof_gnn_embeddings(
+                train_s, val_s, test_s, buyer_idx_s, seller_idx_s, n_tot_s,
+                X_n_tr_s, e_tr_s, X_n_v_s, e_v_s,
+                n_splits=5, epochs=40, random_state=seed, fold_strategy="time_aware",
+                lr=chosen_lr_std,
+            )
+            hyb_m_s = train_xgb(tr_aug_s[tab_cols_s + GRAPH_COLS + gnn_cols_s], train_s["y"])
+            hyb_preds_s = hyb_m_s.predict_proba(te_aug_s[tab_cols_s + GRAPH_COLS + gnn_cols_s].fillna(0.0))[:, 1]
+            hybrid_standard_results.append({
+                "seed": seed,
+                "chosen_lr": chosen_lr_std,
+                "val_order_level_fraud_auc": best_v_auc_std,
+                "roc": float(roc_auc_score(test_s["y"].to_numpy(), hyb_preds_s)),
+                "pr": float(average_precision_score(test_s["y"].to_numpy(), hyb_preds_s)),
+            })
+            print(f" Done ({time.time()-t_hyb:.1f}s, lr={chosen_lr_std}, ROC={hybrid_standard_results[-1]['roc']:.4f})")
 
-        # Coherent Dataset Hybrid
-        print(f"  Hybrid Seed {seed} (Coherent)...", end="", flush=True)
-        t_hyb_coh = time.time()
-        pipe_coh = generate_full_pipeline(seed=seed, ring_coherent=True)
-        (df_c, tab_cols_c, train_c, val_c, test_c, buyer_idx_c, seller_idx_c, n_tot_c,
-         X_n_tr_c, e_tr_c, X_n_v_c, e_v_c) = _prepare_gnn_inputs(pipe_coh)
+            # Coherent Dataset Hybrid
+            print(f"  Hybrid Seed {seed} (Coherent)...", end="", flush=True)
+            t_hyb_coh = time.time()
+            pipe_coh = generate_full_pipeline(seed=seed, ring_coherent=True)
+            (df_c, tab_cols_c, train_c, val_c, test_c, buyer_idx_c, seller_idx_c, n_tot_c,
+             X_n_tr_c, e_tr_c, X_n_v_c, e_v_c) = _prepare_gnn_inputs(pipe_coh)
 
-        tr_b_c = torch.tensor(np.clip(train_c["buyer_id"].map(buyer_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
-        tr_s_ids_c = torch.tensor(np.clip(train_c["seller_id"].map(seller_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
-        tr_f_c = torch.tensor(train_c[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
-        tr_y_c = torch.tensor(train_c["y"].to_numpy(), dtype=torch.float32)
+            tr_b_c = torch.tensor(np.clip(train_c["buyer_id"].map(buyer_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
+            tr_s_ids_c = torch.tensor(np.clip(train_c["seller_id"].map(seller_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
+            tr_f_c = torch.tensor(train_c[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
+            tr_y_c = torch.tensor(train_c["y"].to_numpy(), dtype=torch.float32)
 
-        v_b_c = torch.tensor(np.clip(val_c["buyer_id"].map(buyer_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
-        v_s_ids_c = torch.tensor(np.clip(val_c["seller_id"].map(seller_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
-        v_f_c = torch.tensor(val_c[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
-        v_y_c = torch.tensor(val_c["y"].to_numpy(), dtype=torch.float32)
+            v_b_c = torch.tensor(np.clip(val_c["buyer_id"].map(buyer_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
+            v_s_ids_c = torch.tensor(np.clip(val_c["seller_id"].map(seller_idx_c).fillna(0).astype(int).to_numpy(), 0, n_tot_c - 1), dtype=torch.long)
+            v_f_c = torch.tensor(val_c[["price_vs_base_price_ratio", "amount"]].fillna(0).assign(amount=lambda d: np.log1p(d["amount"].clip(lower=0))).to_numpy(), dtype=torch.float32)
+            v_y_c = torch.tensor(val_c["y"].to_numpy(), dtype=torch.float32)
 
-        chosen_lr_coh, best_v_auc_coh = select_best_gnn_lr_on_validation(
-            X_n_tr_c, e_tr_c, tr_b_c, tr_s_ids_c, tr_f_c, tr_y_c,
-            X_n_v_c, e_v_c, v_b_c, v_s_ids_c, v_f_c, v_y_c,
-            candidate_lrs=(0.005, 0.01)
-        )
+            chosen_lr_coh, best_v_auc_coh = select_best_gnn_lr_on_validation(
+                X_n_tr_c, e_tr_c, tr_b_c, tr_s_ids_c, tr_f_c, tr_y_c,
+                X_n_v_c, e_v_c, v_b_c, v_s_ids_c, v_f_c, v_y_c,
+                candidate_lrs=(0.005, 0.01)
+            )
 
-        tr_aug_c, v_aug_c, te_aug_c, gnn_cols_c = generate_oof_gnn_embeddings(
-            train_c, val_c, test_c, buyer_idx_c, seller_idx_c, n_tot_c,
-            X_n_tr_c, e_tr_c, X_n_v_c, e_v_c,
-            n_splits=5, epochs=40, random_state=seed, fold_strategy="time_aware",
-            lr=chosen_lr_coh,
-        )
-        hyb_m_c = train_xgb(tr_aug_c[tab_cols_c + GRAPH_COLS + gnn_cols_c], train_c["y"])
-        hyb_preds_c = hyb_m_c.predict_proba(te_aug_c[tab_cols_c + GRAPH_COLS + gnn_cols_c].fillna(0.0))[:, 1]
-        hybrid_coherent_results.append({
-            "seed": seed,
-            "chosen_lr": chosen_lr_coh,
-            "val_order_level_fraud_auc": best_v_auc_coh,
-            "roc": float(roc_auc_score(test_c["y"].to_numpy(), hyb_preds_c)),
-            "pr": float(average_precision_score(test_c["y"].to_numpy(), hyb_preds_c)),
-        })
-        print(f" Done ({time.time()-t_hyb_coh:.1f}s, lr={chosen_lr_coh}, ROC={hybrid_coherent_results[-1]['roc']:.4f})")
+            tr_aug_c, v_aug_c, te_aug_c, gnn_cols_c = generate_oof_gnn_embeddings(
+                train_c, val_c, test_c, buyer_idx_c, seller_idx_c, n_tot_c,
+                X_n_tr_c, e_tr_c, X_n_v_c, e_v_c,
+                n_splits=5, epochs=40, random_state=seed, fold_strategy="time_aware",
+                lr=chosen_lr_coh,
+            )
+            hyb_m_c = train_xgb(tr_aug_c[tab_cols_c + GRAPH_COLS + gnn_cols_c], train_c["y"])
+            hyb_preds_c = hyb_m_c.predict_proba(te_aug_c[tab_cols_c + GRAPH_COLS + gnn_cols_c].fillna(0.0))[:, 1]
+            hybrid_coherent_results.append({
+                "seed": seed,
+                "chosen_lr": chosen_lr_coh,
+                "val_order_level_fraud_auc": best_v_auc_coh,
+                "roc": float(roc_auc_score(test_c["y"].to_numpy(), hyb_preds_c)),
+                "pr": float(average_precision_score(test_c["y"].to_numpy(), hyb_preds_c)),
+            })
+            print(f" Done ({time.time()-t_hyb_coh:.1f}s, lr={chosen_lr_coh}, ROC={hybrid_coherent_results[-1]['roc']:.4f})")
 
     # 4. Design-Rule Ablations on Seed 42
     print(f"\n4. Running Design-Rule Ablations (Return Fraud & Fake Listing Subgroups)...")
@@ -888,7 +903,7 @@ Statistics of the actual graph GraphSAGE consumes (Buyer-Seller transaction edge
 | **Total Nodes ($V$)** | {gnn_real_graph_stats['num_nodes']} | Unique Buyers + Sellers in train split |
 | **Total Edges ($E$)** | {gnn_real_graph_stats['num_edges']} | Bipartite transactions + shared device/address edges |
 | **Degree Mean / Median / p90** | {gnn_real_graph_stats['degree_mean']:.2f} / {gnn_real_graph_stats['degree_median']:.1f} / {gnn_real_graph_stats['degree_p90']:.1f} | Highly skewed degree distribution |
-| **Fraction of Nodes with Degree $\ge 2$** | {gnn_real_graph_stats['fraction_degree_ge_2']:.2%} | Proportion of nodes with multiple neighbors |
+| **Fraction of Nodes with Degree $\\ge 2$** | {gnn_real_graph_stats['fraction_degree_ge_2']:.2%} | Proportion of nodes with multiple neighbors |
 | **Connected Components** | {gnn_real_graph_stats['num_connected_components']} | High structural fragmentation across the market |
 | **Median Buyer Degree (Fraud vs Legit Orders)** | {gnn_real_graph_stats['fraud_orders_median_buyer_degree']:.1f} vs {gnn_real_graph_stats['legit_orders_median_buyer_degree']:.1f} | Order-level degree signature |
 | **Median Seller Degree (Fraud vs Legit Orders)** | {gnn_real_graph_stats['fraud_orders_median_seller_degree']:.1f} vs {gnn_real_graph_stats['legit_orders_median_seller_degree']:.1f} | Order-level degree signature |
@@ -897,7 +912,7 @@ Statistics of the actual graph GraphSAGE consumes (Buyer-Seller transaction edge
 
 ## 5. Exploratory Multiple Testing Analysis (Holm-Bonferroni Correction)
 
-| Exploratory Comparison | Raw $p$-value | Holm-Adjusted $p$-value | Significant at $\alpha=0.05$ |
+| Exploratory Comparison | Raw $p$-value | Holm-Adjusted $p$-value | Significant at $\\alpha=0.05$ |
 |---|---|---|---|
 """
     for row in holm_adjusted_table:

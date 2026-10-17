@@ -203,11 +203,10 @@ def score_transaction(
     engine: CanonicalTrustEngine = Depends(get_trust_engine),
 ):
     """
-    Score an incoming order for fraud using either the Phase 3 Combined model
-    (tabular + NetworkX graph features) by default, or the Phase 5 Hybrid model
-    when explicitly selected.
+    Score an incoming order for fraud using the Phase 3 Combined model
+    (tabular + NetworkX graph features).
 
-    Evaluated via Unified Trust Engine for calibrated risk, trust score (0-100),
+    Evaluated via Canonical Trust Engine for calibrated risk, trust score (0-100),
     entropy confidence, model disagreement, and decision routing (ALLOW/REVIEW/HOLD/BLOCK).
     """
     if not store.is_loaded:
