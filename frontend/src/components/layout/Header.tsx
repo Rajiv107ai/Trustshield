@@ -2,10 +2,10 @@
 
 import React from "react";
 import { useViewMode } from "@/context/ViewModeContext";
-import { Search, Sparkles, Microscope, RefreshCw } from "lucide-react";
+import { Sparkles, Microscope, RefreshCw } from "lucide-react";
 
 export function Header() {
-  const { viewMode, setViewMode, isLive, isDemo, setDemo, apiUrl, refreshHealth, setSearchOpen } = useViewMode();
+  const { viewMode, setViewMode, isLive, isDemo, setDemo, apiUrl, refreshHealth } = useViewMode();
 
   return (
     <header className="h-16 border-b border-[#202A35] bg-[#0E131A] px-6 flex items-center justify-between sticky top-0 z-30 select-none">
@@ -55,23 +55,12 @@ export function Header() {
         {/* Model Spec Badge */}
         <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#151D27] border border-[#202A35] text-xs">
           <span className="text-[#8995A3]">Engine:</span>
-          <span className="font-mono text-blue-400 font-semibold">Phase 5 Hybrid (GNN + XGBoost)</span>
+          <span className="font-mono text-cyan-400 font-semibold">Phase 3 Combined (Graph + XGBoost)</span>
         </div>
       </div>
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
-        {/* Search Modal Trigger */}
-        <button
-          onClick={() => setSearchOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#111821] hover:bg-[#151D27] border border-[#202A35] text-xs text-[#8995A3] transition-all"
-        >
-          <Search className="w-3.5 h-3.5 text-[#596574]" />
-          <span>Quick Find...</span>
-          <kbd className="font-mono text-[10px] bg-[#0A0E13] px-1.5 py-0.5 rounded border border-[#202A35] text-[#8995A3]">
-            ⌘K
-          </kbd>
-        </button>
 
         {/* DUAL-AUDIENCE GLOBAL VIEW TOGGLE */}
         <div className="flex items-center gap-2">

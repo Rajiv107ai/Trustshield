@@ -3,12 +3,11 @@ import "./globals.css";
 import { ViewModeProvider } from "@/context/ViewModeContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { SearchModal } from "@/components/layout/SearchModal";
 
 export const metadata: Metadata = {
   title: "TrustShield AI — Fraud Intelligence & Trust Engine",
   description:
-    "Production enterprise e-commerce fraud intelligence platform combining relational GNNs, continuous-time dynamics, CLIP multimodal search, and conformal trust scoring.",
+    "Production enterprise e-commerce fraud intelligence platform combining point-in-time graph features, TreeSHAP attributions, and conformal uncertainty guarantees.",
 };
 
 export default function RootLayout({
@@ -30,9 +29,6 @@ export default function RootLayout({
               <main className="flex-1 p-6 max-w-7xl w-full mx-auto">{children}</main>
             </div>
           </div>
-
-          {/* Quick Search Modal */}
-          <SearchModal />
         </ViewModeProvider>
       </body>
     </html>
