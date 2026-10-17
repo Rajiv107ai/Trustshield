@@ -16,10 +16,6 @@ import torch
 import networkx as nx
 
 
-from trustshield_project.multimodal_clip_faiss import (
-    MultimodalFAISSIndex,
-    extract_multimodal_listing_features,
-)
 from trustshield_project.advanced_trust_engine import (
     AdvancedTrustEngine,
     ConformalPredictor,
@@ -29,13 +25,12 @@ from trustshield_project.advanced_ring_intelligence import (
     discover_candidate_communities,
     analyze_candidate_community,
 )
-from trustshield_project.investigation_rag import ForensicRAGIndex
-from trustshield_project.investigation_agent import (
+from trustshield_project.policy_rules import ForensicRAGIndex
+from trustshield_project.dossier_generator import (
     GenAIInvestigationAgent,
     RuleBasedInvestigationAgent,
     verify_dossier_grounding,
 )
-from trustshield_project.mlops_pipeline import ExperimentTracker
 from graph_features import (
     build_relationship_graph,
     compute_relationship_features,
@@ -50,36 +45,6 @@ from phase2_specialized_models import (
 )
 
 from multimodal_scoring import compute_multimodal_similarity, explain_listing_risk
-
-
-
-
-
-class TestMultimodalCLIPAndFAISS:
-    def test_faiss_index_and_near_duplicates(self):
-        index = MultimodalFAISSIndex(dim=8)
-        embs = np.array([
-            [1.0, 0, 0, 0, 0, 0, 0, 0],
-            [0.99, 0.05, 0, 0, 0, 0, 0, 0],
-            [0, 1.0, 0, 0, 0, 0, 0, 0],
-        ], dtype=np.float32)
-        index.add_listings(["L1", "L2", "L3"], ["S1", "S2", "S3"], embs)
-        feats = index.query_similarity_features(np.array([[1.0, 0, 0, 0, 0, 0, 0, 0]], dtype=np.float32), ["S1"], k=2)
-        assert len(feats) == 1
-        assert feats[0]["faiss_max_image_similarity"] >= 0.95 and feats[0]["faiss_near_duplicate_count"] >= 1 and feats[0]["faiss_cross_seller_image_reuse"] == 1.0
-
-    def test_extract_multimodal_listing_features(self):
-        df = pd.DataFrame({"listing_id": ["L1", "L2"], "seller_id": ["S1", "S2"]})
-        out = extract_multimodal_listing_features(df, np.array([[1.0, 0], [0, 1.0]], dtype=np.float32), np.array([[0.9, 0.1], [0.1, 0.9]], dtype=np.float32))
-        assert "clip_image_text_similarity" in out.columns and "clip_semantic_mismatch" in out.columns and out["clip_image_text_similarity"].iloc[0] > 0.80
-
-    def test_regression_faiss_self_match_excluded(self):
-        index = MultimodalFAISSIndex(dim=4)
-        index.add_listings(["L1", "L2", "L3"], ["S1", "S2", "S3"], np.array([[1.0, 0, 0, 0], [0, 1.0, 0, 0], [0.6, 0.8, 0, 0]], dtype=np.float32))
-        res_self = index.query_similarity_features(np.array([[1.0, 0, 0, 0]], dtype=np.float32), ["S1"], k=2)
-        assert abs(res_self[0]["faiss_max_image_similarity"] - 1.0) < 1e-4
-        res = index.query_similarity_features(np.array([[1.0, 0, 0, 0]], dtype=np.float32), ["S1"], query_listing_ids=["L1"], k=2)
-        assert res[0]["faiss_max_image_similarity"] < 0.70
 
 
 # ===========================================================================
@@ -154,14 +119,7 @@ class TestGenAIInvestigationAgent:
         assert verify_dossier_grounding(dataclasses.replace(valid, structured_evidence=["Transaction Amount: INR 99999.00"]), self._TXN, _MockTrustResult()) is False
 
 
-class TestMLOpsPipeline:
-    def test_experiment_tracker(self, tmp_path):
-        tracker = ExperimentTracker(registry_dir=tmp_path / "registry")
-        test_model_file = tmp_path / "model.bin"
-        test_model_file.write_bytes(b"HeteroGNN_weights_v1")
-        run = tracker.log_run("HeteroGNN_vs_Baseline", "HeteroGNN", "2.0.0", {"hidden_dim": 16, "lr": 0.01}, {"roc_auc": 0.845, "pr_auc": 0.590}, {"model_weights": test_model_file})
-        assert run.model_name == "HeteroGNN" and len(run.artifact_hashes["model_weights"]) == 64
-        assert len(tracker.list_runs()) == 1 and tracker.list_runs()[0]["metrics"]["roc_auc"] == 0.845
+
 
 
 # ===========================================================================

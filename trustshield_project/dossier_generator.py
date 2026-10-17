@@ -17,7 +17,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from trustshield_project.investigation_rag import ForensicRAGIndex
+from trustshield_project.policy_rules import ForensicRAGIndex
 
 
 @dataclass(frozen=True)
