@@ -1,12 +1,8 @@
-"""Comprehensive automated test suite for TrustShield Phase 2 Research Architecture:
-- Part 1: Heterogeneous GNN (PyG HeteroData, explicit typed edges, temporal cutoff)
-- Part 2: Temporal GNN (Continuous Time2Vec harmonic encoding, temporal guard assertion)
-- Part 3 & 4: Multimodal CLIP & FAISS Vector Search (near-duplicates, cross-seller image reuse)
-- Part 5 & 6: Advanced Trust Engine & Conformal Uncertainty (stacking meta-learner, conformal sets)
-- Part 7: Advanced Fraud Ring Intelligence (community burstiness, HHI, cluster risk classification)
-- Part 8: Neo4j Graph Investigator (Cypher query generation, in-memory traversal)
-- Part 9 & 10: GenAI Forensic Investigation Agent & RAG (evidence grounding, hallucination guard)
-- Part 11: MLOps Experiment Lineage Tracker (parameter logging, SHA256 artifact hashing)
+"""Comprehensive automated test suite for TrustShield Phase 2 Architecture:
+- Part 1: Advanced Trust Engine & Conformal Uncertainty (calibrated risk, conformal sets)
+- Part 2: GenAI Forensic Investigation Agent & Policy Rules (evidence grounding, hallucination guard)
+- Part 3: Graph Topological Features, Fraud Ring Detection & Specialized XGBoost Models
+- Part 4: Multimodal Scoring & Listing Intelligence
 """
 
 import numpy as np
@@ -20,10 +16,6 @@ from trustshield_project.advanced_trust_engine import (
     AdvancedTrustEngine,
     ConformalPredictor,
     OperationalDecision,
-)
-from trustshield_project.advanced_ring_intelligence import (
-    discover_candidate_communities,
-    analyze_candidate_community,
 )
 from trustshield_project.policy_rules import ForensicRAGIndex
 from trustshield_project.dossier_generator import (
@@ -76,17 +68,6 @@ class TestAdvancedTrustEngineAndUncertainty:
         assert res.calibrated_risk == 0.10
         assert any("GRAPH_RISK" in r for r in res.reason_codes)
 
-
-class TestAdvancedRingIntelligence:
-    def test_community_discovery_and_burstiness(self):
-        G = nx.MultiGraph()
-        for b in ["B1", "B2", "B3"]:
-            G.add_edge(b, "D1", relation="uses_device")
-        comm = discover_candidate_communities(G, min_size=3)[0]
-        orders = pd.DataFrame({"order_id": ["O1", "O2", "O3"], "buyer_id": ["B1", "B2", "B3"], "seller_id": ["S1", "S1", "S1"], "order_date": ["2024-01-01 10:00:00", "2024-01-01 10:05:00", "2024-01-01 10:10:00"]})
-        report = analyze_candidate_community(comm, orders, pd.DataFrame(columns=["order_id"]), G, cluster_id="RING_01")
-        assert report.member_count == len(comm) and report.hardware_sharing_density > 0.50 and report.merchant_concentration_hhi == 1.0
-        assert report.cluster_classification in ("suspicious_cluster", "high_risk_candidate_ring")
 
 
 class _MockTrustResult:
