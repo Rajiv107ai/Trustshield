@@ -15,10 +15,9 @@
 ### Architecture Overview
 TrustShield employs a multi-tiered defense-in-depth architecture:
 - **Phase 1 Tabular Baseline:** Random Forest / XGBoost trained on behavioral buyer/seller aggregates and price anomaly ratios.
-- **Phase 3 Graph Augmentation:** NetworkX-computed topological metrics (PageRank, shared device/address connected component sizes, degree centrality) fused with tabular features.
+- **Phase 3 Graph Augmentation (Authoritative Production Model):** NetworkX-computed point-in-time topological metrics (PageRank, shared device/address connected component sizes, degree centrality) fused with tabular features and scored via gradient boosting.
 - **Phase 4 Multimodal Detector:** Cosine similarity between CLIP text/image embeddings combined with seller age and listing pricing deviation to flag fake/mismatched listings.
-- **Phase 5 Hybrid Deep Architecture:** 32-dimensional GNN buyer and seller node embeddings concatenated with Phase 3 feature vectors and scored via gradient boosting.
-- **Unified Trust Engine:** Information-theoretic aggregator combining detector outputs into calibrated fraud risk, binary entropy confidence, detector disagreement, reason codes, and operational decision tiers (`ALLOW`, `REVIEW`, `HOLD`, `BLOCK`).
+- **Canonical Trust Engine:** Authoritative decision engine combining calibrated fraud risk (isotonic probability pass-through), class-conditional conformal prediction sets, Shannon entropy confidence, and cost-optimal operational decision routing (`ALLOW`, `REVIEW`, `HOLD`, `BLOCK`). Graph sharing and ring signals are surfaced strictly as explanatory reason codes.
 
 ---
 
