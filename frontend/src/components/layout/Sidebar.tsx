@@ -9,14 +9,11 @@ import {
   Zap,
   Activity,
   Network,
-  Share2,
   Tag,
   RotateCcw,
   FileSearch,
   Cpu,
   BarChart3,
-  Server,
-  Settings,
   Flame,
 } from "lucide-react";
 
@@ -25,15 +22,14 @@ const NAV_ITEMS = [
     category: "DETECTION & SCORING",
     items: [
       { name: "Command Center", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Risk Analyzer", href: "/transactions", icon: Zap, badge: "Hero" },
-      { name: "Transaction Stream", href: "/transactions/feed", icon: Activity },
+      { name: "Risk Analyzer", href: "/transactions", icon: Zap, badge: "Phase 3" },
+      { name: "Transaction Feed", href: "/transactions/feed", icon: Activity },
     ],
   },
   {
     category: "GRAPH & FORENSICS",
     items: [
-      { name: "Fraud Rings", href: "/fraud-rings", icon: Network, badge: "GNN" },
-      { name: "Trust Graph", href: "/trust-graph", icon: Share2 },
+      { name: "Fraud Rings", href: "/fraud-rings", icon: Network, badge: "Graph" },
       { name: "Listing Intelligence", href: "/listings", icon: Tag, badge: "CLIP" },
       { name: "Return Abuse", href: "/returns", icon: RotateCcw },
       { name: "Investigation Cases", href: "/investigations", icon: FileSearch },
@@ -43,9 +39,7 @@ const NAV_ITEMS = [
     category: "OBSERVABILITY & MODELS",
     items: [
       { name: "Model Registry", href: "/models", icon: Cpu },
-      { name: "Evaluation Studio", href: "/evaluation", icon: BarChart3 },
-      { name: "Telemetry & Mesh", href: "/monitoring", icon: Server },
-      { name: "Settings", href: "/settings", icon: Settings },
+      { name: "Evaluation Studio", href: "/evaluation", icon: BarChart3, badge: "20 Seeds" },
     ],
   },
 ];
