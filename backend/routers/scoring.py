@@ -35,10 +35,7 @@ from backend.services.metrics_service import metrics_service
 try:
     from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
 except ImportError:
-    try:
-        from advanced_trust_engine import CanonicalTrustEngine
-    except ImportError:
-        CanonicalTrustEngine = None
+    from advanced_trust_engine import CanonicalTrustEngine  # type: ignore
 
 logger = logging.getLogger(__name__)
 

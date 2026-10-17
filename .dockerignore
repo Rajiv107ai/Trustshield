@@ -21,6 +21,7 @@ htmlcov/
 # Documentation and Development Artifacts
 docs/
 *.md
+!README.md
 pyrightconfig.json
 pytest.ini
 
