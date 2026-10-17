@@ -49,7 +49,7 @@ def test_fraud_rings_min_risk_filtering(client):
         assert ring["avg_risk_score"] >= 0.4
 
 
-def test_transaction_scoring_phase5(client):
+def test_transaction_scoring_phase5_rejected(client):
     payload = {
         "order_id": "ORDER_TEST_P5",
         "model_version": "phase5-hybrid",
@@ -61,35 +61,26 @@ def test_transaction_scoring_phase5(client):
         "order_date": "2025-09-01T12:00:00",
     }
     response = client.post("/transaction/score", json=payload)
+    assert response.status_code == 400
+    assert "Invalid model version requested" in response.json()["detail"]
+
+
+def test_transaction_scoring_phase3(client):
+    payload = {
+        "order_id": "ORDER_TEST_P3",
+        "buyer_id": "BUYER_000002",
+        "seller_id": "SELLER_000002",
+        "amount": 80.0,
+        "base_price": 80.0,
+        "category_median_price": 80.0,
+        "order_date": "2025-09-01T12:00:00",
+    }
+    response = client.post("/transaction/score", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["order_id"] == "ORDER_TEST_P5"
+    assert data["order_id"] == "ORDER_TEST_P3"
     assert 0.0 <= data["overall_fraud_probability"] <= 1.0
-    assert data["risk_label"] in {"low", "medium", "high"}
-    assert "phase5" in data["model_version"]
-
-
-def test_transaction_scoring_phase3_fallback(client):
-    was_p5_loaded = store._phase5_loaded
-    try:
-        store._phase5_loaded = False
-        payload = {
-            "order_id": "ORDER_TEST_P3",
-            "buyer_id": "BUYER_000002",
-            "seller_id": "SELLER_000002",
-            "amount": 80.0,
-            "base_price": 80.0,
-            "category_median_price": 80.0,
-            "order_date": "2025-09-01T12:00:00",
-        }
-        response = client.post("/transaction/score", json=payload)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["order_id"] == "ORDER_TEST_P3"
-        assert 0.0 <= data["overall_fraud_probability"] <= 1.0
-        assert data["model_version"] == "phase3"
-    finally:
-        store._phase5_loaded = was_p5_loaded
+    assert data["model_version"] == "phase3"
 
 
 def test_transaction_scoring_derives_ratios(client):
@@ -645,7 +636,6 @@ class TestServingModelAndStreamSemantics:
         data = resp.json()
         assert data["model_version"] == "phase3"
         assert data["scoring_mode"] == "production_model_phase3_combined"
-
     def test_explicit_phase5_selection_via_header(self, client):
         headers = {"X-TrustShield-Model-Version": "phase5-hybrid"}
         resp = client.post("/transaction/score", json={
@@ -654,8 +644,8 @@ class TestServingModelAndStreamSemantics:
             "base_price": 120.0,
             "category_median_price": 100.0,
         }, headers=headers)
-        assert resp.status_code == 200
-        assert resp.json()["model_version"] == "phase5-hybrid"
+        assert resp.status_code == 400
+        assert "Invalid model version requested" in resp.json()["detail"]
 
     def test_invalid_model_version_returns_400(self, client):
         resp = client.post("/transaction/score", json={

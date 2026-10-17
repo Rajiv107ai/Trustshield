@@ -11,7 +11,6 @@ from fraud_injection import TARGET_FRAUD_RATE, FAKE_LISTING_RATE
 from temporal_utils import filter_historical_events
 from baseline_model import TRAIN_END, VAL_END
 from graph_features import build_relationship_graph
-from hetero_gnn import build_hetero_graph, PYG_AVAILABLE
 from phase2_specialized_models import build_listing_features
 
 
@@ -283,19 +282,6 @@ class TestPipelineLeakageGuards:
         assert len(pipeline["result"]["orders"]) > 0 and len(pipeline["result"]["returns"]) > 0
         assert (df["buyer_return_rate_before"] >= 0.0).all() and (df["buyer_return_rate_before"] <= 1.0001).all()
         assert (df["buyer_returns_before"] <= df["buyer_orders_before"]).all()
-
-    def test_pipeline_3_no_gnn_message_passing_edge_contains_future_information(self, pipeline):
-        if not PYG_AVAILABLE:
-            pytest.skip("PyTorch Geometric not installed.")
-        cutoff = str(TRAIN_END)
-        data, _ = build_hetero_graph(
-            pipeline["txn"]["buyers"], pipeline["catalog"]["sellers"], pipeline["result"]["orders"],
-            pipeline["base"]["device_sharing_log"], pipeline["base"]["address_sharing_log"], cutoff_date=cutoff,
-        )
-        orders = pipeline["result"]["orders"]
-        cutoff_ts = pd.to_datetime(cutoff)
-        assert len(orders[pd.to_datetime(orders["order_date"]) >= cutoff_ts]) > 0
-        assert data[("buyer", "transacts_with", "seller")].edge_index.shape[1] == len(orders[pd.to_datetime(orders["order_date"]) < cutoff_ts])
 
     def test_pipeline_4_no_val_or_test_transaction_influences_training_features(self, pipeline):
         df = pipeline["df"]

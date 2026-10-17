@@ -15,16 +15,6 @@ import pytest
 import torch
 import networkx as nx
 
-from trustshield_project.hetero_gnn import (
-    build_hetero_graph,
-    HeteroGNN,
-    extract_hetero_embeddings,
-    PYG_AVAILABLE,
-)
-from trustshield_project.temporal_gnn import (
-    Time2Vec,
-    TemporalGNN,
-)
 
 from trustshield_project.multimodal_clip_faiss import (
     MultimodalFAISSIndex,
@@ -60,70 +50,11 @@ from phase2_specialized_models import (
     build_listing_features,
     build_return_features,
 )
-from gnn_model import (
-    build_node_index,
-    GraphSAGEEncoder,
-    EdgeClassifier,
-)
-from phase5_hybrid_model import attach_gnn_embeddings
+
 from multimodal_scoring import compute_multimodal_similarity, explain_listing_risk
 
 
-# ===========================================================================
-# Part 1: Heterogeneous GNN Tests
-# ===========================================================================
 
-@pytest.mark.skipif(not PYG_AVAILABLE, reason="torch_geometric not available")
-class TestHeteroGNN:
-    @pytest.fixture
-    def mock_data(self):
-        buyers = pd.DataFrame({"buyer_id": ["B1", "B2", "B3"], "device_id": ["D1", "D1", "D2"], "address_id": ["A1", "A2", "A1"], "orders_before": [5, 2, 8], "returns_before": [1, 0, 2]})
-        sellers = pd.DataFrame({"seller_id": ["S1", "S2"], "total_listings_before": [20, 5], "seller_age_days": [200, 30]})
-        orders = pd.DataFrame({"order_id": ["O1", "O2", "O3"], "buyer_id": ["B1", "B2", "B3"], "seller_id": ["S1", "S1", "S2"], "order_date": ["2024-01-10", "2024-01-20", "2024-02-05"]})
-        dev_log = pd.DataFrame({"seller_id": ["S1"], "shared_device_id": ["D1"], "first_seen_date": ["2024-01-05"]})
-        addr_log = pd.DataFrame({"seller_id": ["S2"], "shared_address_id": ["A1"], "first_seen_date": ["2024-01-15"]})
-        return buyers, sellers, orders, dev_log, addr_log
-
-    def test_build_hetero_graph_structure(self, mock_data):
-        buyers, sellers, orders, dev_log, addr_log = mock_data
-        data, id_maps = build_hetero_graph(buyers, sellers, orders, dev_log, addr_log, cutoff_date="2024-02-01")
-        assert {"buyer", "seller", "device", "address"}.issubset(data.node_types)
-        assert len(id_maps["buyer"]) == 3 and len(id_maps["seller"]) == 2
-
-    def test_hetero_gnn_forward_pass(self, mock_data):
-        buyers, sellers, orders, dev_log, addr_log = mock_data
-        data, id_maps = build_hetero_graph(buyers, sellers, orders, dev_log, addr_log)
-        model = HeteroGNN(data.metadata(), hidden_channels=8, out_channels=8)
-        b_embs, s_embs = extract_hetero_embeddings(model, data, id_maps)
-        assert len(b_embs) == 3 and len(s_embs) == 2 and b_embs["B1"].shape == (8,)
-
-    def test_regression_heterognn_strict_cutoff(self):
-        cutoff = "2025-06-01"
-        orders = pd.DataFrame({"buyer_id": ["B1"], "seller_id": ["S1"], "order_date": [pd.Timestamp(cutoff)]})
-        buyers = pd.DataFrame({"buyer_id": ["B1"], "device_id": ["D1"], "address_id": ["A1"]})
-        sellers = pd.DataFrame({"seller_id": ["S1"]})
-        dev_log = pd.DataFrame(columns=["buyer_id", "seller_id", "shared_device_id", "first_seen_date"])
-        addr_log = pd.DataFrame(columns=["buyer_id", "seller_id", "shared_address_id", "first_seen_date"])
-        data, _ = build_hetero_graph(buyers, sellers, orders, dev_log, addr_log, cutoff_date=cutoff)
-        assert data[("buyer", "transacts_with", "seller")].edge_index.shape[1] == 0
-
-
-class TestTemporalGNN:
-    def test_time2vec_encoding(self):
-        emb = Time2Vec(out_dim=8)(torch.tensor([[0.5], [1.0], [5.2]], dtype=torch.float))
-        assert emb.shape == (3, 8) and not torch.isnan(emb).any()
-
-    def test_temporal_leakage_guard_raises_error(self):
-        with pytest.raises(AssertionError, match="Temporal leakage detected"):
-            Time2Vec(out_dim=8)(torch.tensor([[-1.5], [2.0]], dtype=torch.float))
-
-    def test_temporal_gnn_forward(self):
-        logits, embs = TemporalGNN(in_features=4, hidden_features=8, out_features=8, time_dim=8)(
-            torch.randn(5, 4),
-            torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long),
-            torch.tensor([[0.1], [0.5], [1.2], [3.0]], dtype=torch.float)
-        )
-        assert logits.shape == (5, 1) and embs.shape == (5, 8)
 
 
 class TestMultimodalCLIPAndFAISS:
@@ -301,26 +232,6 @@ class TestSpecializedModels:
         assert len(df) == len(pipeline["result"]["returns"]) and set(cols).issubset(set(df.columns)) and not bool(df[cols].isna().to_numpy().any())
 
 
-class TestGNNComponents:
-    def test_build_node_index(self):
-        b_idx, s_idx, n_b, n_tot = build_node_index(["B_001", "B_002", "B_003"], ["S_001", "S_002"])
-        assert n_b == 3 and n_tot == 6 and set(b_idx.values()) == {1, 2, 3} and set(s_idx.values()) == {4, 5}
-
-    def test_graphsage_encoder_forward(self):
-        out = GraphSAGEEncoder(in_dim=7, hidden_dim=16, out_dim=8)(torch.randn(10, 7), torch.tensor([[0, 1, 2, 3], [1, 2, 3, 0]], dtype=torch.long))
-        assert out.shape == (10, 8)
-
-    def test_edge_classifier_forward(self):
-        logits = EdgeClassifier(emb_dim=8, edge_feat_dim=2, hidden_dim=16)(torch.randn(5, 8), torch.randn(5, 8), torch.randn(5, 2))
-        assert logits.shape == (5,)
-
-    def test_attach_gnn_embeddings_cold_start(self):
-        df = pd.DataFrame({"order_id": ["O_1", "O_2"], "buyer_id": ["B_KNOWN", "B_UNKNOWN"], "seller_id": ["S_KNOWN", "S_UNKNOWN"]})
-        df_aug, cols = attach_gnn_embeddings(df, {"B_KNOWN": np.ones(16, dtype=np.float32)}, {"S_KNOWN": np.ones(16, dtype=np.float32) * 2}, emb_dim=16)
-        assert len(cols) == 32 and np.allclose(df_aug.loc[0, "gnn_buyer_emb_0"], 1.0) and np.allclose(df_aug.loc[0, "gnn_seller_emb_0"], 2.0)
-        assert np.allclose(df_aug.loc[1, "gnn_buyer_emb_0"], 0.0) and np.allclose(df_aug.loc[1, "gnn_seller_emb_0"], 0.0)
-
-
 class TestMultimodalPhase4:
     def test_multimodal_similarity_bounds(self, pipeline):
         sims = compute_multimodal_similarity(pipeline["result"]["listings"].head(100), pipeline["catalog"]["products"])
@@ -342,42 +253,4 @@ class TestMultimodalPhase4:
         assert res["risk_level"] == "LOW" and "approval" in res["recommended_action"].lower()
 
 
-class TestPhase5TemporalIntegrity:
-    def test_future_validation_edge_does_not_alter_earlier_validation_embedding_or_score(self):
-        from baseline_model import TRAIN_END
-        from phase5_hybrid_model import build_node_index, build_node_features, build_edge_index, extract_embeddings, GraphSAGEEncoder, EdgeClassifier
-
-        buyer_ids, seller_ids = ["B001", "B002", "B003"], ["S001", "S002"]
-        buyer_idx, seller_idx, n_buyers, n_total = build_node_index(buyer_ids, seller_ids)
-        train_orders = pd.DataFrame({"order_id": ["O_TR_1", "O_TR_2"], "buyer_id": ["B001", "B002"], "seller_id": ["S001", "S002"], "order_date": [pd.Timestamp("2025-03-01"), pd.Timestamp("2025-04-01")], "amount": [100.0, 200.0], "price_vs_base_price_ratio": [1.0, 1.0], "y": [0, 0]})
-        buyers_df = pd.DataFrame({"buyer_id": buyer_ids, "signup_date": [pd.Timestamp("2025-01-01")] * 3})
-        sellers_df = pd.DataFrame({"seller_id": seller_ids, "signup_date": [pd.Timestamp("2025-01-01")] * 2})
-        rel_graph = nx.Graph()
-
-        X_train_orig = build_node_features(buyer_idx, seller_idx, n_total, train_orders, rel_graph, buyers_df, sellers_df, cutoff_date=TRAIN_END)
-        edge_index_train_orig = build_edge_index(buyer_idx, seller_idx, train_orders, rel_graph)
-
-        torch.manual_seed(42)
-        encoder = GraphSAGEEncoder(in_dim=X_train_orig.shape[1], hidden_dim=16, out_dim=8)
-        classifier = EdgeClassifier(emb_dim=8, edge_feat_dim=2, hidden_dim=16)
-        encoder.eval()
-        classifier.eval()
-
-        b_embs_orig, s_embs_orig = extract_embeddings(encoder, X_train_orig, edge_index_train_orig, buyer_idx, seller_idx)
-        val_edge_feat = torch.tensor([[1.0, np.log1p(100.0)]], dtype=torch.float32)
-        score_orig = torch.sigmoid(classifier(torch.tensor(b_embs_orig["B001"]).unsqueeze(0), torch.tensor(s_embs_orig["S001"]).unsqueeze(0), val_edge_feat)).item()
-
-        all_orders = pd.concat([train_orders, pd.DataFrame({"order_id": ["O_VAL_FUTURE"], "buyer_id": ["B001"], "seller_id": ["S002"], "order_date": [pd.Timestamp("2025-10-15")], "amount": [500.0], "price_vs_base_price_ratio": [0.5], "y": [1]})], ignore_index=True)
-        train_filtered = all_orders[all_orders["order_date"] <= TRAIN_END]
-        X_train_after = build_node_features(buyer_idx, seller_idx, n_total, train_filtered, rel_graph, buyers_df, sellers_df, cutoff_date=TRAIN_END)
-        edge_index_train_after = build_edge_index(buyer_idx, seller_idx, train_filtered, rel_graph)
-
-        b_embs_after, s_embs_after = extract_embeddings(encoder, X_train_after, edge_index_train_after, buyer_idx, seller_idx)
-        score_after = torch.sigmoid(classifier(torch.tensor(b_embs_after["B001"]).unsqueeze(0), torch.tensor(s_embs_after["S001"]).unsqueeze(0), val_edge_feat)).item()
-
-        assert np.allclose(b_embs_orig["B001"], b_embs_after["B001"], atol=1e-7)
-        assert np.isclose(score_orig, score_after, atol=1e-7)
-        edge_index_leaked = build_edge_index(buyer_idx, seller_idx, all_orders, rel_graph)
-        b_embs_leaked, _ = extract_embeddings(encoder, X_train_orig, edge_index_leaked, buyer_idx, seller_idx)
-        assert not np.allclose(b_embs_orig["B001"], b_embs_leaked["B001"], atol=1e-5)
 

@@ -19,7 +19,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from backend.auth import authenticate_request
 from backend.features import (
     _build_feature_row,
-    _build_hybrid_feature_row,
     _resolve_graph_features,
     _risk_label,
 )
@@ -47,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-VALID_SERVING_MODELS = {"phase3", "phase5-hybrid"}
+VALID_SERVING_MODELS = {"phase3"}
 _default_canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not None else None
 
 
@@ -233,71 +232,7 @@ def score_transaction(req: TransactionScoreRequest, request: Request = None):  #
         if not getattr(engine.conformal, "is_calibrated", False):
             engine.conformal = store.conformal_predictor
 
-    if target_model == "phase5-hybrid":
-        if not (store.phase5_loaded and store.phase5_meta is not None and store.hybrid_model is not None):
-            raise HTTPException(
-                status_code=503,
-                detail="Model 'phase5-hybrid' was requested but Phase 5 artifacts are not loaded on this server."
-            )
-        p5_meta = store.phase5_meta
-        hybrid_cols = p5_meta["hybrid_feature_cols"]
-        p3_cols = p5_meta["phase3_feature_cols"]
-        emb_dim = p5_meta.get("emb_dim", 16)
-        row, emb_sources, graph_source, graph_notes, client_mismatch = _build_hybrid_feature_row(
-            req, hybrid_cols, p3_cols,
-            store.buyer_embeddings, store.seller_embeddings, emb_dim
-        )
-        t_infer0 = time.perf_counter()
-        X = pd.DataFrame([row])[hybrid_cols].fillna(0.0)
-        prob_raw = float(np.asarray(store.hybrid_model.predict_proba(X))[0, 1])
-        metrics_service.model_inference_seconds.labels(model_version="phase5-hybrid").observe(
-            time.perf_counter() - t_infer0
-        )
-        clf_name = p5_meta.get("classifier", "XGBoost")
-
-        prob_cal = float(store.phase5_calibrator.predict_proba(np.array([prob_raw]))[0]) if store.phase5_calibrator is not None else prob_raw
-
-        if store.combined_graph_model is not None and store.feature_meta is not None:
-            p3_all_cols = store.feature_meta.get("all_feature_cols", p3_cols)
-            p3_row = _build_feature_row(req, p3_all_cols)
-            X_p3 = pd.DataFrame([p3_row])[p3_all_cols].fillna(0.0)
-            raw_tab = float(np.asarray(store.combined_graph_model.predict_proba(X_p3))[0, 1])
-            prob_tabular = float(store.calibrator.predict_proba(np.array([raw_tab]))[0]) if store.calibrator is not None else raw_tab
-        else:
-            prob_tabular = float(prob_cal)
-
-        infra_sources = {
-            "buyer_embedding": emb_sources.get("buyer_embedding", "unavailable"),
-            "seller_embedding": emb_sources.get("seller_embedding", "unavailable"),
-            "graph_topology": "neo4j" if neo4j_service.is_available else "disk_artifact",
-        }
-        gnn_active = bool(
-            (req.buyer_id and req.buyer_id in store.buyer_embeddings)
-            or (req.seller_id and req.seller_id in store.seller_embeddings)
-        )
-
-        return _evaluate_and_build_response(
-            req=req,
-            feature_row=row,
-            prob_raw=prob_raw,
-            prob_cal=prob_cal,
-            prob_tabular=prob_tabular,
-            model_version="phase5-hybrid",
-            is_cold_start=is_cold_start,
-            graph_source=graph_source,
-            graph_notes=graph_notes,
-            client_mismatch=client_mismatch,
-            engine=engine,
-            explainer=store.phase5_shap_explainer,
-            calibrator_active=store.phase5_calibrator is not None,
-            gnn_embeddings_active=gnn_active,
-            infra_sources=infra_sources,
-            scoring_mode="production_model_phase5_hybrid",
-            model_used_label=f"Hybrid GNN + {clf_name} (Phase 5, tabular+graph+GNN embeddings)",
-            note_prefix="Scored with Phase 5 hybrid model routed through Canonical Trust Engine with probability calibration and conformal uncertainty.",
-        )
-
-    # Phase 3 model (Default authoritative production model)
+    # Phase 3 model (authoritative production model)
     if store.feature_meta is None or store.combined_graph_model is None:
         raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
 
@@ -379,22 +314,7 @@ def explain_transaction(req: TransactionExplainRequest):
     score_res = score_transaction(score_req)
 
     explanation: Dict[str, Any] = {}
-    if (
-        score_res.model_version == "phase5-hybrid"
-        and store.phase5_loaded
-        and store.phase5_shap_explainer is not None
-        and store.phase5_meta is not None
-    ):
-        p5_meta = store.phase5_meta
-        hybrid_cols = p5_meta.get("hybrid_feature_cols", [])
-        p3_cols = p5_meta.get("phase3_feature_cols", [])
-        emb_dim = p5_meta.get("emb_dim", 16)
-        row, _, _, _, _ = _build_hybrid_feature_row(
-            score_req, hybrid_cols, p3_cols,
-            store.buyer_embeddings, store.seller_embeddings, emb_dim
-        )
-        explanation = store.phase5_shap_explainer.explain_instance(row, top_k=5)
-    elif store.shap_explainer is not None and store.feature_meta is not None:
+    if store.shap_explainer is not None and store.feature_meta is not None:
         all_cols = store.feature_meta.get("all_feature_cols", [])
         feature_row = _build_feature_row(score_req, all_cols)
         explanation = store.shap_explainer.explain_instance(feature_row, top_k=5)
