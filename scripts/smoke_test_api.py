@@ -78,6 +78,8 @@ def main():
         print("[+] Endpoint 1: GET /health SUCCESS")
         print(json.dumps(health_data, indent=2))
 
+        auth_headers = {"X-API-Key": os.getenv("TRUSTSHIELD_API_KEY", "dev-operator-api-key-32chars-long")}
+
         # 2. Test /transaction/score
         tx_payload = {
             "order_id": "ORD_LIVE_001",
@@ -91,7 +93,7 @@ def main():
             "buyer_returns_before": 2,
             "multimodal_similarity_score": 0.88,
         }
-        resp = requests.post(f"{base_url}/transaction/score", json=tx_payload, timeout=5)
+        resp = requests.post(f"{base_url}/transaction/score", json=tx_payload, headers=auth_headers, timeout=5)
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         tx_data = resp.json()
         print("\n[+] Endpoint 2: POST /transaction/score SUCCESS")
@@ -101,7 +103,7 @@ def main():
         assert tx_data["order_id"] == "ORD_LIVE_001"
 
         # 3. Test /fraud-rings
-        resp = requests.get(f"{base_url}/fraud-rings?limit=3", timeout=5)
+        resp = requests.get(f"{base_url}/fraud-rings?limit=3", headers=auth_headers, timeout=5)
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         rings_data = resp.json()
         print("\n[+] Endpoint 3: GET /fraud-rings SUCCESS")
@@ -120,7 +122,7 @@ def main():
             "seller_listings_before": 2,
             "multimodal_similarity_score": 0.15,
         }
-        resp = requests.post(f"{base_url}/listing/analyze", json=listing_payload, timeout=5)
+        resp = requests.post(f"{base_url}/listing/analyze", json=listing_payload, headers=auth_headers, timeout=5)
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         listing_data = resp.json()
         print("\n[+] Endpoint 4: POST /listing/analyze SUCCESS")
@@ -147,7 +149,7 @@ def main():
             "seller_return_rate_before": 0.05,
             "reason": "defective",
         }
-        resp = requests.post(f"{base_url}/return/analyze", json=return_payload, timeout=5)
+        resp = requests.post(f"{base_url}/return/analyze", json=return_payload, headers=auth_headers, timeout=5)
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         return_data = resp.json()
         print("\n[+] Endpoint 5: POST /return/analyze SUCCESS")

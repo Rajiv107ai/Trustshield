@@ -127,3 +127,63 @@ def test_neo4j_temporal_safety_parameterization():
     assert "$cutoff_date" in query_str
     assert params["buyer_id"] == "BUYER_X"
     assert params["cutoff_date"] == "2025-06-01"
+
+
+# ==============================================================================
+# 3. Infrastructure Decoupling and Fallback Tests
+# ==============================================================================
+
+class TestInfrastructureDecoupling:
+    """Infrastructure Decoupling and Research Dependency Isolation."""
+
+    def test_default_services_disabled_without_network_call(self):
+        redis = RedisService()
+        assert redis.enabled is False
+        assert redis.is_available is False
+        assert redis.ping().status == "disabled"
+
+        neo4j = Neo4jService()
+        assert neo4j.enabled is False
+        assert neo4j.is_available is False
+        assert neo4j.ping().status == "disabled"
+
+    def test_neo4j_production_security_guard(self, monkeypatch):
+        monkeypatch.setenv("TRUSTSHIELD_ENV", "production")
+        monkeypatch.delenv("NEO4J_PASSWORD", raising=False)
+
+        svc_disabled = Neo4jService(enabled=False, password=None)
+        assert svc_disabled.enabled is False
+        assert svc_disabled.is_available is False
+
+        with pytest.raises(RuntimeError, match="CRITICAL SECURITY: NEO4J_PASSWORD"):
+            Neo4jService(enabled=True, password=None)
+
+    def test_feature_flag_isolation_clip_and_phase5(self, monkeypatch):
+        from backend.model_loader import ModelStore
+
+        monkeypatch.setenv("CLIP_ENABLED", "false")
+        monkeypatch.setenv("PHASE5_ENABLED", "false")
+
+        isolated_store = ModelStore()
+        isolated_store.load()
+
+        assert isolated_store.clip_loaded is False
+        assert isolated_store.phase5_loaded is False
+        assert isolated_store.combined_graph_model is not None
+        assert isolated_store.is_loaded is True
+
+    def test_clip_multimodal_scorer_instantiates_without_torch(self, monkeypatch):
+        import builtins
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "torch":
+                raise ImportError("No module named 'torch'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+
+        from trustshield_project.multimodal_scoring import CLIPMultimodalScorer
+        scorer = CLIPMultimodalScorer(device=None)
+        assert scorer.device == "cpu"
+

@@ -12,9 +12,7 @@ import time
 import json
 import numpy as np
 import pandas as pd
-from scipy import stats
 from sklearn.metrics import roc_auc_score, average_precision_score
-from xgboost import XGBClassifier
 
 # Add project root to sys.path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,6 +27,11 @@ from graph_features import (
     build_monthly_snapshots,
     attach_snapshot_features,
     add_edge_weight_before,
+)
+from trustshield_project.robustness import (
+    SEEDS_20,
+    paired_stats_calc,
+    train_xgb,
 )
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -45,53 +48,6 @@ GRAPH_COLS = [
     "seller_buyer_concentration_hhi",
     "buyer_seller_edge_weight_before",
 ]
-
-SEEDS_20 = [
-    42, 101, 202, 303, 404, 505, 606, 707, 808, 909,
-    1001, 1102, 1203, 1304, 1405, 1506, 1607, 1708, 1809, 1910
-]
-
-
-def paired_stats_calc(baseline_vals, new_vals):
-    diffs = np.array(new_vals) - np.array(baseline_vals)
-    n = len(diffs)
-    mean_d = float(np.mean(diffs))
-    std_d = float(np.std(diffs, ddof=1)) if n > 1 else 0.0
-    se_d = std_d / np.sqrt(n) if n > 1 else 0.0
-    t_crit = float(stats.t.ppf(0.975, df=n - 1)) if n > 1 else 1.96
-    ci_lower = mean_d - t_crit * se_d
-    ci_upper = mean_d + t_crit * se_d
-    cohens_d = (mean_d / std_d) if std_d > 1e-9 else 0.0
-    t_res = stats.ttest_rel(new_vals, baseline_vals) if (std_d > 1e-9 and n > 1) else None
-    p_val = float(t_res.pvalue) if t_res is not None and not np.isnan(t_res.pvalue) else 1.0
-    t_stat = float(t_res.statistic) if t_res is not None and not np.isnan(t_res.statistic) else 0.0
-    return {
-        "mean_diff": mean_d,
-        "std_diff": std_d,
-        "ci_95": [float(ci_lower), float(ci_upper)],
-        "cohens_d": float(cohens_d),
-        "t_stat": t_stat,
-        "p_value": p_val,
-    }
-
-
-def train_xgb(X_tr, y_tr, random_state=42):
-    pos = int(y_tr.sum())
-    neg = len(y_tr) - pos
-    clf = XGBClassifier(
-        n_estimators=300,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        scale_pos_weight=neg / max(pos, 1),
-        eval_metric="aucpr",
-        random_state=random_state,
-        n_jobs=-1,
-        verbosity=0,
-    )
-    clf.fit(X_tr.fillna(0.0), y_tr)
-    return clf
 
 
 def run_lofo_ablation():

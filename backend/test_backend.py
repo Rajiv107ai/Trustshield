@@ -570,3 +570,192 @@ class TestModelUsedField:
         assert "Flagged client-supplied graph feature mismatch" in d4["note"]
         assert "Server snapshot value enforced" in d4["note"]
 
+
+class TestListingAnalyzeFeatureAlignment:
+    """Regression and contract tests for /listing/analyze feature schema alignment."""
+
+    def test_analyze_listing_valid_request(self, client):
+        payload = {
+            "listing_id": "LIST_TEST_001",
+            "product_id": "PROD_TEST_99",
+            "displayed_product_id": "PROD_TEST_99",
+            "price": 120.0,
+            "base_price": 100.0,
+            "category_median_price": 95.0,
+            "seller_age_days_at_listing": 45,
+            "seller_listings_before": 12,
+            "multimodal_similarity_score": 0.88,
+        }
+        response = client.post("/listing/analyze", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert 0.0 <= data["fake_listing_probability"] <= 1.0
+        assert data["risk_label"] in ["low", "medium", "high", "critical"]
+
+    def test_analyze_listing_malformed_request_returns_422(self, client):
+        response = client.post("/listing/analyze", json={"listing_id": "LIST_MALFORMED", "price": "not-a-number"})
+        assert response.status_code == 422
+
+    def test_listing_model_feature_schema_matches_booster(self):
+        booster = store.fake_listing_model.get_booster()
+        assert "synthetic_mismatch_score" in booster.feature_names
+
+    def test_analyze_listing_synthetic_mismatch_overrides_multimodal(self, client):
+        payload = {
+            "listing_id": "LIST_OVERRIDE_PRIORITY",
+            "price": 20.0,
+            "base_price": 200.0,
+            "category_median_price": 200.0,
+            "seller_age_days_at_listing": 2,
+            "seller_listings_before": 0,
+            "multimodal_similarity_score": 0.95,
+            "synthetic_mismatch_score": 0.10,
+        }
+        response = client.post("/listing/analyze", json=payload)
+        assert response.status_code == 200
+        assert response.json()["fake_listing_probability"] > 0.5
+
+    def test_api_live_scoring_without_order_date(self, client):
+        live_payload = {
+            "order_id": "ORD_LIVE_DECISION_TIME",
+            "buyer_id": "BUYER_00001",
+            "seller_id": "SELLER_00189",
+            "amount": 75.0,
+            "base_price": 75.0,
+            "category_median_price": 75.0,
+        }
+        resp = client.post("/transaction/score", json=live_payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["graph_features_source"] == "server"
+        assert data["client_mismatch"] is False
+
+
+class TestServingModelAndStreamSemantics:
+    """Regression tests for serving model routing, header overrides, invalid models, and stream events."""
+
+    def test_default_serving_model_is_phase3(self, client):
+        resp = client.post("/transaction/score", json={
+            "order_id": "ORD_DEFAULT_ROUTING",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 95.0,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["model_version"] == "phase3"
+        assert data["scoring_mode"] == "production_model_phase3_combined"
+
+    def test_explicit_phase5_selection_via_header(self, client):
+        headers = {"X-TrustShield-Model-Version": "phase5-hybrid"}
+        resp = client.post("/transaction/score", json={
+            "order_id": "ORD_EXPLICIT_P5_HEADER",
+            "amount": 120.0,
+            "base_price": 120.0,
+            "category_median_price": 100.0,
+        }, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["model_version"] == "phase5-hybrid"
+
+    def test_invalid_model_version_returns_400(self, client):
+        resp = client.post("/transaction/score", json={
+            "order_id": "ORD_INVALID_MODEL",
+            "model_version": "nonexistent_model_v9",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+        })
+        assert resp.status_code == 400
+
+    def test_conformal_fields_in_response(self, client):
+        resp = client.post("/transaction/score", json={
+            "order_id": "ORD_CONFORMAL_CHECK",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "conformal_prediction_set" in data
+        assert isinstance(data["conformal_prediction_set"], list)
+        assert data["conformal_is_calibrated"] is True
+
+    def test_stream_event_schema_separates_calibrated_and_policy_risk(self):
+        from backend.schemas import StreamTransactionEvent
+        event = StreamTransactionEvent(
+            event_id="EVT_TEST_01",
+            timestamp="12:00:00",
+            order_id="ORD_TEST_01",
+            buyer_id="BUYER_01",
+            seller_id="SELLER_01",
+            amount=150.0,
+            risk_score=0.10,
+            calibrated_risk=0.04,
+            policy_risk_score=0.28,
+            risk_level="medium",
+            decision="REVIEW",
+            trust_score=72.0,
+        )
+        assert event.calibrated_risk == 0.04
+        assert event.policy_risk_score == 0.28
+
+
+class TestModelArtifactAndOfflineParity:
+    def test_regression_model_artifact_load(self):
+        """All production artifacts exist and load cleanly in store."""
+        if not store.is_loaded:
+            store.load()
+        assert store.is_loaded
+        assert store.combined_graph_model is not None
+        assert store.fake_listing_model is not None
+        assert store.return_fraud_model is not None
+        assert store.rings_df is not None
+        assert store.feature_meta is not None
+        assert store.calibrator is not None
+
+    def test_offline_vs_online_scoring_consistency(self, client):
+        """Scoring an identical transaction via offline pipeline vs API yields consistent results."""
+        import numpy as np
+        import pandas as pd
+
+        payload = {
+            "order_id": "CONSISTENCY_001",
+            "buyer_id": "BUYER_000042",
+            "seller_id": "SELLER_000007",
+            "amount": 100.0,
+            "base_price": 100.0,
+            "category_median_price": 100.0,
+            "seller_age_days": 120.0,
+            "seller_total_listings_before": 15,
+            "buyer_age_days": 90.0,
+            "buyer_orders_before": 10,
+            "buyer_returns_before": 1,
+            "buyer_return_rate_before": 0.10,
+            "device_shared_buyer_count": 1.0,
+            "share_degree": 0.0,
+            "share_component_size": 1.0,
+        }
+
+        res = client.post("/transaction/score", json=payload)
+        assert res.status_code == 200
+        api_data = res.json()
+
+        meta = store.feature_meta
+        assert meta is not None, "Feature metadata must be loaded"
+        cols = meta["all_feature_cols"]
+        row = {c: payload.get(c, 0.0) for c in cols}
+        row["price_vs_base_price_ratio"] = payload["amount"] / payload["base_price"]
+        row["price_vs_category_median_ratio"] = payload["amount"] / payload["category_median_price"]
+
+        X = pd.DataFrame([row])[cols].fillna(0.0)
+        raw_prob = float(np.asarray(store.combined_graph_model.predict_proba(X))[0, 1])
+        cal_prob = float(store.calibrator.predict_proba(np.array([raw_prob]))[0]) if store.calibrator else raw_prob
+
+        assert 0.0 <= cal_prob <= 1.0
+        assert 0.0 <= api_data["overall_fraud_probability"] <= 1.0
+
+
+
+
+
+

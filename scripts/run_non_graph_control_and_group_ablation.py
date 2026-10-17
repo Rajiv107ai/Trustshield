@@ -41,14 +41,15 @@ from graph_features import (
     attach_plain_aggregate_features,
     add_edge_weight_before,
 )
+from trustshield_project.robustness import (
+    SEEDS_20,
+    paired_stats_calc,
+    holm_bonferroni_correction,
+    train_xgb,
+)
 
 if hasattr(sys.stdout, "reconfigure"):
     getattr(sys.stdout, "reconfigure")(encoding="utf-8", errors="replace")
-
-SEEDS_20 = [
-    42, 101, 202, 303, 404, 505, 606, 707, 808, 909,
-    1001, 1102, 1203, 1304, 1405, 1506, 1607, 1708, 1809, 1910
-]
 
 GRAPH_COLS_S = ["share_degree", "share_component_size"]
 GRAPH_COLS_B = [
@@ -69,73 +70,6 @@ PLAIN_AGGREGATE_COLS = [
     "seller_top_buyer_share_prior",
     "buyer_seller_edge_weight_before",
 ]
-
-
-def paired_stats_calc(baseline_vals, new_vals):
-    diffs = np.array(new_vals) - np.array(baseline_vals)
-    n = len(diffs)
-    mean_d = float(np.mean(diffs))
-    std_d = float(np.std(diffs, ddof=1)) if n > 1 else 0.0
-    se_d = std_d / np.sqrt(n) if n > 1 else 0.0
-    t_crit = float(stats.t.ppf(0.975, df=n - 1)) if n > 1 else 1.96
-    ci_lower = mean_d - t_crit * se_d
-    ci_upper = mean_d + t_crit * se_d
-    cohens_d = (mean_d / std_d) if std_d > 1e-9 else 0.0
-    t_res = stats.ttest_rel(new_vals, baseline_vals) if (std_d > 1e-9 and n > 1) else None
-    p_val = float(t_res.pvalue) if t_res is not None and not np.isnan(t_res.pvalue) else 1.0
-    t_stat = float(t_res.statistic) if t_res is not None and not np.isnan(t_res.statistic) else 0.0
-    return {
-        "mean_diff": mean_d,
-        "std_diff": std_d,
-        "ci_95": [float(ci_lower), float(ci_upper)],
-        "cohens_d": float(cohens_d),
-        "t_stat": t_stat,
-        "p_value": p_val,
-    }
-
-
-def holm_bonferroni_correction(tests_dict: dict[str, float]) -> list[dict]:
-    """Applies step-down Holm-Bonferroni correction with ascending sort and running max."""
-    items = list(tests_dict.items())
-    # 1. Sort by raw p-value ascending
-    items.sort(key=lambda x: x[1])
-    m = len(items)
-    adjusted = []
-    running_max = 0.0
-    for i, (name, raw_p) in enumerate(items):
-        rank = i + 1  # 1-indexed
-        # 2. Step-down adjustment: (m - rank + 1) * p
-        adj_p = min(1.0, (m - rank + 1) * raw_p)
-        # 3. Running maximum to ensure monotonicity
-        running_max = max(running_max, adj_p)
-        adjusted.append({
-            "test_name": name,
-            "raw_p_value": float(raw_p),
-            "rank": rank,
-            "multiplier": m - rank + 1,
-            "holm_adjusted_p_value": float(running_max),
-            "significant_at_05": running_max < 0.05,
-        })
-    return adjusted
-
-
-def train_xgb(X_tr, y_tr, random_state=42):
-    pos = int(y_tr.sum())
-    neg = len(y_tr) - pos
-    clf = XGBClassifier(
-        n_estimators=300,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        scale_pos_weight=neg / max(pos, 1),
-        eval_metric="aucpr",
-        random_state=random_state,
-        n_jobs=-1,
-        verbosity=0,
-    )
-    clf.fit(X_tr.fillna(0.0), y_tr)
-    return clf
 
 
 def run_experiment():
