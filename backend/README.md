@@ -162,91 +162,69 @@ curl -X POST http://localhost:8000/transaction/explain \
 
 ---
 
-### 5. Real-Time Transaction SSE Stream
-- **`GET /stream/transactions?interval=2.0`**  
-  **Purpose:** Server-Sent Events (SSE) streaming endpoint for live fraud operations dashboards (`frontend/src/app/transactions/feed/`).  
-  **Key Features:**
-  - Pushes live scored transactions with calibrated probabilities and decision routing.
-  - Automatic 15-second heartbeat keepalive frames preventing proxy timeouts.
-  - Clean client disconnect cancellation lifecycle management.
-  - Bounded concurrency guarantees.
+### 5. Production Metrics & Observability
+- **`GET /system/benchmark`**: High-resolution empirical hardware benchmark returning percentile latencies across model inference, Trust Engine calibration, and graph feature evaluation.
 
 ---
 
-### 6. Production Metrics & Observability
-- **`GET /metrics`**: Prometheus text format exporter tracking scoring request counters, p50/p95/p99 latency histograms (`scoring_latency_seconds`), decision counters (`decisions_total`), and error fallbacks.
-- **`GET /system/benchmark`**: High-resolution empirical hardware benchmark returning percentile latencies across model inference, Trust Engine, Redis vector lookup, and Neo4j graph traversal.
-
----
-
-### 7. Collusion Fraud Rings Intelligence
+### 6. Collusion Fraud Rings Intelligence
 - **`GET /fraud-rings`**  
   **Query Parameters:**
   - `min_risk_score` (float, default: `0.0`): Filter rings above a composite risk threshold.
   - `limit` (int, default: `50`): Maximum number of ring clusters returned.
-  **Response:** Pre-ranked graph clusters with member nodes, collision counts, device/address densities, and burstiness statistics.
+  - `include_members` (bool, default: `false`): Include raw member identifier lists.
+  **Response:** Pre-ranked graph clusters with member counts, average risk score, density, and device/address statistics.
 
 ---
 
-### 8. Multimodal Listing Integrity
+### 7. Multimodal Listing Integrity
 - **`POST /listing/analyze`**  
-  **Purpose:** Analyzes product listings for catalog counterfeits and cross-seller image theft using CLIP visual-semantic embeddings and FAISS nearest-neighbor indexing.  
-  **Response:** Semantic similarity score, near-duplicate collision count, and cross-seller reuse flags.
+  **Purpose:** Analyzes product listings for catalog counterfeits and image-text mismatch using Phase 4 CLIP embeddings or TF-IDF fallback.  
+  **Response:** Semantic similarity score, risk level, and investigator explanation narrative.
 
 ---
 
-### 9. Return Abuse Evaluation
+### 8. Return Abuse Evaluation
 - **`POST /return/analyze`**  
-  **Purpose:** Evaluates return request risk based on historical return velocities, claim history, and seller return exposure.
+  **Purpose:** Evaluates return request risk based on historical return velocities, claim history, and seller return exposure using Phase 2 specialized XGBoost.
 
 ---
 
-## 🏗️ Services Integration Architecture (`backend/services/`)
+## 🏗️ Services Architecture (`backend/services/`)
 
-The backend encapsulates auxiliary infrastructure and domain logic into modular service singletons:
+The backend encapsulates core operational domains into zero-network-dependency service singletons:
 
-1. **`CacheService` (`backend/services/cache_service.py`)**:
-   - Manages connection pooling to the Redis feature store (`redis:6379`).
-   - Caches 16-dimensional GNN node embeddings and candidate fraud ring membership sets.
-   - Built-in circuit breaker fallback: seamlessly degrades to local memory cache if Redis is unavailable.
+1. **`MetricsService` (`backend/services/metrics_service.py`)**:
+   - Lightweight, zero-dependency latency and event metrics tracking using structured logging.
+   - Provides `@timing_metric` decorator and in-memory summary percentiles.
 
-2. **`GraphService` (`backend/services/graph_service.py`)**:
-   - Manages official Neo4j driver connections (`bolt://neo4j:7687`).
-   - Executes parameterized Cypher queries to extract 2-hop ego graphs and collusion paths.
-   - Graceful fallback: returns structured synthetic topology if the graph database is offline.
-
-3. **`AuditLogService` (`backend/services/audit_service.py`)**:
+2. **`AuditLogService` (`backend/services/audit_service.py`)**:
    - Append-only structured audit logger recording transaction decisions, model versions, and investigator interventions.
    - Thread-safe in-memory ring buffer with optional persistent file backend.
 
-4. **`InvestigationService` (`backend/services/investigation_service.py`)**:
-   - Orchestrates multi-source evidence extraction (scoring, graph, TreeSHAP).
+3. **`InvestigationService` (`backend/services/investigation_service.py`)**:
+   - Orchestrates multi-source evidence extraction (scoring, in-memory graph ring lookup, TreeSHAP).
    - Generates verified facts, executive summaries, and investigator action items.
-   - Enforces strict evidence grounding guard preventing unverified assertions.
+   - Enforces strict regex grounding guard preventing unverified assertions.
 
 ---
 
 ## ⚙️ Model Artifact Store (`model_loader.py`)
 
-The `ModelStore` singleton lazily initializes and caches production artifacts from `models/`:
-- `models/hybrid_model.joblib`: Phase 5 Hybrid XGBoost model.
-- `models/phase5_calibrator.joblib`: Phase 5 fitted Isotonic Probability Calibrator.
-- `models/combined_graph_model.joblib`: Phase 3 Tabular + Graph Random Forest fallback.
+The `ModelStore` singleton lazily initializes and caches authoritative production artifacts from `models/`:
+- `models/combined_graph_model.joblib`: Phase 3 Tabular + Point-in-Time Graph XGBoost/RF model.
 - `models/calibrator.joblib`: Phase 3 fitted Isotonic Probability Calibrator.
 - `models/fraud_rings.joblib`: Pre-computed candidate fraud ring clusters.
-- `models/buyer_embeddings.joblib` & `seller_embeddings.joblib`: Pre-computed GNN node representation lookups.
+- `models/product_catalog.parquet`: Standardized product catalog for multimodal integrity scoring.
 - `models/clip_cache/`: Offline cached CLIP embeddings with cryptographic metadata fingerprint verification.
 
 ---
 
-## 🌐 Orchestration & Service Mesh Integration
+## 🌐 Containerized Deployment
 
-The serving layer operates standalone or orchestrated within a containerized microservice mesh (`docker-compose.yml`):
-- **FastAPI Gateway (`trustshield-api`)**: Sub-20ms inference server exposing REST and OpenAPI documentation.
-- **Neo4j Property Graph (`trustshield-neo4j`)**: Multi-relational graph store mapping collusion communities, shared devices, and address networks.
-- **Redis In-Memory Feature Store (`trustshield-redis`)**: High-throughput sub-millisecond key-value lookup for 16-dimensional GNN embeddings and fraud ring member sets.
-- **Prometheus (`trustshield-prometheus`)**: Metrics collection scraping `/metrics` every 15s.
-- **Grafana (`trustshield-grafana`)**: Live dashboard visualization for latency percentiles and throughput.
+The serving layer operates as a single, lightweight container (`docker-compose.yml`):
+- **FastAPI Gateway (`trustshield-api`)**: Sub-25ms inference server exposing REST and OpenAPI documentation.
+- Zero external database dependencies: eliminates Neo4j, Redis, Prometheus, and Grafana containers.
 
 ### Environment Configuration (`.env.example`)
 Configure runtime settings by copying `.env.example`:

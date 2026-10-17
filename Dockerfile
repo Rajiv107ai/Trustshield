@@ -34,9 +34,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /install /usr/local
 
 # Copy application source and pre-trained model artifacts
+COPY pyproject.toml README.md ./
 COPY backend/ ./backend/
 COPY trustshield_project/ ./trustshield_project/
 COPY models/ ./models/
+RUN pip install --no-cache-dir --no-deps -e .
 
 # Security: non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
