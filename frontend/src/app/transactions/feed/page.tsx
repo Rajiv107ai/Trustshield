@@ -163,9 +163,9 @@ export default function TransactionFeedPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1B232D] text-xs font-mono">
-              {filtered.map((tx) => (
+              {filtered.map((tx, idx) => (
                 <tr
-                  key={tx.id + tx.timestamp}
+                  key={`${tx.id}-${tx.timestamp}-${idx}`}
                   className={`hover:bg-[#161F2A] transition-colors ${
                     tx.isNew ? "bg-blue-500/5 animate-pulse" : ""
                   }`}
