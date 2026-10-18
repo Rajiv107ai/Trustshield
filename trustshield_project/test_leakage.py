@@ -8,10 +8,13 @@ from baseline_model import TRAIN_END, VAL_END
 
 class TestFeatureSetSanity:
     BANNED_COLS = {
+        # Ground-truth labels and label-derived graph columns
         "is_fraudulent", "fraud_type", "price_anomaly", "image_mismatch",
         "fraud_ring_id", "displayed_product_id", "share_type", "fraud_linked",
         "graph_fraud_degree_ratio", "community_id",
+        # Model-output columns (feedback loop guard)
         "trust_score", "risk_score", "overall_fraud_probability",
+        "predicted_fraud", "decision", "model_reason_code", "model_probability",
     }
 
     def test_no_banned_columns_in_features(self, pipeline):
