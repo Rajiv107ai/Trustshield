@@ -229,14 +229,20 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 3. Quick Sanity Checks
 
-Run the end-to-end operational suite to verify that all 9 critical scenarios pass:
+Run the end-to-end operational suite, live HTTP verification, and production baseline invariance checks:
 
 ```bash
 # 9-case operational check (Normal, Collusion, Cold Start, Catalog Theft, etc.)
 python scripts/e2e_smoke_validation.py
 
-# Live API HTTP endpoint check
+# Live API HTTP endpoint check (10/10 endpoints verified)
 python scripts/smoke_test_api.py
+
+# Production invariance regression check (all 29 golden schema fields)
+python scripts/verify_production_invariance.py
+
+# High-precision HTTP scoring latency and throughput benchmark
+python scripts/benchmark_scoring_http.py
 ```
 
 ---
@@ -246,16 +252,19 @@ python scripts/smoke_test_api.py
 The codebase has extensive test coverage across backend routing, feature engineering, and anti-leakage invariants:
 
 ```bash
-# Run backend tests (97 tests)
-pytest backend/ -v
+# Run full automated test suite (316 passed, 12 skipped for optional external ABO dataset)
+pytest backend/ trustshield_project/ -v
 
-# Run core algorithm and feature pipeline tests (375 tests)
-pytest trustshield_project/ -v
+# Run temporal anti-leakage and 10-seed canary invariants
+pytest trustshield_project/test_leakage.py -v
 
-# Run strict static type checking (0 errors)
+# Run strict static type checking (0 errors, 0 warnings)
 pyright backend trustshield_project
 
-# Check frontend build
+# Run CI allowlist metric grounding guard
+python scripts/check_no_hardcoded_metrics.py
+
+# Verify clean Next.js 16 frontend production build
 cd frontend && npm run build
 ```
 

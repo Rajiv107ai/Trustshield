@@ -1,10 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { Activity, Search, ArrowUpRight, CheckCircle2, AlertTriangle, XCircle, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import {
+  Activity,
+  Search,
+  ArrowUpRight,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+} from "lucide-react";
 import { TrustShieldApi } from "@/lib/api/client";
 import { StreamTransactionEvent } from "@/lib/types/api";
+import { DecisionBadge } from "@/components/ui/DecisionBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  TransactionDetailDrawer,
+  DrawerTransactionData,
+} from "@/components/transactions/TransactionDetailDrawer";
 
 interface FeedItem {
   id: string;
@@ -36,6 +48,29 @@ export default function TransactionFeedPage() {
   const [search, setSearch] = useState<string>("");
   const [items, setItems] = useState<FeedItem[]>(INITIAL_FEED_DATA);
   const [streamStatus, setStreamStatus] = useState<"LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING">("CONNECTING");
+  const [selectedDrawerTx, setSelectedDrawerTx] = useState<DrawerTransactionData | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const handleOpenDrawer = (tx: FeedItem) => {
+    setSelectedDrawerTx({
+      order_id: tx.id,
+      amount: tx.amount,
+      user_id: tx.buyer,
+      risk_score: tx.risk,
+      decision: tx.decision,
+      timestamp: tx.timestamp,
+      account_age_days: tx.decision === "ALLOW" ? 210 : tx.decision === "REVIEW" ? 2 : 0,
+      is_missing_device: tx.decision === "BLOCK" || tx.decision === "HOLD",
+      top_drivers: [
+        {
+          name: tx.reason,
+          impact: tx.decision === "ALLOW" ? "SAFE" : tx.decision === "REVIEW" ? "MEDIUM_RISK" : "HIGH_RISK",
+          description: `Telemetry flagged by ${tx.reason}`,
+        },
+      ],
+    });
+    setIsDrawerOpen(true);
+  };
 
   useEffect(() => {
     const cleanup = TrustShieldApi.createTransactionEventSource(
@@ -76,55 +111,56 @@ export default function TransactionFeedPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold tracking-tight text-[#E8EDF3] flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-400" />
-              <span>Transaction Live Stream & Audit Feed</span>
+            <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <span>Transaction Live Stream &amp; Audit Feed</span>
             </h1>
 
             {/* Stream Status Indicator */}
             {streamStatus === "LIVE" && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 LIVE STREAM
               </span>
             )}
             {streamStatus === "CONNECTING" && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 CONNECTING
               </span>
             )}
             {streamStatus === "RECONNECTING" && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                 <Wifi className="w-3 h-3 animate-pulse" />
                 RECONNECTING
               </span>
             )}
             {streamStatus === "DISCONNECTED" && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-zinc-500/10 text-zinc-400 border border-zinc-500/30">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/30">
                 <WifiOff className="w-3 h-3" />
                 OFFLINE REPLAY
               </span>
             )}
           </div>
-          <p className="text-xs text-[#8995A3] mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
             Real-time SSE event stream scoring incoming orders dynamically via Canonical Trust Engine.
           </p>
         </div>
 
         {/* Filter Badges */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {["ALL", "ALLOW", "REVIEW", "HOLD", "BLOCK"].map((dec) => (
             <button
               key={dec}
               onClick={() => setFilterDecision(dec)}
-              className={`px-2.5 py-1 rounded text-xs font-mono font-medium border transition-colors ${
+              className={`px-3 py-1 rounded-lg text-xs font-mono font-medium border transition-colors focus-ring ${
                 filterDecision === dec
-                  ? "bg-blue-600 border-blue-500 text-white"
-                  : "bg-[#111821] border-[#202A35] text-[#8995A3] hover:text-[#E8EDF3]"
+                  ? "bg-blue-600 border-blue-500 text-white shadow-sm"
+                  : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]"
               }`}
             >
               {dec}
@@ -134,106 +170,127 @@ export default function TransactionFeedPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="flex items-center px-3 py-2 rounded-lg bg-[#111821] border border-[#202A35]">
-        <Search className="w-4 h-4 text-[#8995A3] mr-2" />
+      <div className="flex items-center px-3.5 py-2.5 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-sm">
+        <Search className="w-4 h-4 text-[var(--text-muted)] mr-2 shrink-0" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter by Order ID, Buyer ID, Seller ID, or forensic trigger..."
-          className="w-full bg-transparent text-xs text-[#E8EDF3] placeholder-[#596574] focus:outline-none font-mono"
+          placeholder="Filter by Order ID, Buyer ID, Seller ID, or forensic trigger reason..."
+          className="w-full bg-transparent text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none font-mono"
         />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] px-2"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Feed Table */}
-      <div className="p-4 rounded-xl border border-[#202A35] bg-[#111821]">
+      <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-[#202A35] text-[10px] uppercase font-mono text-[#596574]">
-                <th className="py-2 px-3">Timestamp</th>
-                <th className="py-2 px-3">Order ID</th>
-                <th className="py-2 px-3">Buyer Account</th>
-                <th className="py-2 px-3">Seller Account</th>
-                <th className="py-2 px-3">Amount</th>
-                <th className="py-2 px-3">Calibrated Risk</th>
-                <th className="py-2 px-3">Decision</th>
-                <th className="py-2 px-3">Forensic Trigger</th>
-                <th className="py-2 px-3 text-right">Inspect</th>
+              <tr className="border-b border-[var(--border)] text-[10px] uppercase font-mono text-[var(--text-muted)]">
+                <th className="py-2.5 px-3">Timestamp</th>
+                <th className="py-2.5 px-3">Order ID</th>
+                <th className="py-2.5 px-3">Buyer Account</th>
+                <th className="py-2.5 px-3">Seller Account</th>
+                <th className="py-2.5 px-3">Amount</th>
+                <th className="py-2.5 px-3">Calibrated Risk</th>
+                <th className="py-2.5 px-3">Operational Decision</th>
+                <th className="py-2.5 px-3">Forensic Trigger</th>
+                <th className="py-2.5 px-3 text-right">Inspect</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1B232D] text-xs font-mono">
+            {/* BEGIN GENERATED */}
+            <tbody className="divide-y divide-[var(--border)] text-xs font-mono">
               {filtered.map((tx, idx) => (
                 <tr
                   key={`${tx.id}-${tx.timestamp}-${idx}`}
-                  className={`hover:bg-[#161F2A] transition-colors ${
+                  className={`hover:bg-[var(--surface-elevated)]/60 transition-colors ${
                     tx.isNew ? "bg-blue-500/5 animate-pulse" : ""
                   }`}
                 >
-                  <td className="py-2.5 px-3 text-[#8995A3] whitespace-nowrap">{tx.timestamp}</td>
-                  <td className="py-2.5 px-3 font-semibold text-[#E8EDF3]">{tx.id}</td>
-                  <td className="py-2.5 px-3 text-blue-400">{tx.buyer}</td>
-                  <td className="py-2.5 px-3 text-[#A2AEBD]">{tx.seller}</td>
-                  <td className="py-2.5 px-3 text-[#E8EDF3] font-sans font-medium">
+                  <td className="py-2.5 px-3 text-[var(--text-muted)] whitespace-nowrap">{tx.timestamp}</td>
+                  <td className="py-2.5 px-3 font-semibold text-[var(--text-primary)]">{tx.id}</td>
+                  <td className="py-2.5 px-3 text-blue-600 dark:text-blue-400 font-semibold">{tx.buyer}</td>
+                  <td className="py-2.5 px-3 text-[var(--text-secondary)]">{tx.seller}</td>
+                  <td className="py-2.5 px-3 text-[var(--text-primary)] font-sans font-medium">
                     ${tx.amount.toFixed(2)}
                   </td>
                   <td className="py-2.5 px-3">
-                    <span
-                      className={`font-bold ${
-                        tx.risk >= 0.7
-                          ? "text-rose-400"
-                          : tx.risk >= 0.4
-                          ? "text-amber-400"
-                          : "text-emerald-400"
-                      }`}
-                    >
-                      {(tx.risk * 100).toFixed(1)}%
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-12 h-1.5 rounded-full bg-[var(--surface-elevated)] overflow-hidden border border-[var(--border)]">
+                        <div
+                          style={{ width: `${Math.min(100, Math.max(0, tx.risk * 100))}%` }}
+                          className={`h-full ${
+                            tx.risk >= 0.7 ? "bg-rose-500" : tx.risk >= 0.4 ? "bg-amber-500" : "bg-emerald-500"
+                          }`}
+                        />
+                      </div>
+                      <span
+                        className={`font-bold ${
+                          tx.risk >= 0.7
+                            ? "text-rose-600 dark:text-rose-400"
+                            : tx.risk >= 0.4
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-emerald-600 dark:text-emerald-400"
+                        }`}
+                      >
+                        {(tx.risk * 100).toFixed(1)}%
+                      </span>
+                    </div>
                   </td>
                   <td className="py-2.5 px-3">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
-                        tx.decision === "BLOCK"
-                          ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
-                          : tx.decision === "HOLD"
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                          : tx.decision === "REVIEW"
-                          ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
-                          : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                      }`}
-                    >
-                      {tx.decision === "BLOCK" && <XCircle className="w-3 h-3" />}
-                      {tx.decision === "HOLD" && <AlertTriangle className="w-3 h-3" />}
-                      {tx.decision === "REVIEW" && <Activity className="w-3 h-3" />}
-                      {tx.decision === "ALLOW" && <CheckCircle2 className="w-3 h-3" />}
-                      {tx.decision}
-                    </span>
+                    <DecisionBadge decision={tx.decision} size="sm" />
                   </td>
-                  <td className="py-2.5 px-3 text-[11px] text-[#8995A3] max-w-[200px] truncate">
+                  <td className="py-2.5 px-3 text-[11px] text-[var(--text-secondary)] max-w-[200px] truncate">
                     {tx.reason}
                   </td>
                   <td className="py-2.5 px-3 text-right">
-                    <Link
-                      href={`/transactions?preset=${tx.id}`}
-                      className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 font-sans font-medium"
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDrawer(tx);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-sans font-medium cursor-pointer"
                     >
-                      <span>Analyze</span>
+                      <span>Quick View</span>
                       <ArrowUpRight className="w-3 h-3" />
-                    </Link>
+                    </button>
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-[#596574] font-sans text-xs">
-                    No transactions match the active search or decision filter.
-                  </td>
-                </tr>
-              )}
             </tbody>
+            {/* END GENERATED */}
           </table>
+
+          {filtered.length === 0 && (
+            <div className="py-8">
+              <EmptyState
+                title="No Transactions Match Filters"
+                description={`No events matched the decision filter '${filterDecision}' or query '${search}'.`}
+                actionLabel="Reset All Filters"
+                onAction={() => {
+                  setFilterDecision("ALL");
+                  setSearch("");
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Transaction Detail Slide-Over Drawer */}
+      <TransactionDetailDrawer
+        transaction={selectedDrawerTx}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
     </div>
   );
 }

@@ -8,14 +8,17 @@ Endpoints:
 - POST /investigation/generate-dossier -- Evidence-grounded forensic dossier generation
 """
 
+import asyncio
 import logging
 import sys
 import time
-from typing import List
+from datetime import datetime, timezone
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
 from backend.auth import Role, authenticate_request, require_role
 from backend.features import _risk_label
@@ -30,6 +33,8 @@ from backend.schemas import (
     ListingScoreResponse,
     ReturnScoreRequest,
     ReturnScoreResponse,
+    StreamTransactionEvent,
+    TransactionScoreRequest,
 )
 from backend.services.investigation_service import investigation_service
 from backend.services.metrics_service import metrics_service
@@ -233,6 +238,10 @@ def analyze_return(req: ReturnScoreRequest):
     ])
 
     clean_reason = req.reason.strip().lower() if isinstance(req.reason, str) else ""
+    ret_rate = req.buyer_return_rate_before
+    if req.buyer_orders_before_return > 0 and req.buyer_prior_returns > 0 and ret_rate == 0.0:
+        ret_rate = float(min(1.0, req.buyer_prior_returns / req.buyer_orders_before_return))
+
     features = {
         "days_to_return": req.days_to_return,
         "buyer_age_days_at_return": req.buyer_age_days_at_return,
@@ -240,7 +249,7 @@ def analyze_return(req: ReturnScoreRequest):
         "order_amount": req.order_amount,
         "buyer_prior_returns": float(req.buyer_prior_returns),
         "buyer_orders_before_return": float(req.buyer_orders_before_return),
-        "buyer_return_rate_before": req.buyer_return_rate_before,
+        "buyer_return_rate_before": ret_rate,
         "seller_prior_returns": float(req.seller_prior_returns),
         "seller_orders_before_return": float(req.seller_orders_before_return),
         "seller_return_rate_before": req.seller_return_rate_before,
@@ -304,3 +313,127 @@ def generate_forensic_dossier(req: DossierRequest):
         metrics_service.dossier_total.labels(entity_type=req.entity_type, status="error").inc()
         logger.error("Dossier generation failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal dossier generation failed.")
+
+
+STREAM_SEEDS = [
+    {
+        "buyer_id": "BUYER_STREAM_01",
+        "seller_id": "SELLER_STREAM_01",
+        "amount": 45.0,
+        "base_price": 50.0,
+        "category_median_price": 48.0,
+        "buyer_orders_before": 12,
+        "buyer_returns_before": 0,
+        "buyer_age_days": 150.0,
+        "seller_age_days": 320.0,
+        "seller_total_listings_before": 80,
+    },
+    {
+        "buyer_id": "BUYER_STREAM_02",
+        "seller_id": "SELLER_STREAM_02",
+        "amount": 890.0,
+        "base_price": 420.0,
+        "category_median_price": 400.0,
+        "buyer_orders_before": 1,
+        "buyer_returns_before": 0,
+        "buyer_age_days": 2.0,
+        "seller_age_days": 15.0,
+        "seller_total_listings_before": 6,
+        "device_shared_buyer_count": 5.0,
+        "share_degree": 4.0,
+        "share_component_size": 6.0,
+    },
+    {
+        "buyer_id": "BUYER_STREAM_03",
+        "seller_id": "SELLER_STREAM_03",
+        "amount": 320.0,
+        "base_price": 320.0,
+        "category_median_price": 280.0,
+        "buyer_orders_before": 6,
+        "buyer_returns_before": 5,
+        "buyer_age_days": 90.0,
+        "seller_age_days": 200.0,
+        "seller_total_listings_before": 45,
+    },
+    {
+        "buyer_id": "BUYER_STREAM_04",
+        "seller_id": "SELLER_STREAM_04",
+        "amount": 125.0,
+        "base_price": 130.0,
+        "category_median_price": 128.0,
+        "buyer_orders_before": 5,
+        "buyer_returns_before": 0,
+        "buyer_age_days": 60.0,
+        "seller_age_days": 180.0,
+        "seller_total_listings_before": 25,
+    },
+]
+
+
+@router.get("/stream/transactions", tags=["streaming"], dependencies=[Depends(authenticate_request)])
+@router.get("/transactions/stream", tags=["streaming"], include_in_schema=False, dependencies=[Depends(authenticate_request)])
+async def stream_transactions(
+    request: Request,
+    interval: float = Query(default=3.0, ge=0.5, le=10.0, description="Stream event interval in seconds"),
+    limit: Optional[int] = Query(default=None, ge=1, le=1000, description="Optional maximum event count"),
+):
+    """
+    Real-time Server-Sent Events (SSE) live transaction feed.
+    Streams continuously evaluated incoming marketplace transactions
+    scored on the fly by the Canonical Trust Engine.
+    """
+    if not store.is_loaded:
+        try:
+            store.load()
+        except Exception:
+            raise HTTPException(status_code=503, detail="Models not loaded yet.")
+
+    async def event_generator():
+        seq = 1000
+        count = 0
+        while not await request.is_disconnected():
+            if limit is not None and count >= limit:
+                break
+            tmpl = dict(STREAM_SEEDS[seq % len(STREAM_SEEDS)])
+            seq += 1
+            count += 1
+            ord_id = f"ORD_LIVE_{79000 + seq}"
+            tmpl["order_id"] = ord_id
+
+            score_req = TransactionScoreRequest(**tmpl)
+            score_res = score_transaction(score_req)
+            now_str = datetime.now(timezone.utc).strftime("%H:%M:%S")
+
+            event = StreamTransactionEvent(
+                event_id=f"EVT_{ord_id}",
+                timestamp=now_str,
+                order_id=ord_id,
+                buyer_id=score_req.buyer_id or "",
+                seller_id=score_req.seller_id or "",
+                amount=score_req.amount or 0.0,
+                risk_score=score_res.overall_fraud_probability,
+                calibrated_risk=float(score_res.calibrated_fraud_probability if score_res.calibrated_fraud_probability is not None else score_res.overall_fraud_probability),
+                policy_risk_score=score_res.policy_risk_score,
+                risk_level=score_res.risk_label,
+                decision=score_res.decision,
+                trust_score=score_res.trust_score,
+                reason_codes=score_res.reason_codes,
+                source="live_stream",
+                is_simulation=False,
+            )
+            data_str = event.model_dump_json()
+            yield f"data: {data_str}\n\n"
+            try:
+                await asyncio.sleep(interval)
+            except asyncio.CancelledError:
+                break
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

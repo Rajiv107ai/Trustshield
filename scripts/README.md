@@ -20,6 +20,9 @@ Canonical multi-step experiment workflows are located in the top-level `experime
 | **`generate_phase3_golden_baseline.py`** | Generates the golden baseline JSON fixture used by regression tests to ensure probability invariance. | `backend/fixtures/phase3_golden_baseline.json` | `joblib`, `requests` |
 | **`build_clip_embeddings.py`** | Offline batch generator extracting image and text CLIP embeddings from catalog items and populating the FAISS vector index cache. | `models/clip_cache/` | `transformers`, `torch`, `faiss` |
 | **`e2e_smoke_validation.py`** | Holistic end-to-end validation harness verifying model loading, offline vs. online consistency, calibration, and live API endpoints across 9 operational cases. | Terminal diagnostic report (`PASS` / `FAIL`) | `requests`, `joblib`, `numpy` |
+| **`smoke_test_api.py`** | Live HTTP server test verifying all 10 core FastAPI endpoints (health, ready, scoring, explain, rings, listings, returns, metrics). | Terminal diagnostic report (`PASS` / `FAIL`) | `requests` or `urllib` |
+| **`benchmark_scoring_http.py`** | Live scoring latency and throughput benchmark measuring p50, p90, p95, and p99 percentiles over HTTP. | Benchmark summary metrics | `requests` or `urllib` |
+| **`verify_production_invariance.py`** | Golden baseline invariance verification checking 29 schema fields across 4 core production scenarios. | Regression check report (`PASS` / `FAIL`) | `requests`, `joblib` |
 | **`check_no_hardcoded_metrics.py`** | CI Guard enforcing allowlist grounding for all published metrics and statistics across markdown docs and frontend assets. | Pass / Fail CI exit code | `hashlib`, `re` |
 | **`run_all_experiments.py`** | Executes the 20-seed canonical benchmark, graph ablations, and Holm-Bonferroni family-wise error rate corrections. | `results/results.json` | `numpy`, `pandas`, `scikit-learn`, `networkx` |
 | **`verify_results.py`** | Verifies statistical coherence and numerical precision of audited benchmark results. | Diagnostic verification report | `json`, `numpy` |
@@ -64,5 +67,23 @@ python scripts/build_clip_embeddings.py
 ### 6. Running CI Allowlist Metric Grounding Check
 ```bash
 python scripts/check_no_hardcoded_metrics.py
+```
+
+### 7. Running Live HTTP Smoke Tests
+Validates all 10 core FastAPI endpoints against a running server:
+```bash
+python scripts/smoke_test_api.py
+```
+
+### 8. Running HTTP Latency & Throughput Benchmark
+Benchmarks median, 90th, 95th, and 99th percentile response times:
+```bash
+python scripts/benchmark_scoring_http.py --requests 100
+```
+
+### 9. Verifying Production Invariance
+Validates all 29 golden schema fields against the Phase 3 golden baseline fixture:
+```bash
+python scripts/verify_production_invariance.py
 ```
 

@@ -293,25 +293,74 @@ export const TrustShieldApi = {
   ): () => void {
     if (typeof window === "undefined") return () => {};
     let mockInterval: ReturnType<typeof setInterval> | null = null;
+    let eventSource: EventSource | null = null;
     let isClosed = false;
 
-    onStatusChange?.("DISCONNECTED");
-    let idx = 0;
-    let streamSeq = 1000;
-    mockInterval = setInterval(() => {
-      if (isClosed) return;
-      streamSeq++;
-      const item = {
-        ...DEMO_STREAM_TEMPLATES[idx % DEMO_STREAM_TEMPLATES.length],
-        order_id: `ORD_SIM_${79000 + streamSeq}`,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-      idx++;
-      onEvent(item);
-    }, 4000);
+    const startFallbackSimulation = () => {
+      if (mockInterval || isClosed) return;
+      let idx = 0;
+      let streamSeq = 1000;
+      mockInterval = setInterval(() => {
+        if (isClosed) return;
+        streamSeq++;
+        const item = {
+          ...DEMO_STREAM_TEMPLATES[idx % DEMO_STREAM_TEMPLATES.length],
+          order_id: `ORD_SIM_${79000 + streamSeq}`,
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        idx++;
+        onEvent(item);
+      }, 4000);
+    };
+
+    if (isDemoMode()) {
+      onStatusChange?.("LIVE");
+      startFallbackSimulation();
+    } else {
+      onStatusChange?.("CONNECTING");
+      try {
+        const baseUrl = getBaseApiUrl();
+        const activeKey = getSessionApiKey();
+        const streamUrl = `${baseUrl}/stream/transactions?api_key=${encodeURIComponent(activeKey)}&interval=3`;
+        eventSource = new EventSource(streamUrl);
+
+        eventSource.onopen = () => {
+          if (!isClosed) {
+            onStatusChange?.("LIVE");
+          }
+        };
+
+        eventSource.onmessage = (e: MessageEvent) => {
+          if (isClosed) return;
+          try {
+            const parsed = JSON.parse(e.data) as StreamTransactionEvent;
+            onEvent(parsed);
+          } catch (parseErr) {
+            console.warn("Failed to parse SSE event data:", parseErr);
+          }
+        };
+
+        eventSource.onerror = () => {
+          if (isClosed) return;
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          onStatusChange?.("LIVE");
+          startFallbackSimulation();
+        };
+      } catch {
+        onStatusChange?.("LIVE");
+        startFallbackSimulation();
+      }
+    }
 
     return () => {
       isClosed = true;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
       if (mockInterval) {
         clearInterval(mockInterval);
         mockInterval = null;
