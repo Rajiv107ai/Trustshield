@@ -204,9 +204,26 @@ class AdvancedTrustEngine:
             raise ValueError(f"Feedback loop violation: features contain model outputs: {violations}")
 
     def aggregate_risk(self, detector_scores: Dict[str, float]) -> Tuple[float, str]:
-        """Direct calibrated probability pass-through without heuristic corruption."""
-        risk = float(detector_scores.get("tabular_risk", next(iter(detector_scores.values())) if detector_scores else 0.0))
-        return round(float(np.clip(risk, 0.0, 1.0)), 4), "calibrated_probability_pass_through"
+        """Direct calibrated probability pass-through without heuristic corruption.
+        
+        Preserves calibrated model probabilities when tabular_risk is present;
+        falls back to normalized component weights only when primary model is absent.
+        """
+        if "tabular_risk" in detector_scores:
+            risk = float(detector_scores["tabular_risk"])
+            method = "calibrated_probability_pass_through"
+        elif detector_scores and hasattr(self, "norm_weights"):
+            active_weights = {k: self.norm_weights.get(k, 0.0) for k in detector_scores}
+            w_sum = sum(active_weights.values())
+            risk = sum((w / w_sum) * float(detector_scores[k]) for k, w in active_weights.items()) if w_sum > 0 else float(next(iter(detector_scores.values())))
+            method = "weighted_detector_fallback"
+        elif detector_scores:
+            risk = float(next(iter(detector_scores.values())))
+            method = "single_detector_fallback"
+        else:
+            risk = 0.0
+            method = "zero_risk_default"
+        return round(float(np.clip(risk, 0.0, 1.0)), 4), method
 
     def score(
         self,
@@ -218,15 +235,24 @@ class AdvancedTrustEngine:
         if not detector_scores and model_probability is None:
             raise ValueError("detector_scores dictionary cannot be empty when model_probability is not provided.")
 
-        # P0 Fix: Direct calibrated probability pass-through (never diluted by heuristic blending)
+        # Authoritative calibrated probability pass-through (never diluted by heuristic blending)
         if model_probability is not None:
             risk = float(model_probability)
+            agg_method = "calibrated_probability_pass_through"
         elif "tabular_risk" in detector_scores:
             risk = float(detector_scores["tabular_risk"])
+            agg_method = "calibrated_probability_pass_through"
+        elif detector_scores and hasattr(self, "norm_weights"):
+            active_weights = {k: self.norm_weights.get(k, 0.0) for k in detector_scores}
+            w_sum = sum(active_weights.values())
+            risk = sum((w / w_sum) * float(detector_scores[k]) for k, w in active_weights.items()) if w_sum > 0 else float(next(iter(detector_scores.values())))
+            agg_method = "weighted_detector_fallback"
         elif detector_scores:
             risk = float(next(iter(detector_scores.values())))
+            agg_method = "calibrated_probability_pass_through"
         else:
             risk = 0.0
+            agg_method = "calibrated_probability_pass_through"
 
         risk = round(float(np.clip(risk, 0.0, 1.0)), 4)
         trust_score = round(100.0 * (1.0 - risk), 2)
@@ -292,7 +318,7 @@ class AdvancedTrustEngine:
             conformal_prediction_set=pred_set,
             reason_codes=reasons,
             detector_scores={k: round(float(v), 4) for k, v in detector_scores.items()},
-            aggregation_method_used="calibrated_probability_pass_through",
+            aggregation_method_used=agg_method,
         )
 
 

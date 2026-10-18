@@ -110,7 +110,7 @@ export default function ListingIntelligencePage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-[#E8EDF3] flex items-center gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
             <Tag className="w-5 h-5 text-cyan-400" />
             <span>Multimodal Listing &amp; Counterfeit Intelligence</span>
             {viewMode === "executive" ? (
@@ -123,20 +123,20 @@ export default function ListingIntelligencePage() {
               </span>
             )}
           </h1>
-          <p className="text-xs text-[#8995A3] mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
             Vision-language CLIP representations and sub-millisecond FAISS vector similarity detecting stolen imagery and counterfeit listings.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111821] border border-[#202A35] text-xs font-mono">
-          <span className="text-[#8995A3]">Index:</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-xs font-mono">
+          <span className="text-[var(--text-secondary)]">Index:</span>
           <span className="text-cyan-400 font-semibold">FAISS Inner Product (Normalized Cosine)</span>
         </div>
       </div>
 
       {/* Preset Scenario Selector */}
       <div className="space-y-2">
-        <div className="text-xs font-semibold text-[#8995A3] uppercase tracking-wider flex items-center justify-between">
+        <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center justify-between">
           <span>Test Scenarios (Pre-configured Multimodal Audits)</span>
           <span className="text-[10px] font-mono text-[#596574]">Click to execute instant audit</span>
         </div>
@@ -151,7 +151,7 @@ export default function ListingIntelligencePage() {
                 className={`p-3.5 rounded-xl border text-left transition-all ${
                   isSelected
                     ? "bg-[#151D27] border-cyan-500/50 ring-1 ring-cyan-500/30 shadow-md shadow-cyan-500/10"
-                    : "bg-[#111821] border-[#202A35] hover:border-[#2E3C4D] hover:bg-[#131B24]"
+                    : "bg-[var(--surface)] border-[var(--border)] hover:border-[#2E3C4D] hover:bg-[#131B24]"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -168,8 +168,8 @@ export default function ListingIntelligencePage() {
                   </span>
                   {isSelected && <span className="text-xs font-mono font-bold text-cyan-400">ACTIVE</span>}
                 </div>
-                <div className="text-xs font-semibold text-[#E8EDF3] mt-2">{p.name}</div>
-                <div className="text-[11px] text-[#8995A3] mt-1 line-clamp-2 leading-relaxed">{p.description}</div>
+                <div className="text-xs font-semibold text-[var(--text-primary)] mt-2">{p.name}</div>
+                <div className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2 leading-relaxed">{p.description}</div>
               </button>
             );
           })}
@@ -179,9 +179,9 @@ export default function ListingIntelligencePage() {
       {/* Main Analysis Form & Visual Results */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Col: Listing Ingestion Form */}
-        <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
+        <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3]">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
               Listing Inspector Inputs
             </span>
             <span className="text-[10px] font-mono text-cyan-400">POST /listing/analyze</span>
@@ -194,12 +194,12 @@ export default function ListingIntelligencePage() {
               { key: "displayed_product_id", label: "Displayed Product ID" },
             ] as const).map(({ key, label }) => (
               <div key={key}>
-                <label className="text-[11px] text-[#8995A3] block mb-1">{label}</label>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">{label}</label>
                 <input
                   type="text"
                   value={(formData[key] as string) || ""}
                   onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                  className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
+                  className="w-full bg-[var(--surface-elevated)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none"
                 />
               </div>
             ))}
@@ -212,12 +212,12 @@ export default function ListingIntelligencePage() {
                 { key: "seller_listings_before", label: "Seller Prior Listings", parse: parseInt },
               ] as const).map(({ key, label, parse }) => (
                 <div key={key}>
-                  <label className="text-[11px] text-[#8995A3] block mb-1">{label}</label>
+                  <label className="text-[11px] text-[var(--text-secondary)] block mb-1">{label}</label>
                   <input
                     type="number"
                     value={formData[key] ?? 0}
                     onChange={(e) => setFormData({ ...formData, [key]: parse(e.target.value) || 0 })}
-                    className="w-full bg-[#0E131A] border border-[#202A35] rounded-md px-3 py-1.5 text-[#E8EDF3] focus:border-cyan-500 focus:outline-none"
+                    className="w-full bg-[var(--surface-elevated)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
               ))}
@@ -247,9 +247,9 @@ export default function ListingIntelligencePage() {
                   : "Backend Service Unavailable"}
               </span>
             </div>
-            <p className="text-xs text-[#E8EDF3] font-mono leading-relaxed">{errorState.message}</p>
+            <p className="text-xs text-[var(--text-primary)] font-mono leading-relaxed">{errorState.message}</p>
             {errorState.isAuth ? (
-              <p className="text-[11px] text-[#8995A3]">
+              <p className="text-[11px] text-[var(--text-secondary)]">
                 Authentication credentials were not provided or were rejected. Please configure your API key in{" "}
                 <a href="/settings" className="text-cyan-400 underline font-semibold">
                   Settings
@@ -257,7 +257,7 @@ export default function ListingIntelligencePage() {
                 or switch to Demo Mode.
               </p>
             ) : (
-              <p className="text-[11px] text-[#8995A3]">
+              <p className="text-[11px] text-[var(--text-secondary)]">
                 The multimodal analysis endpoint is unreachable or experienced a server error. No fabricated scores will be displayed.
               </p>
             )}
@@ -278,7 +278,7 @@ export default function ListingIntelligencePage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xl font-bold font-mono text-[#E8EDF3]">
+                    <span className="text-xl font-bold font-mono text-[var(--text-primary)]">
                       {result.fake_listing_probability > 0.5 ? "SUSPICIOUS / COUNTERFEIT LISTING" : "VERIFIED AUTHENTIC LISTING"}
                     </span>
                     <span
@@ -291,7 +291,7 @@ export default function ListingIntelligencePage() {
                       Risk: {(result.fake_listing_probability * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="text-xs text-[#8995A3] mt-1.5 font-mono">
+                  <div className="text-xs text-[var(--text-secondary)] mt-1.5 font-mono">
                     Model: <span className="text-cyan-400">{result.model_used}</span> · CLIP Engine:{" "}
                     <span className={result.clip_scored && isLive ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
                       {result.clip_scored && isLive ? "ViT-B/32 Active" : "TF-IDF / Heuristic Fallback"}
@@ -300,7 +300,7 @@ export default function ListingIntelligencePage() {
                 </div>
 
                 <div className="text-left sm:text-right">
-                  <div className="text-[10px] text-[#8995A3] font-mono uppercase tracking-wider">
+                  <div className="text-[10px] text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                     FAISS Cosine Similarity
                   </div>
                   <div
@@ -314,7 +314,7 @@ export default function ListingIntelligencePage() {
                   >
                     {(result.multimodal_similarity_score * 100).toFixed(1)}%
                   </div>
-                  <div className="text-[10px] text-[#8995A3] font-mono mt-0.5">
+                  <div className="text-[10px] text-[var(--text-secondary)] font-mono mt-0.5">
                     {result.multimodal_similarity_score > 0.90 && result.fake_listing_probability > 0.5
                       ? "Stolen Image Collision"
                       : result.multimodal_similarity_score < 0.35
@@ -326,13 +326,13 @@ export default function ListingIntelligencePage() {
             </div>
 
             {/* Side-by-Side Visual Comparison Cards with Real Images */}
-            <div className="p-5 rounded-xl border border-[#202A35] bg-[#111821] space-y-4">
+            <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-wider text-[#E8EDF3] flex items-center gap-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
                   <Layers className="w-4 h-4 text-cyan-400" />
                   <span>Visual Similarity &amp; Catalog Evidence</span>
                 </div>
-                <div className="text-[11px] font-mono text-[#8995A3]">
+                <div className="text-[11px] font-mono text-[var(--text-secondary)]">
                   512-Dimensional CLIP Embedding Projection
                 </div>
               </div>
@@ -348,7 +348,7 @@ export default function ListingIntelligencePage() {
                     tagColor: "text-cyan-300 border-cyan-500/30",
                     captionLabel: "Caption:",
                     captionVal: activePreset.sellerImageTitle,
-                    captionColor: "text-[#E8EDF3]",
+                    captionColor: "text-[var(--text-primary)]",
                   },
                   {
                     header: "CATALOG REFERENCE MATCH",
@@ -362,19 +362,19 @@ export default function ListingIntelligencePage() {
                     captionColor: "text-blue-400",
                   },
                 ].map((card, i) => (
-                  <div key={i} className="p-4 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-3">
+                  <div key={i} className="p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-[#8995A3]">{card.header}</span>
+                      <span className="text-[var(--text-secondary)]">{card.header}</span>
                       <span className={card.statusColor}>{card.statusText}</span>
                     </div>
-                    <div className="relative h-48 rounded-lg overflow-hidden border border-[#202A35] bg-black flex items-center justify-center">
+                    <div className="relative h-48 rounded-lg overflow-hidden border border-[var(--border)] bg-black flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={card.img} alt={card.header} className="w-full h-full object-contain" />
                       <div className={`absolute top-2 right-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur text-[10px] font-mono border ${card.tagColor}`}>
                         {card.tag}
                       </div>
                     </div>
-                    <div className="text-[11px] font-mono text-[#8995A3]">
+                    <div className="text-[11px] font-mono text-[var(--text-secondary)]">
                       {card.captionLabel} <span className={card.captionColor}>{card.captionVal}</span>
                     </div>
                   </div>
@@ -382,10 +382,10 @@ export default function ListingIntelligencePage() {
               </div>
 
               {/* Dynamic Visual Alignment Gauge */}
-              <div className="p-3.5 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-2">
+              <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-2">
                 <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-[#8995A3]">Visual Hash Alignment Spectrum</span>
-                  <span className="text-[#E8EDF3] font-semibold">
+                  <span className="text-[var(--text-secondary)]">Visual Hash Alignment Spectrum</span>
+                  <span className="text-[var(--text-primary)] font-semibold">
                     Similarity: {(result.multimodal_similarity_score * 100).toFixed(1)}%
                   </span>
                 </div>
@@ -409,9 +409,9 @@ export default function ListingIntelligencePage() {
               </div>
 
               {/* Dynamic Forensic Narrative & Key Evidence */}
-              <div className="p-4 rounded-lg bg-[#0E131A] border border-[#202A35] space-y-3">
+              <div className="p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="font-semibold font-mono text-xs flex items-center gap-2 text-[#E8EDF3]">
+                  <div className="font-semibold font-mono text-xs flex items-center gap-2 text-[var(--text-primary)]">
                     {result.fake_listing_probability > 0.5 ? (
                       <AlertTriangle className="w-4 h-4 text-rose-400" />
                     ) : (
@@ -433,7 +433,7 @@ export default function ListingIntelligencePage() {
                 {/* Evidence bullets if provided by API */}
                 {Array.isArray(result.investigator_narrative?.key_evidence) &&
                 result.investigator_narrative.key_evidence.length > 0 ? (
-                  <ul className="space-y-1.5 text-xs text-[#8995A3] pl-2">
+                  <ul className="space-y-1.5 text-xs text-[var(--text-secondary)] pl-2">
                     {result.investigator_narrative.key_evidence.map((ev: unknown, i: number) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-cyan-400 mt-1">•</span>
@@ -442,7 +442,7 @@ export default function ListingIntelligencePage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs text-[#8995A3] leading-relaxed">
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                     {typeof result.investigator_narrative?.summary === "string"
                       ? result.investigator_narrative.summary
                       : result.fake_listing_probability > 0.5
@@ -452,9 +452,9 @@ export default function ListingIntelligencePage() {
                 )}
 
                 {/* Recommended action */}
-                <div className="pt-2 border-t border-[#202A35] flex items-center justify-between text-xs">
-                  <span className="text-[#8995A3] font-mono">Recommended Policy Action:</span>
-                  <span className="text-[#E8EDF3] font-semibold">
+                <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between text-xs">
+                  <span className="text-[var(--text-secondary)] font-mono">Recommended Policy Action:</span>
+                  <span className="text-[var(--text-primary)] font-semibold">
                     {typeof result.investigator_narrative?.recommended_action === "string"
                       ? result.investigator_narrative.recommended_action
                       : result.fake_listing_probability > 0.5
@@ -477,7 +477,7 @@ export default function ListingIntelligencePage() {
                     </button>
                     <button
                       onClick={() => setActionSuccess("Automated RFQ sent to merchant requesting authorization invoices.")}
-                      className="py-2 px-3 rounded-lg bg-[#151D27] hover:bg-[#1C2633] border border-[#202A35] text-xs font-semibold text-[#E8EDF3] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="py-2 px-3 rounded-lg bg-[#151D27] hover:bg-[#1C2633] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <AlertTriangle className="w-4 h-4 text-amber-400" />
                       <span>Request Inventory Proof</span>

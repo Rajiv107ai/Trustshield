@@ -10,7 +10,7 @@ import bisect
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 import pandas as pd
 
@@ -38,6 +38,8 @@ class PointInTimeHistoryStore:
         self._history: Dict[Tuple[str, str], List[pd.Timestamp]] = {}
         # Live transaction ledger: (buyer_id, seller_id) -> list of pd.Timestamp
         self._live_history: Dict[Tuple[str, str], List[pd.Timestamp]] = {}
+        # Deduplication set of recorded live order IDs for idempotency
+        self._recorded_orders: Set[str] = set()
         self.total_historical_orders: int = 0
         self.unique_pairs: int = 0
 
@@ -168,13 +170,19 @@ class PointInTimeHistoryStore:
         timestamp: Optional[Union[str, datetime, pd.Timestamp]] = None,
         order_id: Optional[str] = None,
     ) -> None:
-        """Records a committed live transaction into the live history."""
+        """Records a committed live transaction into the live history (idempotent by order_id)."""
         b_clean = str(buyer_id).strip()
         s_clean = str(seller_id).strip()
         pair_key = (b_clean, s_clean)
         ts = pd.to_datetime(timestamp) if timestamp is not None else pd.Timestamp.now(timezone.utc)
 
         with self._lock:
+            if order_id:
+                clean_ord = str(order_id).strip()
+                if clean_ord in self._recorded_orders:
+                    # Idempotent: already recorded this order, do not duplicate
+                    return
+                self._recorded_orders.add(clean_ord)
             live_list = self._live_history.setdefault(pair_key, [])
             live_list.append(ts)
             live_list.sort()
@@ -183,3 +191,4 @@ class PointInTimeHistoryStore:
         """Clears live session transactions (for testing and isolation)."""
         with self._lock:
             self._live_history.clear()
+            self._recorded_orders.clear()

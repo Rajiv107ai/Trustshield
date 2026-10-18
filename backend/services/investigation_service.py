@@ -307,11 +307,14 @@ class InvestigationService:
         )
 
         # 6. Structure Model Inference with TreeSHAP Explanations
-        c_set_str = "{0, 1}"
-        if score_res.overall_fraud_probability > 0.70:
+        if score_res.conformal_prediction_set:
+            c_set_str = f"{{{', '.join(str(x) for x in sorted(score_res.conformal_prediction_set))}}}"
+        elif score_res.overall_fraud_probability > 0.70:
             c_set_str = "{1}"
         elif score_res.overall_fraud_probability < 0.20:
             c_set_str = "{0}"
+        else:
+            c_set_str = "{0, 1}"
 
         shap_drivers = getattr(score_res, "top_risk_drivers", None)
         shap_attrs = getattr(score_res, "shap_attributions", None)
@@ -417,7 +420,11 @@ class InvestigationService:
                 "model_version": score_res.model_version,
                 "graph_source": graph_findings.graph_source,
                 "investigation_engine": "TrustShield GenAI Grounded Agent v1.0",
-                "conformal_confidence": "heuristic_threshold_uncalibrated",
+                "conformal_confidence": (
+                    f"finite_sample_coverage_{score_res.conformal_coverage_guarantee:.0%}"
+                    if getattr(score_res, "conformal_is_calibrated", False)
+                    else "heuristic_threshold_uncalibrated"
+                ),
             },
             grounding_verification_passed=verification_passed,
         )
