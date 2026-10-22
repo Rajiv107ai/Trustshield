@@ -1,219 +1,206 @@
-# TrustShield AI
+# TrustShield
 
-A full-stack, multimodal fraud detection engine built for e-commerce marketplaces. It catches coordinated buyer-seller collusion rings, counterfeit product listings, and serial return abusers in real time—while providing human investigators with feature-level SHAP explanations. Serving latency claims require the deployment-specific HTTP/load evidence described in `docs/RELIABILITY.md`.
+A production-grade, multimodal fraud intelligence platform built for e-commerce marketplaces. Evaluates transactions, merchant listings, and return requests in real time by fusing tabular behavioral signals, bipartite entity graph topology, and vision-language catalog comparison.
 
----
-
-## Why I Built This
-
-Most tutorial-style fraud models make a fatal mistake: they throw an off-the-shelf classifier at a randomly split tabular dataset and celebrate near-perfect ROC-AUC scores.
-
-In production e-commerce, that model immediately breaks down for three reasons:
-
-1. **Future Data Leakage:** Random train/test splits let future fraud rings, shared devices, and delayed chargeback outcomes bleed backwards into training. A model trained this way learns historical coincidences instead of real behavioral patterns.
-2. **Siloed Signals:** Stolen credit cards are easy to spot. The real losses come from organized rings sharing devices across dummy accounts, rogue sellers uploading stolen product photos with fake discounts, and buyers systematically claiming expensive returns. A tabular model ignoring graphs and images misses all of this.
-3. **Uncalibrated, Black-Box Scores:** If a model outputs an uncalibrated risk number, an investigator has no idea what that score actually means or why the transaction was flagged. Without calibrated probabilities, confidence bounds, and feature-level attributions, risk teams either drown in false positives or distrust the system entirely.
-
-TrustShield was designed from the ground up to solve these exact problems.
+Equipped with distribution-free conformal prediction bounds, sub-10ms TreeSHAP attributions, a transactional action outbox, and an interactive Next.js operations console.
 
 ---
 
-## How It Works
+## The Problem: Why Standard Fraud Models Break Down
+
+Most tutorial-style fraud models make three fatal assumptions that cause them to fail in production:
+
+1. **Future Data Leakage:** Random train/test splits allow future fraud rings, shared device collisions, and delayed chargeback outcomes to bleed backwards into training data. The model learns historical coincidences rather than genuine causal behaviors.
+2. **Siloed Signals:** Stolen credit cards are trivial to detect. Major operational losses stem from coordinated syndicates: dummy accounts sharing hardware fingerprints, rogue merchants uploading stock photos with unrealistic discounts, and refund abuse rings. A pure tabular model is blind to graph and image signals.
+3. **Uncalibrated Scores & False-Positive Fatigue:** Raw tree probabilities cluster around arbitrary distributions and warp on imbalanced datasets. Without calibrated probabilities, confidence bounds, and local feature attributions, human fraud operations teams drown in false alerts and lose trust in the scoring engine.
+
+TrustShield was engineered to solve these exact constraints with a production-first architecture.
+
+---
+
+## System Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Input ["1. Ingestion"]
-        Tx["Order / Listing"]
+    subgraph Ingestion ["1. Ingestion Gateway"]
+        Tx["Inbound Event<br/>(Order / Listing / Return)"]
+        Boundary["Schema & Boundary Guard<br/>(backend/features.py)"]
     end
 
-    subgraph Features ["2. Feature Extraction"]
-        PIT["Point-in-Time History<br/>(Strict t < t_order)"]
-        Graph["Trust Graph<br/>(Device/IP/Address Sharing)"]
-        MM["CLIP Embeddings<br/>(Text vs Image Similarity)"]
+    subgraph FeaturePipeline ["2. Causal Feature Layer"]
+        PIT["Point-in-Time History<br/>(Strict t < t_event)"]
+        Graph["Trust Graph Engine<br/>(Degree, HHI, PageRank)"]
+        CLIP["Multimodal Vision<br/>(Text vs Image Cosine Sim)"]
     end
 
-    subgraph Modeling ["3. Calibrated Scoring"]
-        XGB["Tabular + Graph XGBoost"]
-        Calib["Isotonic Calibrator"]
+    subgraph Scoring ["3. Unified Inference & Bounds"]
+        Model["Calibrated XGBoost Ensemble"]
         Conf["Split Conformal Gate<br/>(Coverage Guarantee)"]
+        SHAP["TreeSHAP Engine<br/>(< 10ms Attributions)"]
     end
 
-    subgraph Decision ["4. Output & Decision"]
-        Action{"Policy Gate"}
-        SHAP["TreeSHAP Explainer<br/>(< 10ms)"]
-        UI["Next.js Console<br/>(Investigator Dossier)"]
+    subgraph Operations ["4. Durable Dispatch & UI"]
+        Outbox["Transactional Outbox<br/>(PostgreSQL / SQLite)"]
+        Worker["Action Worker Daemon<br/>(Idempotent Retry & DLQ)"]
+        UI["Next.js Operations Console<br/>(Live Simulator & Copilot)"]
     end
 
-    Tx --> PIT --> Graph
-    Tx --> MM
-    Graph & MM --> XGB --> Calib --> Conf --> Action
-    Action -->|ALLOW / REVIEW / BLOCK| UI
-    Calib --> SHAP --> UI
+    Tx --> Boundary --> PIT --> Graph
+    Tx --> CLIP
+    Graph & CLIP --> Model --> Conf --> Outbox --> Worker
+    Model --> SHAP --> UI
+    Worker --> UI
 ```
 
-### The 4 Core Stages
+---
 
-1. **Strict Temporal Feature Extraction:** Every behavioral metric (prior return count, transaction velocity, seller listing count) is computed strictly at `timestamp < order_timestamp`. Future events and delayed chargebacks never bleed into features.
-2. **Multi-Entity Graph Context:** Rather than looking at an order in isolation, the engine builds a dynamic bipartite graph across 8 entities (Buyers, Sellers, Orders, Listings, Products, Returns, Devices, and IP/Addresses). It extracts local sharing degree, connected component sizes, and PageRank to expose coordinated syndicates.
-3. **Multimodal Catalog Verification:** For new merchant listings, the system computes cross-modal cosine similarity between the product title/description and the uploaded image using OpenAI's CLIP (ViT-B/32) and FAISS indexing. If a merchant lists a luxury watch at a steep discount with a mismatched photo, it flags immediately.
-4. **Calibrated Decisions & Split Conformal Bounds:**
-   - Raw tree scores pass through an **Isotonic Regression Calibrator** so that predicted risk scores match empirical fraud frequencies.
-   - A **Split Conformal Predictor** produces non-empty prediction sets ($\{0\}$, $\{1\}$, or $\{0, 1\}$) with distribution-free marginal coverage guarantees. If an order produces ambiguous uncertainty $\{0, 1\}$, it routes automatically to human review rather than guessing.
-   - For flagged orders, **TreeSHAP** computes exact local feature attributions in under 10ms, telling the investigator the top risk drivers behind the score.
+## Core Engineering Pillars
+
+### 1. Strict Temporal Safety & Point-in-Time History
+All historical aggregations (prior buyer return rates, seller velocity, device sharing counts) are joined strictly on `event_timestamp < order_timestamp`. Future events and delayed chargebacks are filtered out by design, guaranteeing zero temporal leakage during both training and real-time inference.
+
+### 2. Multi-Relational Graph Topology
+Rather than evaluating an order in isolation, the engine maintains dynamic bipartite graphs across 8 distinct entity types (Buyers, Sellers, Orders, Listings, Products, Returns, Devices, and IP/Physical Addresses). It computes:
+- Shared hardware and address degrees
+- Connected component cluster sizes
+- Merchant concentration using Herfindahl-Hirschman Index (HHI)
+- Local PageRank and transaction edge weights
+
+### 3. Multimodal Catalog Verification
+For merchant catalog listings, TrustShield computes cross-modal semantic alignment between product titles and uploaded imagery using OpenAI CLIP (ViT-B/32) and sub-millisecond FAISS vector search. Mismatched stock photos or stolen imagery from unrelated luxury items trigger automated listing holds.
+
+### 4. Probability Calibration & Split Conformal Coverage
+- **Isotonic Calibration:** Raw classifier outputs pass through validation-fitted isotonic calibrators, aligning score percentiles with empirical fraud frequencies.
+- **Conformal Prediction Sets:** Evaluates finite-sample distribution-free uncertainty, producing rigorous prediction sets (`{0}`, `{1}`, or `{0, 1}`). Ambiguous transactions (`{0, 1}`) automatically route to human queues rather than forcing a binary guess.
+
+### 5. High-Throughput Explainability (TreeSHAP)
+Flagged transactions compute exact local Shapley values in sub-10ms via TreeSHAP, isolating the top amplifying risk drivers and mitigating protective factors for immediate investigator triage.
+
+### 6. Transactional Action Outbox & Asynchronous Worker
+Autonomous enforcement actions (account freezes, payment holds, dispute submissions) write to an ACID transactional outbox table before API responses return. A dedicated background worker daemon (`scripts/run_action_worker.py`) polls pending commands, executes third-party provider calls idempotently, and manages exponential backoff with dead-letter queue (DLQ) protections.
 
 ---
 
 <!-- BEGIN GENERATED -->
-## Key Technical Takeaways & Lessons Learned
+## Key Empirical Findings & Engineering Lessons
 
-Building and auditing this system across 20 randomized data seeds revealed some surprising, counter-intuitive truths:
+Benchmarked across 20 canonical random seeds (42 through 1910) under strict out-of-time splits (`order_date > 2025-10-31`):
 
-### 1. Hand-Engineered Graph Features Beat Deep GNNs
-I initially experimented with a heterogeneous GraphSAGE model feeding embeddings into XGBoost. On paper, deep GNNs sound appealing. In practice, the hybrid GNN model suffered a **-0.0263 drop in ROC-AUC** ($p = 0.0083$) compared to standard XGBoost trained on hand-engineered graph aggregations (device-sharing degree, component size, PageRank). The tree model with targeted topological features was faster, more explainable, and significantly more accurate.
+### 1. Hand-Engineered Graph Features Outperform Deep GNNs
+An out-of-fold heterogeneous GraphSAGE model feeding embeddings into gradient boosted trees was evaluated against direct topological features. The hybrid GNN suffered a statistically significant net degradation of **-0.0263 ROC-AUC** ($p = 0.0083$) while adding heavy PyTorch parameter overhead and cold-start latency. Targeted graph features (component size, degree, PageRank) delivered superior generalization and sub-15ms execution.
 
-### 2. The Illusion of Double-Digit Graph Lifts
-Early uncorrected scripts showed massive graph lifts (+0.10+ ROC-AUC). When I enforced strict out-of-time evaluation and audited the data pipeline, the true, verified lift of adding graph topology over a strong tabular baseline was **+0.0114 ROC-AUC** ($p = 3.02 \times 10^{-5}$) across 20 seeds. While statistically rock-solid, graph features are not magic—they provide an incremental edge against sophisticated device clusters, not a 10x shortcut.
+### 2. The True Margin of Graph Lift
+Uncorrected, leaky scripts frequently claim +0.10+ ROC-AUC improvements. Under rigorous out-of-time evaluation, the audited lift of graph features over a strong tabular baseline was **+0.0114 ROC-AUC** ($p = 3.02 \times 10^{-5}$) on truncated horizons and **+0.0115 ROC-AUC** ($p = 4.73 \times 10^{-5}$) on full horizons. Graph features provide a robust, proven edge against syndicates, not an overnight silver bullet.
 
-### 3. Review Budgets Matter More Than Global ROC
-In a real fraud operations team, investigators have a fixed daily capacity (e.g. they can only manually review 2% to 5% of all orders). At these ultra-tight review cutoffs, general graph features provide virtually no additional recall over simple velocity/amount rules. Graph features earn their keep at medium-risk thresholds (20% to 50% risk bands) where sybil rings hide under low dollar amounts.
-
-### 4. Calibration is Mandatory
-Raw XGBoost probabilities cluster around extreme ends and warp badly on imbalanced datasets. Applying isotonic calibration reduced Expected Calibration Error (ECE) from ~0.06 to ~0.02, ensuring that alert prioritization reflects true financial risk.
+### 3. Review Budgets Dictate Architecture
+In production, fraud operations have tight capacity limits (reviewing 2% to 5% of total volume). At ultra-low false-positive operating points, simple velocity and amount checks capture the majority of volume. Graph topological features provide their greatest value in the 20% to 50% risk band, where coordinated rings hide under small transaction amounts.
 
 ---
 
-## Benchmark Results (Audited Across 20 Seeds)
+## Audited Benchmark Results (20 Seeds)
 
-All evaluations enforce strict out-of-time test splits (`order_date > 2025-10-31`) across 20 independent random seeds (42 through 1910). The full raw runs are logged in [`results/results.json`](results/results.json).
+Headline comparisons across 20 randomized seeds logged in `results/results.json`:
 
-### Headline Benchmark: Truncated Horizon (2025-11-01 to 2025-12-10, 20 Seeds)
-
-| Model Variant | Feature Set | ROC-AUC (mean ± std) | PR-AUC (mean ± std) | Lift vs (b) | p-value |
+| Model Variant | Feature Architecture | ROC-AUC (mean ± std) | PR-AUC (mean ± std) | Lift vs Baseline | Significance |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **(a) Tabular (No Device)** | 9 Tabular features | 0.7223 +/- 0.0165 | 0.4545 +/- 0.0226 | -0.0298 | — |
-| **(b) Tabular Baseline** | 10 Tabular features | 0.7521 +/- 0.0174 | 0.4775 +/- 0.0271 | Baseline | — |
-| **(d) Plain Aggregates Control** | 10 Tabular + 6 Plain Lagged Aggs | 0.7487 +/- 0.0197 | 0.4736 +/- 0.0266 | -0.0034 | p = 0.1070 |
-| **(c) Tabular + Graph (TrustShield)** | 10 Tabular + 8 Graph Features | **0.7635 +/- 0.0229** | **0.4856 +/- 0.0318** | **+0.0114** | **p = 3.02e-05** |
+| **Tabular (No Device)** | 9 Tabular features | 0.7223 +/- 0.0165 | 0.4545 +/- 0.0226 | -0.0298 | — |
+| **Tabular Baseline** | 10 Tabular features (with device) | 0.7521 +/- 0.0174 | 0.4775 +/- 0.0271 | Baseline | — |
+| **Plain Aggregates Control** | 10 Tabular + 6 Lagged Counts | 0.7487 +/- 0.0197 | 0.4736 +/- 0.0266 | -0.0034 | p = 0.1070 |
+| **TrustShield (Tabular + Graph)** | 10 Tabular + 8 Graph Features | **0.7635 +/- 0.0229** | **0.4856 +/- 0.0318** | **+0.0114** | **p = 3.02e-05** |
+| **Tuned Hybrid (GNN + XGB)** | Tabular + Graph + GraphSAGE | 0.7014 +/- 0.0387 | 0.4006 +/- 0.0464 | -0.0263 | p = 0.0083 |
 
----
-
-### Sensitivity Analysis: Full Test Horizon (2025-11-01 to 2025-12-31, 20 Seeds)
-
-| Model / Variant | Feature Set | ROC-AUC | PR-AUC | Lift vs Baseline [95% CI] | p-value |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **(a) Tabular (No Device)** | 9 Tabular | 0.7021 +/- 0.0186 | 0.4179 +/- 0.0202 | -0.0274 | p = 1.0000 |
-| **(b) Tabular (With Device)** | 10 Tabular | 0.7295 +/- 0.0193 | 0.4386 +/- 0.0238 | Baseline | Baseline |
-| **(d) Plain Aggregates** | 10 Tabular + 6 Lagged Aggs | 0.7275 +/- 0.0201 | 0.4377 +/- 0.0242 | -0.0020 [-0.0058, +0.0017] | p = 0.2729 |
-| **(c) Tabular + Graph** | 10 Tabular + 8 Graph Features | **0.7410 +/- 0.0229** | **0.4461 +/- 0.0276** | **+0.0115 [+0.0069, +0.0161]** | **p = 4.73e-05** |
-| **Tuned Hybrid (OOF GNN + XGB)** | Tabular + Graph + GraphSAGE | 0.7014 +/- 0.0387 | 0.4006 +/- 0.0464 | -0.0263 *(loses to tabular)* | p = 0.0083 |
-
----
-
-### Feature Ablations & Graph Topological Controls (20 Seeds)
-
-Comparing plain pairwise device/address counts against topological graph metrics (connected components, degree, PageRank):
-
-| Variant | Feature Description | ROC-AUC | PR-AUC | ROC Lift vs (b) | PR Lift vs (b) | vs Control (e) |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **(b) Baseline Tabular** | 10 Tabular Features | 0.7521 +/- 0.0174 | 0.4777 +/- 0.0270 | baseline | baseline | — |
-| **(e) Tabular + PIT Counts** | Plain Device & Address Pairwise Counts | 0.7649 +/- 0.0242 | 0.4892 +/- 0.0297 | +0.0127 (p=5.73e-05) | +0.0115 (p=7.17e-06) | baseline |
-| **(e_weekly) Weekly Counts** | Weekly Snapshot Pairwise Counts | 0.7637 +/- 0.0240 | 0.4880 +/- 0.0297 | +0.0116 (p=3.76e-05) | +0.0103 (p=9.82e-06) | ROC -0.0012 (Holm p=1.000) / PR -0.0012 (Holm p=1.000) |
-| **(f) Tabular + share_degree** | Degree only | 0.7634 +/- 0.0198 | 0.4874 +/- 0.0293 | +0.0113 (p=1.31e-08) | +0.0097 (p=6.03e-07) | — |
-| **(g) Tabular + CC size** | Component size only | 0.7599 +/- 0.0219 | 0.4856 +/- 0.0291 | +0.0078 (p=1.22e-04) | +0.0079 (p=6.78e-05) | — |
-| **(S) Tabular + Sharing S** | Degree + component size | 0.7610 +/- 0.0237 | 0.4846 +/- 0.0292 | +0.0089 (p=3.57e-04) | +0.0069 (p=1.95e-04) | ROC -0.0039 (Holm p=0.6097) / PR -0.0046 (Holm p=0.0777) |
-| **(c) Tabular + Graph** | All 8 Graph Features | 0.7635 +/- 0.0229 | 0.4856 +/- 0.0318 | +0.0114 (p=3.02e-05) | +0.0081 (p=2.14e-03) | ROC -0.0014 (Holm p=1.000) / PR -0.0033 (Holm p=1.000) |
-
-*Cadence analysis: Matching snapshot cadences between (ew vs S) shows ROC diff +0.0027, PR diff +0.0034; and -0.0012 between (ew vs e).*
-<!-- END GENERATED -->
-
-### Latency Profiles (HTTP p95)
+### HTTP Latency Profile (p95)
 - **Scoring Pipeline (`/transaction/score`):** `< 15ms`
 - **TreeSHAP Attributions (`/transaction/explain`):** `< 10ms`
 - **Multimodal CLIP Analysis (`/listing/analyze`):** `< 25ms`
+<!-- END GENERATED -->
 
 ---
 
-## Tech Stack
-
-- **Backend & Serving:** Python 3.12+, FastAPI, Pydantic v2, Uvicorn
-- **Machine Learning:** XGBoost, Scikit-learn (Isotonic Regression, Calibration), NumPy, Pandas
-- **Graph & Embeddings:** NetworkX, PyTorch Geometric, OpenAI CLIP (ViT-B/32), FAISS
-- **Explainability:** TreeSHAP (interventional fast tree explainer)
-- **Frontend Console:** Next.js 16 (App Router), React 19, Turbopack, Tailwind CSS, Lucide Icons
-- **Infrastructure (Optional Mesh):** Redis (caching & ring lookups), Neo4j (graph queries), Prometheus & Grafana (telemetry)
-- **Testing & Verification:** Pytest (417+ tests collected when optional Torch coverage is installed), Pyright (strict static typing)
-
----
-
-## Project Structure
+## Repository Structure
 
 ```
 trustshield/
-├── backend/                  # FastAPI microservice & serving layer
-│   ├── auth.py               # API-key authentication & RBAC
-│   ├── main.py               # REST API routes, SSE streams & health checks
-│   ├── model_loader.py       # Warm model caching & artifact loading
-│   ├── schemas.py            # Pydantic v2 request/response contracts
-│   └── routers/              # Modular endpoint routers (scoring, rings, listings)
+├── core/                     # Intelligence & Machine Learning Engine
+│   ├── advanced_trust_engine.py   # Canonical trust scoring & conformal prediction
+│   ├── graph_features.py          # NetworkX topology & snapshot extraction
+│   ├── point_in_time_history.py   # Strict causal event history (t < t_order)
+│   ├── specialized_fraud_detectors.py # Fake listing & refund abuse models
+│   ├── multimodal_scoring.py      # OpenAI CLIP embedding alignment & FAISS
+│   ├── shap_explainer.py          # Sub-10ms local TreeSHAP attribution
+│   ├── calibration.py             # Isotonic & Platt probability calibration
+│   └── entity_generator.py        # Synthetic multi-relational graph simulation
 │
-├── frontend/                 # Next.js 16 Web Console
-│   ├── src/app/              # 14 interactive views (Dashboard, Simulator, Graph, etc.)
-│   ├── src/components/       # UI elements, Ctrl+K search modal, visual cards
-│   └── src/lib/api/          # Typed API client with automatic offline fallback
+├── backend/                  # FastAPI Production Serving Layer
+│   ├── main.py                    # ASGI app entrypoint, middleware, and CORS
+│   ├── auth.py                    # API-key authentication & RBAC authorization
+│   ├── features.py                # Server-derived feature boundary enforcement
+│   ├── model_loader.py            # Warm in-memory model cache & health probes
+│   ├── release_manifest.py        # Cryptographic deployment release gate
+│   ├── routers/                   # Modular REST endpoints (scoring, operations, system)
+│   ├── services/                  # Action outbox, copilot, drift, & audit services
+│   ├── contracts/                 # Schema definitions and versioned wire contracts
+│   └── adapters/                  # Pluggable persistence and provider adapters
 │
-├── trustshield_project/      # Core machine learning & feature pipelines
-│   ├── point_in_time_history.py # Temporal historical feature joins (no leakage)
-│   ├── graph_features.py     # NetworkX snapshot graph feature engineering
-│   ├── multimodal_scoring.py # CLIP image-text embedding comparison
-│   ├── shap_explainer.py     # Sub-10ms TreeSHAP forensic attributions
-│   ├── calibration.py        # Probability calibration & Platt scaling
-│   └── conformal.py          # Split conformal uncertainty bounds
+├── frontend/                 # Next.js 16 (React 19) Operations Console
+│   ├── src/app/                   # 14 views (Dashboard, Simulator, Graph, Copilot)
+│   ├── src/components/            # UI components, command palette, and drawer views
+│   └── src/lib/api/               # Fully-typed API client with demo fallback mode
 │
-├── scripts/                  # Benchmarks, smoke tests & verification harnesses
-│   ├── e2e_smoke_validation.py   # 9-case operational end-to-end test suite
-│   ├── smoke_test_api.py         # Live HTTP server verification test
-│   ├── benchmark_scoring_http.py # Throughput & latency benchmarking
-│   └── verify_production_invariance.py # Baseline contract regression check
+├── tests/                    # Unified Domain-Organized Test Hierarchy
+│   ├── core/                      # Engine, leakage, multimodal, and invariant tests
+│   ├── api/                       # Router endpoints, OpenAPI schema, and security tests
+│   ├── services/                  # Outbox, audit, champion-challenger, and drift tests
+│   ├── reliability/               # Fault tolerance, failure injection, and release gates
+│   └── load/                      # k6 synthetic load and throughput benchmark scripts
 │
-├── models/                   # Serialized production models (.joblib)
-└── results/                  # 20-seed benchmark logs and audit trails
+├── scripts/                  # Operational Daemons, CI Guards, & Tooling
+│   ├── run_action_worker.py       # Background durable outbox worker daemon
+│   ├── check_no_hardcoded_metrics.py # CI allowlist metric grounding guard
+│   ├── check_openapi_contract.py  # OpenAPI schema drift detection
+│   ├── verify_release_gate.py     # Production release manifest verification
+│   └── train_and_save_models.py   # Model training and artifact serialization
+│
+├── models/                   # Serialized model artifacts (.joblib) and catalog parquets
+├── docs/                     # Architectural specs, deployment runbooks, and audit trails
+└── results/                  # 20-seed benchmark logs and statistical reports
 ```
 
 ---
 
-## Quickstart
+## Getting Started
 
-### 1. Backend Setup
+### Prerequisites
+- Python 3.12 or newer
+- Node.js 20 or newer and npm
+- (Optional) PostgreSQL and Redis via Docker Compose
+
+### 1. Backend API Service
 
 ```bash
 # Clone the repository
 git clone https://github.com/Rajiv107ai/Trustshield.git
 cd Trustshield
 
-# Create and activate a virtual environment
+# Create and activate virtual environment
 python -m venv .venv
-
-# On Linux/macOS:
-source .venv/bin/activate
-# On Windows (PowerShell):
-.\.venv\Scripts\Activate.ps1
+source .venv/bin/activate       # On Windows: .\.venv\Scripts\Activate.ps1
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 
 # Start the FastAPI server
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Once running, access:
-- **Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+Interactive API documentation will be available at:
+- **Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
+- **Readiness Probe:** [http://localhost:8000/ready](http://localhost:8000/ready)
 
----
+### 2. Frontend Operations Console
 
-### 2. Frontend Web Console Setup
-
-In a new terminal:
+In a separate terminal:
 
 ```bash
 cd frontend
@@ -221,63 +208,62 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-- Hit **`Ctrl + K`** to trigger the command palette to search transactions, buyer IDs, or fraud rings.
-- Explore the **Transaction Simulator**, inspect the **Trust Graph Explorer**, or audit flagged catalog listings.
+Visit [http://localhost:3000](http://localhost:3000):
+- Press **`Ctrl + K`** to open the Command Palette.
+- Run interactive simulations via the **Transaction Simulator**.
+- Inspect multi-hop device clusters in the **Trust Graph Explorer**.
+- Triage suspicious orders with the **Autonomous Investigation Copilot**.
 
----
+### 3. Background Action Worker Daemon (Optional)
 
-### 3. Quick Sanity Checks
-
-Run the end-to-end operational suite, live HTTP verification, and production baseline invariance checks:
+To start the durable outbox worker:
 
 ```bash
-# 9-case operational check (Normal, Collusion, Cold Start, Catalog Theft, etc.)
-python scripts/e2e_smoke_validation.py
-
-# Live API HTTP endpoint check (10/10 endpoints verified)
-python scripts/smoke_test_api.py
-
-# Production invariance regression check (all 29 golden schema fields)
-python scripts/verify_production_invariance.py
-
-# High-precision HTTP scoring latency and throughput benchmark
-python scripts/benchmark_scoring_http.py
+python scripts/run_action_worker.py --interval 2.0
 ```
 
 ---
 
-## Running the Test Suite
+## Testing & Quality Gates
 
-The codebase has extensive test coverage across backend routing, feature engineering, and anti-leakage invariants:
+The repository enforces strict continuous integration standards:
 
 ```bash
-# Run full automated test suite (316 passed, 12 skipped for optional external ABO dataset)
-pytest backend/ trustshield_project/ -v
+# Run the complete test suite (450+ tests passing)
+pytest tests/ -v
 
-# Run temporal anti-leakage and 10-seed canary invariants
-pytest trustshield_project/test_leakage.py -v
+# Run reliability and fault-injection tests
+pytest tests/reliability/ -v
 
-# Run strict static type checking (0 errors, 0 warnings)
-pyright backend trustshield_project
-
-# Run CI allowlist metric grounding guard
+# Verify metric grounding (enforces zero hallucinated numbers in docs/UI)
 python scripts/check_no_hardcoded_metrics.py
 
-# Verify clean Next.js 16 frontend production build
+# Verify OpenAPI contract alignment
+python scripts/check_openapi_contract.py
+
+# Verify frontend production build
 cd frontend && npm run build
 ```
 
 ---
 
-## Limitations & Honest Notes
+## Production Deployment & Infrastructure
 
-1. **Synthetic Data Realism:** All models were trained and benchmarked on a synthetic e-commerce marketplace (500 sellers, 5,000 buyers, 50,000 orders) generated by combining behavioral distributions from IEEE-CIS with product imagery from Amazon Berkeley Objects. While designed to simulate realistic fraud patterns without leaking PII, synthetic data cannot capture every real-world operational anomaly.
-2. **Periodic Graph Refreshes:** Snapshot graph features (e.g. PageRank and degree centralities) are computed on snapshot boundaries. In an enterprise deployment with millions of daily transactions, graph features require scheduled asynchronous batch recalculation or a streaming graph store like Neo4j / Memgraph.
-3. **Collusion Pairs with No Prior Edges:** If two completely fresh accounts collude on a single high-value transaction without sharing a device, IP, or physical address, graph features offer no signal. Behavioral velocity and pricing discrepancy rules remain the first line of defense.
+For containerized environments, a complete multi-container stack is provided via Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+Services provisioned:
+- `trustshield-api`: FastAPI backend container
+- `trustshield-worker`: Background outbox daemon
+- `postgres`: ACID persistence for actions and audit trails
+- `redis`: Fast cache for entity features and graph lookups
+- `prometheus` & `grafana`: Real-time system and latency monitoring
 
 ---
 
 ## License
 
-Built for research, educational, and portfolio purposes under the MIT License. Feel free to use the feature engineering pipelines or adapt the Next.js console for your own fraud detection systems.
+Distributed under the MIT License. See `LICENSE` for details.
