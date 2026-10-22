@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useViewMode } from "@/context/ViewModeContext";
-import { TrustShieldApi, ApiError } from "@/lib/api/client";
+import { TrustShieldApi, ApiError, generateIdempotencyKey } from "@/lib/api/client";
 import { DecisionBadge } from "@/components/ui/DecisionBadge";
 import {
   SCENARIO_PRESETS,
@@ -13,6 +13,7 @@ import {
 import {
   TransactionScoreRequest,
   TransactionScoreResponse,
+  ActionReceipt,
 } from "@/lib/types/api";
 import {
   Zap,
@@ -31,10 +32,11 @@ import {
   Network,
 } from "lucide-react";
 import { Suspense } from "react";
+import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
 function TransactionAnalyzerContent() {
   const searchParams = useSearchParams();
-  const { viewMode } = useViewMode();
+  const { viewMode, isDemo } = useViewMode();
 
   const presetParam = searchParams.get("preset");
   const initialPreset = (presetParam && SCENARIO_PRESETS.find((p) => p.id === presetParam)) || SCENARIO_PRESETS[0];
@@ -45,11 +47,17 @@ function TransactionAnalyzerContent() {
   const [loading, setLoading] = useState<boolean>(true);
   const [result, setResult] = useState<TransactionScoreResponse | null>(null);
   const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
-  const [operatorActionSuccess, setOperatorActionSuccess] = useState<string | null>(null);
+  const [operatorAction, setOperatorAction] = useState<
+    | { kind: "demo"; message: string }
+    | { kind: "receipt"; receipt: ActionReceipt }
+    | { kind: "error"; message: string }
+    | null
+  >(null);
+  const [operatorActionLoading, setOperatorActionLoading] = useState(false);
 
   const executeScore = async (payload: TransactionScoreRequest) => {
     setLoading(true);
-    setOperatorActionSuccess(null);
+    setOperatorAction(null);
     setErrorState(null);
     try {
       const res = await TrustShieldApi.scoreTransaction(payload);
@@ -88,6 +96,69 @@ function TransactionAnalyzerContent() {
     e.preventDefault();
     setActivePresetId("custom");
     executeScore(formData);
+  };
+
+  type TransactionAction = "approve" | "hold" | "block";
+
+  const handleOperatorAction = async (action: TransactionAction) => {
+    if (isDemo) {
+      setOperatorAction({
+        kind: "demo",
+        message: "Demo mode only: no live transaction action was submitted.",
+      });
+      return;
+    }
+
+    const orderId = result?.order_id || formData.order_id;
+    if (!orderId) {
+      setOperatorAction({ kind: "error", message: "Cannot submit an action because this transaction has no order ID." });
+      return;
+    }
+
+    const actionReasons: Record<TransactionAction, string> = {
+      approve: "Operator approved transaction after TrustShield risk review.",
+      hold: "Operator placed transaction on hold for manual verification.",
+      block: "Operator blocked transaction after TrustShield risk review.",
+    };
+    const request = {
+      case_id: `CASE_ORDER_${orderId}`,
+      reason: actionReasons[action],
+      idempotency_key: generateIdempotencyKey(`transaction-${action}`),
+      target: { target_type: "order", target_id: orderId },
+      target_confirmation: true as const,
+      policy_version: "policy.v1",
+    };
+
+    setOperatorAction(null);
+    setOperatorActionLoading(true);
+    try {
+      const receipt =
+        action === "approve"
+          ? await TrustShieldApi.approveTransaction(orderId, request)
+          : action === "hold"
+          ? await TrustShieldApi.holdTransaction(orderId, request)
+          : await TrustShieldApi.blockTransaction(orderId, request);
+      setOperatorAction({ kind: "receipt", receipt });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setOperatorAction({ kind: "error", message: `Transaction action failed: ${message}` });
+    } finally {
+      setOperatorActionLoading(false);
+    }
+  };
+
+  const refreshOperatorAction = async () => {
+    if (operatorAction?.kind !== "receipt") return;
+    setOperatorActionLoading(true);
+    try {
+      const receipt = await TrustShieldApi.getAction(operatorAction.receipt.command_id);
+      setOperatorAction({ kind: "receipt", receipt });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setOperatorAction({ kind: "error", message: `Action status lookup failed: ${message}` });
+    } finally {
+      setOperatorActionLoading(false);
+    }
   };
 
   return (
@@ -294,34 +365,84 @@ function TransactionAnalyzerContent() {
                     Fraud Ops Decision Control
                   </h3>
                   <p className="text-[11px] text-[var(--text-secondary)] mt-1">
-                    Override or confirm algorithmic recommendations with immediate ledger execution.
+                    Override or confirm algorithmic recommendations by submitting a durable operator command.
                   </p>
 
                   <div className="space-y-2.5 mt-4">
                     {[
-                      { msg: "Transaction Approved & Released for Settlement", bg: "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-700 dark:text-emerald-400", icon: CheckCircle2, text: "Approve & Release" },
-                      { msg: "Transaction Sent to Manual Review Queue", bg: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-700 dark:text-amber-400", icon: AlertTriangle, text: "Send for Manual Review" },
-                      { msg: "Transaction Confirmed Blocked & Entity Frozen", bg: "bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-rose-700 dark:text-rose-400", icon: XCircle, text: "Confirm Block & Freeze Entity" },
+                      { action: "approve" as const, bg: "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-700 dark:text-emerald-400", icon: CheckCircle2, text: "Approve & Release" },
+                      { action: "hold" as const, bg: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-700 dark:text-amber-400", icon: AlertTriangle, text: "Send for Manual Review" },
+                      { action: "block" as const, bg: "bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-rose-700 dark:text-rose-400", icon: XCircle, text: "Confirm Block & Freeze Entity" },
                     ].map((btn, idx) => {
                       const Icon = btn.icon;
                       return (
                         <button
                           key={idx}
-                          onClick={() => setOperatorActionSuccess(btn.msg)}
-                          className={`w-full py-2.5 px-3 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 ${btn.bg} focus-ring`}
+                          onClick={() => void handleOperatorAction(btn.action)}
+                          disabled={operatorActionLoading}
+                          className={`w-full py-2.5 px-3 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 ${btn.bg} focus-ring cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
-                          <Icon className="w-4 h-4" />
+                          <Icon className={`w-4 h-4 ${operatorActionLoading ? "opacity-60" : ""}`} />
                           <span>{btn.text}</span>
                         </button>
                       );
                     })}
                   </div>
+                  <p className="text-[10px] italic text-[var(--text-secondary)] mt-2">
+                    Actions are accepted by the backend outbox first; provider execution is asynchronous.
+                  </p>
                 </div>
 
-                {operatorActionSuccess && (
-                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-xs text-blue-600 dark:text-blue-400 font-mono flex items-center gap-2">
-                    <Check className="w-4 h-4" />
-                    <span>{operatorActionSuccess}</span>
+                {operatorAction?.kind === "demo" && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 font-mono flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{operatorAction.message}</span>
+                  </div>
+                )}
+
+                {operatorAction?.kind === "error" && (
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-400 font-mono flex items-start gap-2">
+                    <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{operatorAction.message}</span>
+                  </div>
+                )}
+
+                {operatorAction?.kind === "receipt" && (
+                  <div
+                    className={`p-3 rounded-lg border text-xs font-mono space-y-2 ${
+                      operatorAction.receipt.status === "failed"
+                        ? "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400"
+                        : operatorAction.receipt.status === "succeeded"
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                        : "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {operatorAction.receipt.status === "failed" ? (
+                        <XCircle className="w-4 h-4 shrink-0" />
+                      ) : (
+                        <Check className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>
+                        {operatorAction.receipt.status === "pending"
+                          ? "Action accepted — pending provider execution."
+                          : operatorAction.receipt.status === "succeeded"
+                          ? "Action completed with provider receipt."
+                          : `Action failed: ${operatorAction.receipt.error || "provider execution was not completed."}`}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]">
+                      <span>Action ID: {operatorAction.receipt.command_id}</span>
+                      <button
+                        type="button"
+                        onClick={() => void refreshOperatorAction()}
+                        disabled={operatorActionLoading}
+                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${operatorActionLoading ? "animate-spin" : ""}`} />
+                        Refresh status
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -343,7 +464,7 @@ function TransactionAnalyzerContent() {
                       ["Isotonic Calibrated Prob:", `${((result.calibrated_fraud_probability ?? result.overall_fraud_probability) * 100).toFixed(2)}%`, "text-emerald-600 dark:text-emerald-400 font-semibold"],
                       ["Composite Policy Risk:", `${((result.policy_risk_score ?? result.canonical_trust_engine_risk ?? result.overall_fraud_probability) * 100).toFixed(2)}%`, "text-amber-600 dark:text-amber-400 font-semibold"],
                       ["Model Disagreement Spread:", `${(result.model_disagreement * 100).toFixed(2)}%`, "text-amber-600 dark:text-amber-400"],
-                      ["Policy Thresholds:", "τ = 0.25 / 0.55 / 0.85", "text-blue-600 dark:text-blue-400"],
+                      ["Policy Thresholds:", `τ = ${RISK_THRESHOLDS.REVIEW} / ${RISK_THRESHOLDS.HOLD} / ${RISK_THRESHOLDS.BLOCK}`, "text-blue-600 dark:text-blue-400"],
                     ].map(([lbl, val, cls], idx) => (
                       <div key={idx} className={`flex justify-between py-1 ${idx < 4 ? "border-b border-[var(--border)]" : ""}`}>
                         <span className="text-[var(--text-secondary)]">{lbl}</span>

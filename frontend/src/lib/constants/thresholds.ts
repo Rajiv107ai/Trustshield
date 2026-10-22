@@ -1,0 +1,15 @@
+export const RISK_THRESHOLDS = {
+  ALLOW: 0,
+  REVIEW: 0.25,
+  HOLD: 0.55,
+  BLOCK: 0.85,
+  LISTING_QUARANTINE: 0.5,
+  RETURN_REVIEW: 0.4,
+  RETURN_BLOCK: 0.7,
+  SIMULATOR_MIN: 0.1,
+  SIMULATOR_CONSERVATIVE: 0.2,
+  SIMULATOR_AGGRESSIVE: 0.8,
+  SIMULATOR_MAX: 0.9,
+} as const;
+
+export type RiskThresholdKey = keyof typeof RISK_THRESHOLDS;

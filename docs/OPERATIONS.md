@@ -51,9 +51,9 @@ The `CanonicalTrustEngine` applies a 4-tier decision routing policy:
 
 | Decision | Risk Probability | Action Triggered | SLA / Handling |
 | :--- | :--- | :--- | :--- |
-| **`ALLOW`** | $P(\text{fraud}) < \text{threshold}$ | Immediate checkout success | Automated (<5ms) |
-| **`REVIEW`** | Elevated risk, $C_{\text{review}} < C_{\text{fraud}} \cdot \text{amount}$ | Queued for forensic investigator | Investigator review within 15 mins |
-| **`HOLD`** | $P(\text{fraud}) \ge 0.50$ | Temporary payment auth hold | Step-up biometric / OTP challenge |
+| **`ALLOW`** | $P(\text{fraud}) < 0.25$ | Immediate checkout success | Automated (<5ms) |
+| **`REVIEW`** | $0.25 \le P(\text{fraud}) < 0.55$ | Queued for forensic investigator | Investigator review within 15 mins |
+| **`HOLD`** | $0.55 \le P(\text{fraud}) < 0.85$ | Temporary payment auth hold | Step-up biometric / OTP challenge |
 | **`BLOCK`** | $P(\text{fraud}) \ge 0.85$ or Fraud Ring member | Immediate transaction rejection | Payment declined |
 
 ### Cold-Start Detection
@@ -72,8 +72,8 @@ When updating models with new transaction history:
 # 1. Generate updated point-in-time graph snapshot and rings
 python scripts/evaluate_naive_connected_components_20seeds.py
 
-# 2. Re-fit probability calibrator on validation holdout
-python experiments/freeze_holdout.py
+# 2. Re-fit models and probability calibrators on historical cutoff
+python scripts/train_and_save_models.py
 
 # 3. Re-freeze golden baseline fixtures
 python scripts/generate_phase3_golden_baseline.py

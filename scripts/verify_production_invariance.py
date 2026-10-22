@@ -20,6 +20,8 @@ if hasattr(sys.stdout, "reconfigure"):
     getattr(sys.stdout, "reconfigure")(encoding="utf-8", errors="replace")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 FIXTURE_PATH = REPO_ROOT / "backend" / "fixtures" / "phase3_golden_baseline.json"
 AUTH_HEADERS = {"X-API-Key": "dev-admin-secret-key-32chars-long!"}
 

@@ -16,7 +16,7 @@ import os
 from enum import Enum
 from typing import Callable, Optional
 
-from fastapi import Depends, Header, HTTPException, Query, Security, status
+from fastapi import Depends, Header, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
@@ -125,10 +125,9 @@ def validate_security_configuration() -> None:
 def authenticate_request(
     api_key: Optional[str] = Security(_api_key_header),
     bearer: Optional[HTTPAuthorizationCredentials] = Security(_bearer_scheme),
-    api_key_query: Optional[str] = Query(default=None, alias="api_key"),
 ) -> AuthUser:
     """
-    Authenticate an incoming request via API Key header, Bearer token, or query parameter.
+    Authenticate an incoming request via API Key header or Bearer token.
     Returns AuthUser or raises HTTP 401.
     """
     if not is_auth_enabled():
@@ -140,8 +139,6 @@ def authenticate_request(
         token = api_key.strip()
     elif bearer and bearer.credentials:
         token = bearer.credentials.strip()
-    elif api_key_query:
-        token = api_key_query.strip()
 
     if not token:
         raise HTTPException(

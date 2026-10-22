@@ -13,7 +13,7 @@ import logging
 import sys
 import time
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -35,9 +35,15 @@ from backend.schemas import (
     ReturnScoreResponse,
     StreamTransactionEvent,
     TransactionScoreRequest,
+    CopilotInvestigationRequest,
+    CopilotInvestigationResponse,
+    VerifyBriefRequest,
+    VerifyBriefResponse,
 )
+from backend.services.copilot_service import copilot_service
 from backend.services.investigation_service import investigation_service
 from backend.services.metrics_service import metrics_service
+from trustshield_project.policy_config import RISK_POLICY
 
 try:
     from trustshield_project.multimodal_scoring import MultimodalScorer as _MultimodalScorer
@@ -262,16 +268,16 @@ def analyze_return(req: ReturnScoreRequest):
     X = pd.DataFrame([{c: features.get(c, 0.0) for c in cols}])[cols].fillna(0.0)
     prob = float(np.asarray(store.return_fraud_model.predict_proba(X))[0, 1])
 
-    decision = "BLOCK" if prob >= 0.85 else ("HOLD" if prob >= 0.55 else ("REVIEW" if prob >= 0.25 else "ALLOW"))
+    decision = "BLOCK" if prob >= RISK_POLICY.block else ("HOLD" if prob >= RISK_POLICY.hold else ("REVIEW" if prob >= RISK_POLICY.review else "ALLOW"))
 
     reasons = []
-    if req.buyer_return_rate_before >= 0.50:
+    if req.buyer_return_rate_before >= RISK_POLICY.review * 2:
         reasons.append("HIGH_BUYER_RETURN_RATE_BEFORE")
     if req.buyer_prior_returns >= 3:
         reasons.append("REPEAT_RETURN_ABUSER")
     if req.days_to_return <= 1.0:
         reasons.append("RAPID_RETURN_VELOCITY")
-    if prob >= 0.50:
+    if prob >= RISK_POLICY.review * 2:
         reasons.append("RETURN_FRAUD_MODEL_SCORE_ELEVATED")
 
     return ReturnScoreResponse(
@@ -315,7 +321,49 @@ def generate_forensic_dossier(req: DossierRequest):
         raise HTTPException(status_code=500, detail="Internal dossier generation failed.")
 
 
-STREAM_SEEDS = [
+@router.post(
+    "/investigation/copilot/analyze",
+    response_model=CopilotInvestigationResponse,
+    tags=["investigation"],
+    dependencies=[Depends(require_role(Role.OPERATOR))],
+)
+def analyze_with_copilot(req: CopilotInvestigationRequest):
+    """Autonomous Multi-Agent Investigation Copilot.
+
+    Executes specialized forensic tools (Graph Specialist, Feature Store Specialist,
+    Outbox Auditor, Policy Specialist) and compiles a cryptographically signed Dispute Brief.
+    """
+    if not store.is_loaded:
+        try:
+            store.load()
+        except Exception:
+            raise HTTPException(status_code=503, detail="Models not loaded yet.")
+
+    t0 = time.perf_counter()
+    try:
+        response = copilot_service.investigate(req)
+        metrics_service.dossier_duration.observe(time.perf_counter() - t0)
+        return response
+    except Exception as exc:
+        logger.error("Copilot investigation failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Copilot investigation failed.")
+
+
+@router.post(
+    "/investigation/copilot/verify-brief",
+    response_model=VerifyBriefResponse,
+    tags=["investigation"],
+)
+def verify_dispute_brief(req: VerifyBriefRequest):
+    """Verifies the HMAC-SHA256 signature and evidence integrity of a Dispute Brief."""
+    try:
+        return copilot_service.verify_brief(req)
+    except Exception as exc:
+        logger.error("Brief verification failed: %s", exc)
+        raise HTTPException(status_code=400, detail="Brief verification failed.")
+
+
+STREAM_SEEDS: List[Dict[str, Any]] = [
     {
         "buyer_id": "BUYER_STREAM_01",
         "seller_id": "SELLER_STREAM_01",
@@ -378,9 +426,9 @@ async def stream_transactions(
     limit: Optional[int] = Query(default=None, ge=1, le=1000, description="Optional maximum event count"),
 ):
     """
-    Real-time Server-Sent Events (SSE) live transaction feed.
-    Streams continuously evaluated incoming marketplace transactions
-    scored on the fly by the Canonical Trust Engine.
+    Real-time Server-Sent Events (SSE) transaction stream.
+    Events are generated from a fixed set of seed templates (STREAM_SEEDS).
+    This is not a live transaction feed.
     """
     if not store.is_loaded:
         try:
@@ -398,10 +446,10 @@ async def stream_transactions(
             seq += 1
             count += 1
             ord_id = f"ORD_LIVE_{79000 + seq}"
-            tmpl["order_id"] = ord_id
+            tmpl.pop("order_id", None)  # ensure order_id isn't in tmpl to avoid type conflict
 
-            score_req = TransactionScoreRequest(**tmpl)
-            score_res = score_transaction(score_req)
+            score_req = TransactionScoreRequest(order_id=ord_id, **tmpl)
+            score_res = score_transaction(score_req, bypass_feature_boundary=True)
             now_str = datetime.now(timezone.utc).strftime("%H:%M:%S")
 
             event = StreamTransactionEvent(
@@ -418,8 +466,8 @@ async def stream_transactions(
                 decision=score_res.decision,
                 trust_score=score_res.trust_score,
                 reason_codes=score_res.reason_codes,
-                source="live_stream",
-                is_simulation=False,
+                source="backend_simulation_seed",
+                is_simulation=True,
             )
             data_str = event.model_dump_json()
             yield f"data: {data_str}\n\n"

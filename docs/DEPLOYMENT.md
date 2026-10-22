@@ -65,10 +65,57 @@ Copy `.env.example` to `.env` or set these in your container orchestrator:
 | `PORT` | `8000` | HTTP port the FastAPI backend listens on |
 | `HOST` | `0.0.0.0` | Host interface binding (`0.0.0.0` for containers) |
 | `LOG_LEVEL` | `info` | Logging verbosity (`debug`, `info`, `warning`, `error`) |
-| `API_KEYS` | *(Generated 32-char key)* | Comma-separated list of authorized API keys |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Strict comma-separated origin whitelist |
+| `TRUSTSHIELD_ENV` | `development` | Deployment environment (`production` or `development`). Must be set to `production` in production. |
+| `TRUSTSHIELD_ADMIN_KEY` | *(dev default)* | Admin API key (min 16 chars required in production) |
+| `TRUSTSHIELD_API_KEY` | *(dev default)* | Operator API key (min 16 chars required in production) |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Strict comma-separated origin whitelist (wildcards prohibited in production) |
 | `PROMETHEUS_MULTIPROC_DIR` | `/tmp/prometheus_multiproc` | Directory for multi-worker Prometheus telemetry |
 | `MODEL_DIR` | `models` | Path containing serialized `.joblib` model artifacts |
+| `TRUSTSHIELD_REQUIRE_PIT_HISTORY` | `true` in production | Require the packaged or mounted point-in-time history before readiness succeeds |
+| `TRUSTSHIELD_REQUIRE_RELEASE_MANIFEST` | `true` in production | Require release-manifest validation before startup |
+| `TRUSTSHIELD_STRICT_SERVER_FEATURES` | `true` in production | Reject caller-supplied derived fraud/security features |
+| `TRUSTSHIELD_FEATURE_SERVICE_READY` | `false` until configured | Explicitly enable the governed real-data point-in-time feature service; production scoring remains paused otherwise |
+| `TRUSTSHIELD_AUDIT_DECISIONS` | `true` in production | Append allowlisted decision snapshots to the audit store |
+| `TRUSTSHIELD_REQUIRE_AUDIT_DURABILITY` | `true` in production | Require PostgreSQL-backed audit persistence |
+| `TRUSTSHIELD_AUDIT_POSTGRES_DSN` | *(required in production)* | PostgreSQL DSN for decision/operator audit records |
+| `TRUSTSHIELD_ACTION_POSTGRES_DSN` | *(required in production)* | PostgreSQL DSN for action outbox commands and receipts |
+
+> [!IMPORTANT]
+> **Production Fail-Closed Enforcement**:
+> In production (`TRUSTSHIELD_ENV=production`), the application strictly validates security configuration at startup and fails fast if:
+> - `TRUSTSHIELD_ADMIN_KEY` is not provided or shorter than 16 characters.
+> - `TRUSTSHIELD_API_KEY` is not provided or shorter than 16 characters.
+> - `CORS_ALLOWED_ORIGINS` is not set or contains wildcard `*`.
+> - Authentication bypass flags are set.
+> - Point-in-time history is required but unavailable.
+
+The production image includes only the minimal `data/synthetic_v2_1/orders.csv`
+history needed for causal serving. Larger research datasets remain excluded by
+`.dockerignore`. If an externally managed history store is used instead, mount
+it read-only and keep `TRUSTSHIELD_REQUIRE_PIT_HISTORY=true`.
+
+Before building the production image, generate the release manifest from the
+exact checkout:
+
+```bash
+python scripts/build_release_manifest.py --output models/release_manifest.json
+docker compose build --no-cache
+```
+
+The manifest is ignored by Git and is supplied as release build input; the
+image contains it under `/app/models/release_manifest.json`.
+
+### Example Production `.env`
+```env
+PORT=8000
+HOST=0.0.0.0
+LOG_LEVEL=info
+TRUSTSHIELD_ENV=production
+TRUSTSHIELD_AUTH_ENABLED=true
+TRUSTSHIELD_ADMIN_KEY=prod-admin-secret-key-32chars-long-example!
+TRUSTSHIELD_API_KEY=prod-operator-api-key-32chars-long-example
+CORS_ALLOWED_ORIGINS=https://trustshield.yourdomain.com
+```
 
 ---
 
@@ -77,7 +124,7 @@ Copy `.env.example` to `.env` or set these in your container orchestrator:
 ### A. Single Command Launch via Docker Compose
 
 ```bash
-# Build and run the single-container backend
+# Build and run the single-container backend (reads .env automatically)
 docker compose up -d --build
 
 # Inspect container logs
@@ -97,7 +144,9 @@ docker run -d \
   -p 8000:8000 \
   -e PORT=8000 \
   -e LOG_LEVEL=info \
-  -e API_KEYS="prod-operator-api-key-32chars-long" \
+  -e TRUSTSHIELD_ENV=production \
+  -e TRUSTSHIELD_ADMIN_KEY="prod-admin-secret-key-32chars-long-example!" \
+  -e TRUSTSHIELD_API_KEY="prod-operator-api-key-32chars-long-example" \
   -e CORS_ALLOWED_ORIGINS="https://trustshield.yourdomain.com" \
   trustshield-api:latest
 ```
@@ -135,8 +184,18 @@ npm start -- -p 3000
 
 ```env
 NEXT_PUBLIC_API_URL=https://api.trustshield.yourdomain.com
-NEXT_PUBLIC_API_KEY=prod-operator-api-key-32chars-long
 ```
+
+> `X-API-Key` header, including for the transaction SSE stream.
+
+### Frontend Toolchain & Security Audit Note
+
+- **Production Runtime Security**: All production frontend runtime dependencies (`dependencies`) are clean of vulnerabilities and audited.
+- **Dev Toolchain Advisory Context**: In `devDependencies`, `npm audit` reports advisories related to `braces` via the Next.js linter path (`eslint-config-next` -> `@next/eslint-plugin-next` -> `fast-glob` -> `micromatch` -> `braces`).
+  - These packages are strictly build-time development linting tools and are completely excluded from the production Next.js runtime artifact.
+  - Running `npm audit fix --force` is strictly prohibited because it forces an unsafe major downgrade to `eslint-config-next@14`, which breaks Next.js 16 and React 19 compatibility.
+  - `package.json` overrides pin `braces` to `^3.0.3` and `micromatch` to `^4.0.8` to ensure no legacy 2.x versions can be resolved.
+
 
 ---
 

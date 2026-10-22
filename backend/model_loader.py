@@ -17,15 +17,9 @@ Phase 4 artifacts (optional — CLIP multimodal scorer):
     The scorer loads from cache in seconds. If absent, the /listing/analyze
     endpoint uses the caller-supplied multimodal_similarity_score field instead.
 
-Phase 5 artifacts (optional — auto-detected):
-    hybrid_model.joblib           — tabular + graph + GNN embedding XGBoost/RF
-    buyer_embeddings.joblib       — dict {buyer_id  → np.array(16,)}
-    seller_embeddings.joblib      — dict {seller_id → np.array(16,)}
-    phase5_feature_meta.joblib    — Phase 5 feature column lists + metadata
-
 If Phase 3 artifacts are missing, raises FileNotFoundError with instructions.
-If Phase 4/5 artifacts are absent the server continues serving Phase 3
-predictions without error — no configuration needed.
+If Phase 4 CLIP cache is absent, the server continues serving Phase 3
+predictions without error.
 """
 
 import os
@@ -72,27 +66,22 @@ class ModelStore:
         self._clip_loaded: bool = False
         self._tfidf_scorer: Any = None        # Cached MultimodalScorer surrogate
 
-        # --- Calibration (Phase 6) & Conformal Uncertainty ---
+        # --- Calibration & Conformal Uncertainty ---
         self.calibrator: Any = None
-        self.phase5_calibrator: Any = None
         self.conformal_predictor: Any = None
 
-        # --- Point-in-Time Transaction History Store ---
+        # --- Point-in-Time Transaction History & Governed Feature Service ---
         self.transaction_history: Any = None
+        self.feature_service: Any = None
 
         # --- Graph Snapshot (API Parity) ---
         self.graph_snapshot: Optional[dict] = None
 
-        # --- Phase 5 (optional) ---
-        self.hybrid_model: Any         = None
-        self.buyer_embeddings:  dict = {}
-        self.seller_embeddings: dict = {}
-        self.phase5_meta: Optional[dict] = None
+        # --- Serving Flags ---
         self._phase5_loaded: bool = False
 
         # --- Explainability Layer (TreeSHAP) ---
         self.shap_explainer: Any = None
-        self.phase5_shap_explainer: Any = None
 
     def load(self):
         # ---- Phase 3 ----
@@ -130,6 +119,21 @@ class ModelStore:
         if os.path.isfile(snap_path):
             self.graph_snapshot = joblib.load(snap_path)
             print(f"[model_loader] Loaded graph snapshot from {snap_path}")
+            snap_as_of = None
+            if isinstance(self.graph_snapshot, dict):
+                snap_as_of = self.graph_snapshot.get("effective_as_of") or self.graph_snapshot.get("snapshot_cutoff")
+            if snap_as_of:
+                print(f"[model_loader] Graph snapshot effective_as_of: {snap_as_of}")
+            print(
+                "[model_loader] WARNING: Graph topology is a static snapshot. "
+                "Serving requests after the snapshot date receive stale topology features."
+            )
+        else:
+            self.graph_snapshot = None
+            print(
+                "[model_loader] WARNING: graph_snapshot.joblib not found. "
+                "All graph features will be accepted from callers without server-side validation."
+            )
 
         # Point-in-time transaction history store (for causal edge weight calculation)
         try:
@@ -140,6 +144,20 @@ class ModelStore:
         except Exception as _pit_exc:
             print(f"[model_loader] PointInTimeHistoryStore initialization failed: {_pit_exc}")
             self.transaction_history = None
+
+        # Governed Real-Time Point-in-Time Feature Service (sliding windows & catalog)
+        try:
+            from backend.services.feature_service import PointInTimeFeatureService
+            data_dir = os.path.join(_ROOT, "data", "synthetic_v2_1")
+            catalog_path = os.path.join(MODELS_DIR, "product_catalog.parquet")
+            self.feature_service = PointInTimeFeatureService(
+                data_dir=data_dir if os.path.isdir(data_dir) else None,
+                catalog_path=catalog_path if os.path.isfile(catalog_path) else None,
+            )
+            print(f"[model_loader] PointInTimeFeatureService initialized (status={self.feature_service.get_status()})")
+        except Exception as _fs_exc:
+            print(f"[model_loader] PointInTimeFeatureService initialization failed: {_fs_exc}")
+            self.feature_service = None
 
         # Conformal Predictor: Load held-out validation calibration data if available
         # Prioritize Phase 3 calibration arrays; fallback to Stage 3.4 validation arrays if missing
@@ -261,9 +279,7 @@ class ModelStore:
 
     @property
     def shap_loaded(self) -> bool:
-        return (self.shap_explainer is not None and self.shap_explainer.is_available) or (
-            self.phase5_shap_explainer is not None and self.phase5_shap_explainer.is_available
-        )
+        return self.shap_explainer is not None and self.shap_explainer.is_available
 
 
 # Global singleton — imported by main.py

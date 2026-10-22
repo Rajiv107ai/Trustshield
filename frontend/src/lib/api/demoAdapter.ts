@@ -24,6 +24,7 @@ import {
   RiskLabel,
   OperationalDecision,
 } from "../types/api";
+import { RISK_THRESHOLDS } from "../constants/thresholds";
 
 export function demoGetHealth(): HealthResponse {
   return {
@@ -63,7 +64,7 @@ function makeScoreResp(
     canonical_trust_engine_risk: prob,
     conformal_prediction_set: set,
     conformal_is_calibrated: false,
-    conformal_coverage_guarantee: 0.95,
+    conformal_coverage_guarantee: undefined,
     risk_label: riskLabel,
     decision,
     trust_score: trustScore,
@@ -101,7 +102,7 @@ export function demoScoreTransaction(req: TransactionScoreRequest): TransactionS
     return makeScoreResp(orderId, 0.895, [1], "high", "BLOCK", 10.5, 0.88, 0.48, false, 0.021,
       ["HIGH_DEVICE_COLLISION", "RING_COLLUSION_SUSPECT"], "Collusion Preset", "Evaluated in offline demonstration mode (collusion ring preset)");
   }
-  if (orderId === "ORD_SIM_RETURN_04" || orderId.includes("RETURN") || (req.buyer_return_rate_before ?? 0) >= 0.5) {
+  if (orderId === "ORD_SIM_RETURN_04" || orderId.includes("RETURN") || (req.buyer_return_rate_before ?? 0) >= RISK_THRESHOLDS.REVIEW * 2) {
     return makeScoreResp(orderId, 0.582, [1], "high", "HOLD", 41.8, 0.78, 0.68, false, 0.038,
       ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_CLAIM"], "Return Abuse Preset", "Evaluated in offline demonstration mode (return abuse preset)");
   }
@@ -129,18 +130,18 @@ export function demoGetFraudRings(): FraudRingsResponse {
 
 export function demoAnalyzeListing(req: ListingScoreRequest): ListingScoreResponse {
   const sim = req.multimodal_similarity_score ?? (req.displayed_product_id && req.displayed_product_id !== req.product_id ? 0.94 : 0.42);
-  const fakeProb = sim > 0.85 ? 0.78 : 0.08;
+  const fakeProb = sim > RISK_THRESHOLDS.BLOCK ? 0.78 : 0.08;
   return {
     listing_id: req.listing_id || "LISTING_DEMO_01",
     fake_listing_probability: fakeProb,
-    risk_label: fakeProb > 0.5 ? "high" : "low",
+    risk_label: fakeProb >= RISK_THRESHOLDS.HOLD ? "high" : "low",
     model_used: "Offline Simulation (Heuristic Fallback)",
     clip_scored: false,
     multimodal_similarity_score: sim,
     investigator_narrative: {
-      visual_collision_detected: sim > 0.85,
+      visual_collision_detected: sim > RISK_THRESHOLDS.BLOCK,
       catalog_match_id: req.product_id || "PROD_B07XYZ99",
-      flagged_reason: sim > 0.85 ? "Simulation: Cross-seller photo reuse detected" : "Simulation: Original imagery verified",
+      flagged_reason: sim > RISK_THRESHOLDS.BLOCK ? "Simulation: Cross-seller photo reuse detected" : "Simulation: Original imagery verified",
       faiss_cosine_similarity: sim,
     },
   };
@@ -152,10 +153,10 @@ export function demoAnalyzeReturn(req: ReturnScoreRequest): ReturnScoreResponse 
   return {
     return_id: req.return_id || "RET_DEMO_01",
     return_fraud_probability: prob,
-    risk_label: prob > 0.5 ? "high" : "low",
-    decision: prob > 0.7 ? "BLOCK" : prob > 0.4 ? "HOLD" : "ALLOW",
+    risk_label: prob >= RISK_THRESHOLDS.HOLD ? "high" : "low",
+    decision: prob >= RISK_THRESHOLDS.BLOCK ? "BLOCK" : prob >= RISK_THRESHOLDS.HOLD ? "HOLD" : prob >= RISK_THRESHOLDS.REVIEW ? "REVIEW" : "ALLOW",
     model_used: "Offline Simulation (Heuristic Fallback)",
-    reason_codes: prob > 0.5 ? ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_CLAIM"] : [],
+    reason_codes: prob >= RISK_THRESHOLDS.HOLD ? ["HIGH_RETURN_VELOCITY", "SUSPICIOUS_REFUND_CLAIM"] : [],
   };
 }
 

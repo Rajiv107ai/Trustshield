@@ -7,8 +7,8 @@ name = "trustshield"
 version = "2.1.0"
 description = "TrustShield AI - Multi-Layer E-Commerce Fraud Prevention Engine"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["backend*", "trustshield_project*"]
+include = ["backend*", "core*", "trustshield_project*"]

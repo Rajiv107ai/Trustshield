@@ -2,15 +2,16 @@
 TrustShield AI — Feature Engineering & Matrix Construction.
 
 Transforms incoming API score requests into sanitized feature dictionaries
-matching the exact column schemas of trained Phase 3 and Phase 5 models.
+matching the exact column schemas of trained Phase 3 models.
 Provides:
 - Amount alias resolution and conflict validation
 - Real-time server-side ratio derivation
 - Authoritative graph feature resolution from server snapshot & PIT history
-- Hybrid GNN embedding retrieval via RedisService with disk fallback
+- Strict production feature boundary validation
 """
 
 import logging
+import os
 from typing import Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
@@ -18,6 +19,7 @@ from fastapi import HTTPException
 from backend.model_loader import store
 from backend.schemas import TransactionScoreRequest
 from backend.services.metrics_service import metrics_service
+from trustshield_project.policy_config import RISK_POLICY
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +34,86 @@ GRAPH_FEATURE_KEYS = [
     "buyer_seller_edge_weight_before",
 ]
 
+# These fields are derived from historical, graph, catalog, or policy state.
+# They remain in the legacy request model for synthetic/research compatibility,
+# but production callers must not be allowed to choose their values.
+SERVER_DERIVED_FEATURE_KEYS = frozenset(
+    {
+        "price_vs_base_price_ratio",
+        "price_vs_category_median_ratio",
+        "seller_age_days",
+        "seller_total_listings_before",
+        "buyer_age_days",
+        "buyer_orders_before",
+        "buyer_returns_before",
+        "buyer_return_rate_before",
+        "device_shared_buyer_count",
+        *GRAPH_FEATURE_KEYS,
+        "multimodal_similarity_score",
+        "model_version",
+    }
+)
+
+
+def strict_server_features_enabled() -> bool:
+    """Return whether production feature-boundary enforcement is enabled."""
+
+    configured = os.getenv("TRUSTSHIELD_STRICT_SERVER_FEATURES", "").strip().lower()
+    if configured:
+        return configured in {"1", "true", "yes", "on"}
+    return os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower() == "production"
+
+
+def trusted_feature_service_ready() -> bool:
+    """Whether a governed real-data feature service has been configured."""
+
+    configured = os.getenv("TRUSTSHIELD_FEATURE_SERVICE_READY", "").strip().lower()
+    return configured in {"1", "true", "yes", "on"}
+
+
+def require_trusted_feature_service() -> None:
+    """Pause production scoring until trusted PIT feature derivation is connected."""
+
+    if strict_server_features_enabled() and not trusted_feature_service_ready():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "TRUSTED_FEATURE_SERVICE_UNAVAILABLE",
+                "message": "Production scoring is paused until the governed point-in-time feature service is configured.",
+            },
+        )
+
+
+def enforce_server_feature_boundary(req: TransactionScoreRequest) -> None:
+    """Reject caller-supplied derived features in the governed serving lane.
+
+    Legacy synthetic callers may continue to provide these fields in
+    development. In production, only raw transaction assertions and the
+    amount alias are accepted; the scorer derives the rest from trusted
+    server-side state or records an explicit default/provenance state.
+    """
+
+    if not strict_server_features_enabled():
+        return
+
+    fields_set = getattr(req, "model_fields_set", set())
+    supplied = sorted(SERVER_DERIVED_FEATURE_KEYS.intersection(fields_set))
+    if supplied:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "CLIENT_DERIVED_FEATURES_NOT_ALLOWED",
+                "message": "Derived security features must be computed by the server.",
+                "fields": supplied,
+            },
+        )
+
 
 def _risk_label(score: float) -> str:
     """Canonical risk label mapping aligned with Trust Engine thresholds (0.25, 0.55)."""
-    if score >= 0.55:
+    if score >= RISK_POLICY.hold:
         return "high"
-    if score >= 0.25:
+    if score >= RISK_POLICY.review:
         return "medium"
     return "low"
 
@@ -97,6 +173,19 @@ def _build_feature_row(
 
     row["amount"] = resolved_amount
     row["order_amount"] = resolved_amount
+
+    # --- Enrich from Governed Point-in-Time Feature Service if available ---
+    fs = getattr(store, "feature_service", None)
+    if fs is not None and getattr(fs, "is_ready", False):
+        snap = getattr(store, "graph_snapshot", None)
+        computed_features, _ = fs.compute_features(req, graph_snapshot=snap, all_cols=all_cols)
+        for k, v in computed_features.items():
+            if strict_server_features_enabled():
+                if k in SERVER_DERIVED_FEATURE_KEYS or row.get(k) is None:
+                    row[k] = v
+            else:
+                if row.get(k) is None or (k not in fields_set and row.get(k) == 0.0):
+                    row[k] = v
 
     # --- Derive price_vs_base_price_ratio from raw inputs if not given ---
     if row.get("price_vs_base_price_ratio", 0.0) == 0.0:
@@ -189,6 +278,10 @@ def _resolve_graph_features(
                     s_val = server_computed[k]
                     if abs(float(c_val) - float(s_val)) > 1e-4:
                         mismatches.append(f"{k}: client={c_val} vs server={s_val}")
+                        logger.warning(
+                            "Graph feature override: client supplied %s=%.4f; server snapshot=%.4f. Using server value.",
+                            k, float(c_val), float(s_val)
+                        )
         if mismatches:
             client_mismatch = True
             flag_notes = f"Flagged client-supplied graph feature mismatch ({', '.join(mismatches)}). Server snapshot value enforced."
@@ -216,4 +309,3 @@ def _resolve_graph_features(
         flag_notes = "Flagged: Graph features defaulted to 0.0 (entity not in snapshot and no client values provided)"
 
     return resolved, graph_source, flag_notes, client_mismatch
-

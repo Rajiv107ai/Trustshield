@@ -30,6 +30,9 @@ htmlcov/
 trustshield_project/data/external/
 trustshield_project/synthetic_data_export/*.csv
 trustshield_project/synthetic_data_export/*.gz
+core/data/
+core/synthetic_data_export/
+**/data/external/
 
 # General large / cache formats
 *.tar
@@ -37,13 +40,12 @@ trustshield_project/synthetic_data_export/*.gz
 *.parquet
 !models/product_catalog.parquet
 .env
+models/release_manifest.json
+.runtime/
+*.sqlite3*
 .ipynb_checkpoints/
 
 # Generated mesh seed files
 scripts/seed_graph.cypher
 scripts/seed_redis.txt
-scratch/
 
-# Agent tooling & locks
-.agents/
-skills-lock.json

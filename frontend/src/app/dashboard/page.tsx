@@ -34,6 +34,7 @@ import {
   TransactionDetailDrawer,
   DrawerTransactionData,
 } from "@/components/transactions/TransactionDetailDrawer";
+import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
 const DECISION_META: Record<string, { narrative: string; rec: string; preset: string }> = {
   BLOCK: {
@@ -75,7 +76,7 @@ const AI_BREAKDOWNS = [
 export default function DashboardPage() {
   const { viewMode, isLive, readyInfo } = useViewMode();
   const { openTour } = useGuide();
-  const [streamStatus, setStreamStatus] = useState<"LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "OFFLINE">("CONNECTING");
+  const [streamStatus, setStreamStatus] = useState<"LIVE" | "SIMULATION" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "OFFLINE">("CONNECTING");
   const [showRiskGuide, setShowRiskGuide] = useState<boolean>(true);
   const [guideExpanded, setGuideExpanded] = useState<boolean>(true);
   const [selectedDrawerTx, setSelectedDrawerTx] = useState<DrawerTransactionData | null>(null);
@@ -214,7 +215,6 @@ export default function DashboardPage() {
   useEffect(() => {
     const cleanup = TrustShieldApi.createTransactionEventSource(
       (event) => {
-        setStreamStatus("LIVE");
         setRecentTransactions((prev) => {
           const filtered = prev.filter((t) => t.id !== event.order_id);
           const newTx = {
@@ -233,7 +233,7 @@ export default function DashboardPage() {
         setMetrics((prev) => ({
           ...prev,
           totalAnalyzed: prev.totalAnalyzed + 1,
-          flaggedFraud: event.risk_score > 0.7 ? prev.flaggedFraud + 1 : prev.flaggedFraud,
+          flaggedFraud: event.risk_score >= RISK_THRESHOLDS.HOLD ? prev.flaggedFraud + 1 : prev.flaggedFraud,
         }));
       },
       (status) => {
@@ -394,7 +394,7 @@ export default function DashboardPage() {
                   1. Cost-Loss Bayes Matrix
                 </span>
                 <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                  We balance chargeback cost ($100) against checkout friction ($5). Raw probabilities are mapped to operational thresholds: ALLOW (&lt;0.10), REVIEW (0.10–0.45), HOLD (0.45–0.70), BLOCK (&gt;0.70).
+                  We balance chargeback cost ($100) against checkout friction ($5). Raw probabilities are mapped to governed operational thresholds: REVIEW ({RISK_THRESHOLDS.REVIEW.toFixed(2)}), HOLD ({RISK_THRESHOLDS.HOLD.toFixed(2)}), BLOCK ({RISK_THRESHOLDS.BLOCK.toFixed(2)}).
                 </p>
               </div>
 
@@ -404,7 +404,7 @@ export default function DashboardPage() {
                   2. Isotonic Calibration
                 </span>
                 <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                  Raw classifier scores are non-parametrically fitted to holdout validation empirical rates. A score of 0.85 means exactly 85 of 100 historical orders with this score were fraudulent.
+                  Raw classifier scores are non-parametrically fitted to holdout validation empirical rates. A score of {RISK_THRESHOLDS.BLOCK.toFixed(2)} represents the governed block boundary, not a universal fraud-rate guarantee.
                 </p>
               </div>
 
@@ -746,17 +746,29 @@ export default function DashboardPage() {
               className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1.5 ${
                 streamStatus === "LIVE"
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                  : streamStatus === "CONNECTING"
+                  : streamStatus === "SIMULATION"
                   ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                  : streamStatus === "CONNECTING"
+                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
                   : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30"
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  streamStatus === "LIVE" ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+                  streamStatus === "LIVE"
+                    ? "bg-emerald-500 animate-pulse"
+                    : streamStatus === "SIMULATION"
+                    ? "bg-amber-500 animate-pulse"
+                    : "bg-slate-400"
                 }`}
               />
-              {streamStatus === "LIVE" ? "LIVE SSE FEED" : streamStatus === "CONNECTING" ? "CONNECTING..." : "OFFLINE REPLAY"}
+              {streamStatus === "LIVE"
+                ? "LIVE SSE FEED"
+                : streamStatus === "SIMULATION"
+                ? "SIMULATION FEED"
+                : streamStatus === "CONNECTING"
+                ? "CONNECTING..."
+                : "OFFLINE REPLAY"}
             </span>
           </div>
           <Link
@@ -856,9 +868,9 @@ export default function DashboardPage() {
                             <div
                               style={{ width: `${Math.min(100, Math.max(0, tx.calibratedProb * 100))}%` }}
                               className={`h-full ${
-                                tx.calibratedProb > 0.7
+                                tx.calibratedProb >= RISK_THRESHOLDS.HOLD
                                   ? "bg-rose-500"
-                                  : tx.calibratedProb > 0.3
+                                  : tx.calibratedProb >= RISK_THRESHOLDS.REVIEW
                                   ? "bg-amber-500"
                                   : "bg-emerald-500"
                               }`}
@@ -866,9 +878,9 @@ export default function DashboardPage() {
                           </div>
                           <span
                             className={`font-semibold ${
-                              tx.calibratedProb > 0.7
+                              tx.calibratedProb >= RISK_THRESHOLDS.HOLD
                                 ? "text-rose-600 dark:text-rose-400"
-                                : tx.calibratedProb > 0.3
+                                : tx.calibratedProb >= RISK_THRESHOLDS.REVIEW
                                 ? "text-amber-600 dark:text-amber-400"
                                 : "text-emerald-600 dark:text-emerald-400"
                             }`}

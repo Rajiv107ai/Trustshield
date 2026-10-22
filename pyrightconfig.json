@@ -1,6 +1,8 @@
 {
   "include": [
     "backend",
+    "core",
+    "tests",
     "trustshield_project"
   ],
   "exclude": [
@@ -10,8 +12,10 @@
     "**/node_modules"
   ],
   "extraPaths": [
+    "core",
     "trustshield_project",
     "backend",
+    "tests",
     "scripts",
     "."
   ],

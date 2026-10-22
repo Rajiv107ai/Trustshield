@@ -28,8 +28,14 @@ from typing import Any, Dict, Optional
 import urllib.error
 import urllib.request
 
+from pathlib import Path
+
 if hasattr(sys.stdout, "reconfigure"):
     getattr(sys.stdout, "reconfigure")(encoding="utf-8", errors="replace")
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 DEFAULT_API_KEY = "dev-operator-api-key-32chars-long"
 

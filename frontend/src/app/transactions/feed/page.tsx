@@ -47,7 +47,7 @@ export default function TransactionFeedPage() {
   const [filterDecision, setFilterDecision] = useState<string>("ALL");
   const [search, setSearch] = useState<string>("");
   const [items, setItems] = useState<FeedItem[]>(INITIAL_FEED_DATA);
-  const [streamStatus, setStreamStatus] = useState<"LIVE" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING">("CONNECTING");
+  const [streamStatus, setStreamStatus] = useState<"LIVE" | "SIMULATION" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING">("CONNECTING");
   const [selectedDrawerTx, setSelectedDrawerTx] = useState<DrawerTransactionData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -90,7 +90,7 @@ export default function TransactionFeedPage() {
         setItems((prev) => [newItem, ...prev.slice(0, 49)]);
       },
       (status) => {
-        if (status === "LIVE" || status === "CONNECTING" || status === "DISCONNECTED" || status === "RECONNECTING") {
+        if (status === "LIVE" || status === "SIMULATION" || status === "CONNECTING" || status === "DISCONNECTED" || status === "RECONNECTING") {
           setStreamStatus(status);
         }
       }
@@ -127,6 +127,12 @@ export default function TransactionFeedPage() {
                 LIVE STREAM
               </span>
             )}
+            {streamStatus === "SIMULATION" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                SIMULATION
+              </span>
+            )}
             {streamStatus === "CONNECTING" && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
                 <RefreshCw className="w-3 h-3 animate-spin" />
@@ -148,6 +154,9 @@ export default function TransactionFeedPage() {
           </div>
           <p className="text-xs text-[var(--text-secondary)] mt-1">
             Real-time SSE event stream scoring incoming orders dynamically via Canonical Trust Engine.
+          </p>
+          <p className="text-[10px] text-[var(--text-muted)] italic mt-0.5">
+            Note: SSE connection uses URL parameter for compatibility. Use a reverse-proxy with header injection in production.
           </p>
         </div>
 

@@ -12,10 +12,14 @@
     "redis_live": false,
     "neo4j_live": false,
     "scoring_model_loaded": true,
-    "phase5_model_loaded": true,
-    "classifier_name": "Phase 5 XGBoost + GNN"
+    "phase5_model_loaded": false,
+    "classifier_name": "Phase 3 Combined Graph Model",
+    "note": "Phase 5 was not loaded in the tested build. This entry is corrected."
   },
   "mode": "Direct In-Process ASGI Transport (app=FastAPI)",
+  "network_topology_measured": false,
+  "claim_status": "in_process_only_estimate",
+  "note": "These measurements are not a real network/container load test; do not use them as a production RPS or latency SLO claim.",
   "endpoint": "http://testserver/transaction/score",
   "runs_per_tier": 3,
   "requests_per_tier": 5,

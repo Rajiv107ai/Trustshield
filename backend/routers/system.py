@@ -14,6 +14,7 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
+from typing import Any, Dict
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -68,10 +69,49 @@ def ready(response: Response):
     clip_ready = getattr(store, "clip_loaded", False)
     shap_ready = getattr(store, "shap_loaded", False)
     rings_ready = store.rings_df is not None
+    pit_history_ready = getattr(store, "transaction_history", None) is not None
+    feature_service_ready = os.getenv("TRUSTSHIELD_FEATURE_SERVICE_READY", "").strip().lower() in {"1", "true", "yes", "on"}
+    pit_required_raw = os.getenv("TRUSTSHIELD_REQUIRE_PIT_HISTORY", "")
+    pit_required = (
+        pit_required_raw.strip().lower() in {"1", "true", "yes", "on"}
+        if pit_required_raw.strip()
+        else os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower() == "production"
+    )
 
-    if models_ready and rings_ready:
+    fs_instance = getattr(store, "feature_service", None)
+    redis_connected = bool(
+        fs_instance is not None
+        and getattr(fs_instance, "redis", None) is not None
+        and fs_instance.redis.is_connected
+    )
+
+    details: Dict[str, Any] = {
+        "n_rings": len(store.rings_df) if store.rings_df is not None else 0,
+        "phase3_loaded": phase3_ready,
+        "clip_loaded": clip_ready,
+        "shap_loaded": shap_ready,
+        "redis_status": "connected" if redis_connected else "disabled",
+        "neo4j_status": "disabled",
+        "investigation_agent_ready": investigation_service.agent is not None,
+        "pit_history_required": pit_required,
+        "trusted_feature_service_ready": feature_service_ready,
+    }
+    if fs_instance is not None and getattr(fs_instance, "is_ready", False):
+        details["feature_service"] = fs_instance.get_status()
+
+    if not pit_history_ready:
+        details["pit_history"] = "unavailable — edge weights default to 0.0"
+
+    graph_snap = getattr(store, "graph_snapshot", None)
+    if isinstance(graph_snap, dict):
+        as_of = graph_snap.get("effective_as_of") or graph_snap.get("snapshot_cutoff")
+        if as_of:
+            details["graph_snapshot_as_of"] = str(as_of)
+
+    feature_service_required = os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower() == "production"
+    if models_ready and rings_ready and pit_history_ready and (feature_service_ready or not feature_service_required):
         status = ServiceState.READY
-    elif models_ready:
+    elif models_ready and not pit_required and not feature_service_required:
         status = ServiceState.DEGRADED
     else:
         status = ServiceState.NOT_READY
@@ -85,7 +125,8 @@ def ready(response: Response):
         clip_ready=clip_ready,
         shap_ready=shap_ready,
         rings_ready=rings_ready,
-        redis_ready=False,
+        pit_history_ready=pit_history_ready,
+        redis_ready=redis_connected,
         neo4j_ready=False,
         components={
             "models": "ready" if models_ready else "unavailable",
@@ -93,15 +134,7 @@ def ready(response: Response):
             "graph_topology": "ready" if rings_ready else "unavailable",
             "investigation": "available" if investigation_service.agent is not None else "unavailable",
         },
-        details={
-            "n_rings": len(store.rings_df) if store.rings_df is not None else 0,
-            "phase3_loaded": phase3_ready,
-            "clip_loaded": clip_ready,
-            "shap_loaded": shap_ready,
-            "redis_status": "disabled",
-            "neo4j_status": "disabled",
-            "investigation_agent_ready": investigation_service.agent is not None,
-        },
+        details=details,
     )
 
 

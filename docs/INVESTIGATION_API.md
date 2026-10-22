@@ -88,12 +88,12 @@ Per Rule #12, the response explicitly separates four epistemological tiers:
 ## 5. Evidence Grounding & Verification Rules
 
 1. **Grounded Invariants:** The investigation agent cannot invent entity IDs, chargeback amounts, or nonexistent connections.
-2. **Deterministic Fallback:** When an external LLM is not configured, TrustShield uses its native deterministic rule-grounded synthesis agent (`GenAIInvestigationAgent` in `trustshield_project/investigation_agent.py`).
+2. **Deterministic Fallback:** When an external LLM is not configured, TrustShield uses its native deterministic rule-grounded synthesis agent (`backend/services/investigation_service.py` and `trustshield_project/dossier_generator.py`).
 3. **Audit Provenance:** Every response includes explicit metadata tracking:
    ```json
    "provenance": {
-     "model_version": "phase5-hybrid",
-     "graph_source": "neo4j | disk_artifact",
+     "model_version": "phase3-combined",
+     "graph_source": "memory | disk_artifact",
      "engine": "TrustShield Grounded Forensic Agent"
    }
    ```

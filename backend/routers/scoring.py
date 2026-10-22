@@ -20,6 +20,8 @@ from backend.auth import authenticate_request
 from backend.features import (
     _build_feature_row,
     _resolve_graph_features,
+    enforce_server_feature_boundary,
+    require_trusted_feature_service,
     _risk_label,
 )
 from backend.model_loader import store
@@ -31,6 +33,13 @@ from backend.schemas import (
     TransactionScoreResponse,
 )
 from backend.services.metrics_service import metrics_service
+from backend.release_manifest import get_release_manifest_status, release_manifest_digest
+from trustshield_project.policy_config import RISK_POLICY
+
+try:
+    from backend.services.audit_service import AuditService
+except ImportError:  # pragma: no cover - slim deployments may omit audit storage
+    AuditService = None  # type: ignore[assignment,misc]
 
 try:
     from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
@@ -40,6 +49,95 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_decision_audit_service: Any = None
+_decision_audit_initialized = False
+
+
+def _audit_decisions_enabled() -> bool:
+    configured = os.getenv("TRUSTSHIELD_AUDIT_DECISIONS", "").strip().lower()
+    if configured:
+        return configured in {"1", "true", "yes", "on"}
+    return os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower() in {
+        "production",
+        "prod",
+    }
+
+
+def _get_decision_audit_service() -> Any:
+    """Lazily resolve the decision audit store without logging raw requests."""
+
+    global _decision_audit_service, _decision_audit_initialized
+    if not _audit_decisions_enabled():
+        return None
+    if _decision_audit_initialized:
+        return _decision_audit_service
+    _decision_audit_initialized = True
+    if AuditService is None:
+        _decision_audit_service = RuntimeError("durable audit service is unavailable")
+        return _decision_audit_service
+    try:
+        _decision_audit_service = AuditService(
+            sqlite_path=os.getenv("TRUSTSHIELD_AUDIT_SQLITE_PATH", ".runtime/audit.sqlite3")
+        )
+    except Exception as exc:
+        logger.error("Decision audit service is unavailable: %s", type(exc).__name__)
+        _decision_audit_service = exc
+    return _decision_audit_service
+
+
+def _record_decision_audit(req: TransactionScoreRequest, response: TransactionScoreResponse) -> None:
+    """Persist an allowlisted decision snapshot or fail closed when required."""
+
+    audit = _get_decision_audit_service()
+    if audit is None:
+        return
+    if isinstance(audit, Exception):
+        raise HTTPException(
+            status_code=503,
+            detail="Durable decision audit is unavailable; scoring was not acknowledged",
+        ) from audit
+    try:
+        manifest_status = get_release_manifest_status()
+        manifest = manifest_status.manifest or {}
+        feature_schema_hash = manifest.get("feature_schema_hash")
+        if not isinstance(feature_schema_hash, str):
+            feature_schema_hash = None
+        audit.append_decision(
+            response.decision,
+            subject_id=req.order_id,
+            event_name="transaction.decision.recorded",
+            actor_id="system",
+            model_version=response.model_version,
+            reason_codes=response.reason_codes,
+            risk_score=response.overall_fraud_probability,
+            metadata={
+                "order_id": req.order_id,
+                "decision_source": response.scoring_mode,
+                "feature_source": response.graph_features_source,
+                "model_name": response.model_used,
+                "model_stage": response.model_version,
+                "policy_decision": response.decision,
+                "risk_label": response.risk_label,
+                "fraud_probability": response.calibrated_fraud_probability,
+                "trust_score": response.trust_score,
+                "confidence": response.confidence,
+                "is_simulation": response.is_simulation,
+                "source": "transaction_score",
+                "policy_version": RISK_POLICY.version,
+                "conformal_set": ",".join(str(item) for item in (response.conformal_prediction_set or [])),
+                "artifact_manifest_hash": release_manifest_digest(),
+                "feature_schema_hash": feature_schema_hash,
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Decision audit append failed: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail="Durable decision audit is unavailable; scoring was not acknowledged",
+        ) from exc
 
 VALID_SERVING_MODELS = {"phase3"}
 _default_canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not None else None
@@ -133,7 +231,7 @@ def _evaluate_and_build_response(
         conformal_set = sorted(list(t_res.conformal_prediction_set)) if hasattr(t_res, "conformal_prediction_set") else None
     else:
         final_risk = prob_cal
-        decision = "REVIEW" if final_risk >= 0.25 else "ALLOW"
+        decision = "REVIEW" if final_risk >= RISK_POLICY.review else "ALLOW"
         trust_score = round(100.0 * (1.0 - final_risk), 2)
         confidence = 0.8
         uncertainty = None
@@ -158,7 +256,7 @@ def _evaluate_and_build_response(
     conformal_calibrated = bool(engine.conformal.is_calibrated) if engine and hasattr(engine, "conformal") else False
     conformal_q = round(float(engine.conformal.q_hat), 4) if engine and hasattr(engine, "conformal") and engine.conformal.is_calibrated else None
 
-    return TransactionScoreResponse(
+    response = TransactionScoreResponse(
         order_id=req.order_id,
         overall_fraud_probability=round(final_risk, 4),
         raw_fraud_probability=round(prob_raw, 4),
@@ -167,7 +265,7 @@ def _evaluate_and_build_response(
         canonical_trust_engine_risk=round(final_risk, 4),
         conformal_prediction_set=conformal_set,
         conformal_is_calibrated=conformal_calibrated,
-        conformal_coverage_guarantee=0.95,
+        conformal_coverage_guarantee=0.95 if conformal_calibrated else None,
         conformal_q_hat=conformal_q,
         risk_label=_risk_label(final_risk),
         decision=decision,
@@ -196,6 +294,8 @@ def _evaluate_and_build_response(
         is_simulation=False,
         note=note_prefix + (f" [{graph_notes}]" if graph_notes else ""),
     )
+    _record_decision_audit(req, response)
+    return response
 
 
 @router.post("/transaction/score", response_model=TransactionScoreResponse, tags=["scoring"], dependencies=[Depends(authenticate_request)])
@@ -203,6 +303,7 @@ def score_transaction(
     req: TransactionScoreRequest,
     request: Request = None,  # type: ignore[assignment]
     engine: CanonicalTrustEngine = Depends(get_trust_engine),
+    bypass_feature_boundary: bool = False,
 ):
     """
     Score an incoming order for fraud using the Phase 3 Combined model
@@ -216,6 +317,10 @@ def score_transaction(
             store.load()
         except Exception as exc:
             logger.warning("Failed to lazy-load models in /transaction/score: %s", exc)
+
+    if not bypass_feature_boundary:
+        enforce_server_feature_boundary(req)
+        require_trusted_feature_service()
     if not store.is_loaded:
         raise HTTPException(status_code=503, detail="Models not loaded yet — try again in a moment.")
 
@@ -264,10 +369,31 @@ def score_transaction(
             req.buyer_id, req.seller_id, order_id=req.order_id
         )
 
+    if getattr(store, "feature_service", None) is not None and getattr(store.feature_service, "is_ready", False) and req.buyer_id and req.seller_id and getattr(req, "order_date", None) is None:
+        store.feature_service.record_live_transaction(
+            order_id=req.order_id or "LIVE_TX",
+            buyer_id=req.buyer_id,
+            seller_id=req.seller_id,
+            amount=float(feature_row.get("amount", 0.0)),
+            device_id=getattr(req, "device_id", None),
+        )
+
     infra_sources = {
         "graph_topology": "disk_artifact",
         "embeddings": "not_used_in_phase3",
     }
+
+    try:
+        from backend.services.champion_challenger_service import champion_challenger_service
+        champion_challenger_service.record_shadow_evaluation(
+            req=req,
+            feature_row=feature_row,
+            champ_score=prob_cal,
+            champ_decision="PENDING",
+            champ_conformal=[],
+        )
+    except Exception as _sh_exc:
+        logger.debug("Shadow evaluation record skipped: %s", _sh_exc)
 
     return _evaluate_and_build_response(
         req=req,

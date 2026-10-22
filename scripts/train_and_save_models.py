@@ -180,6 +180,23 @@ def main():
     rings_df = detect_fraud_rings(rel_graph, df_scored, score_col="fraud_score", min_ring_size=2)
     joblib.dump(rings_df, os.path.join(MODELS_DIR, "fraud_rings.joblib"))
 
+    # Serialize static graph snapshot with metadata
+    import subprocess
+    try:
+        training_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        training_commit = "unknown"
+
+    graph_snapshot = {
+        "buyer_features": rel_feat_train.set_index("buyer_id").to_dict(orient="index") if "buyer_id" in rel_feat_train else {},
+        "seller_features": {},
+        "effective_as_of": str(TRAIN_END),
+        "snapshot_cutoff": str(TRAIN_END),
+        "training_commit": training_commit,
+        "topology_note": "Static snapshot. Per-row PIT topology not implemented.",
+    }
+    joblib.dump(graph_snapshot, os.path.join(MODELS_DIR, "graph_snapshot.joblib"))
+
     feature_meta = {
         "classifier": "XGBoost" if _HAS_XGBOOST else "RandomForest",
         "tabular_cols": tabular_cols,

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TrustShieldApi, ApiError } from "@/lib/api/client";
-import { ListingScoreRequest, ListingScoreResponse } from "@/lib/types/api";
+import { TrustShieldApi, ApiError, generateIdempotencyKey } from "@/lib/api/client";
+import { ActionReceipt, ListingScoreRequest, ListingScoreResponse } from "@/lib/types/api";
+import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 import { useViewMode } from "@/context/ViewModeContext";
 import {
   Tag,
@@ -60,17 +61,23 @@ const LISTING_PRESETS: ListingScenarioPreset[] = [
 /* END GENERATED */
 
 export default function ListingIntelligencePage() {
-  const { viewMode, isLive } = useViewMode();
+  const { viewMode, isLive, isDemo } = useViewMode();
   const [activePreset, setActivePreset] = useState<ListingScenarioPreset>(LISTING_PRESETS[0]);
   const [formData, setFormData] = useState<ListingScoreRequest>(LISTING_PRESETS[0].payload);
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<ListingScoreResponse | null>(null);
   const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [listingAction, setListingAction] = useState<
+    | { kind: "demo"; message: string }
+    | { kind: "receipt"; receipt: ActionReceipt }
+    | { kind: "error"; message: string }
+    | null
+  >(null);
+  const [listingActionLoading, setListingActionLoading] = useState(false);
 
   const executeAudit = async (payload: ListingScoreRequest) => {
     setLoading(true);
-    setActionSuccess(null);
+    setListingAction(null);
     setErrorState(null);
     try {
       const res = await TrustShieldApi.analyzeListing(payload);
@@ -103,6 +110,55 @@ export default function ListingIntelligencePage() {
   const handleAnalyze = (e: React.FormEvent) => {
     e.preventDefault();
     executeAudit(formData);
+  };
+
+  const handleQuarantineListing = async () => {
+    if (isDemo) {
+      setListingAction({
+        kind: "demo",
+        message: "Demo mode only: no live listing quarantine was submitted.",
+      });
+      return;
+    }
+
+    const listingId = result?.listing_id || formData.listing_id;
+    if (!listingId) {
+      setListingAction({ kind: "error", message: "Cannot quarantine this listing because it has no listing ID." });
+      return;
+    }
+
+    setListingAction(null);
+    setListingActionLoading(true);
+    try {
+      const receipt = await TrustShieldApi.quarantineListing(listingId, {
+        case_id: `CASE_LISTING_${listingId}`,
+        reason: "Operator quarantined listing after multimodal counterfeit review.",
+        idempotency_key: generateIdempotencyKey("listing-quarantine"),
+        target: { target_type: "listing", target_id: listingId },
+        target_confirmation: true,
+        policy_version: "policy.v1",
+      });
+      setListingAction({ kind: "receipt", receipt });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setListingAction({ kind: "error", message: `Listing quarantine failed: ${message}` });
+    } finally {
+      setListingActionLoading(false);
+    }
+  };
+
+  const refreshListingAction = async () => {
+    if (listingAction?.kind !== "receipt") return;
+    setListingActionLoading(true);
+    try {
+      const receipt = await TrustShieldApi.getAction(listingAction.receipt.command_id);
+      setListingAction({ kind: "receipt", receipt });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setListingAction({ kind: "error", message: `Action status lookup failed: ${message}` });
+    } finally {
+      setListingActionLoading(false);
+    }
   };
 
   return (
@@ -403,7 +459,7 @@ export default function ListingIntelligencePage() {
                 </div>
                 <div className="flex justify-between text-[10px] font-mono text-[#596574]">
                   <span>0.0 (Unrelated)</span>
-                  <span>0.50 (Threshold)</span>
+                   <span>{RISK_THRESHOLDS.LISTING_QUARANTINE.toFixed(2)} (Threshold)</span>
                   <span>1.0 (Exact Image Duplicate)</span>
                 </div>
               </div>
@@ -469,35 +525,89 @@ export default function ListingIntelligencePage() {
                 {result.fake_listing_probability > 0.5 ? (
                   <>
                     <button
-                      onClick={() => setActionSuccess("Listing quarantined from search results. Merchant payout held.")}
-                      className="flex-1 py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20"
+                      onClick={() => void handleQuarantineListing()}
+                      disabled={listingActionLoading}
+                      className="flex-1 py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <XCircle className="w-4 h-4" />
+                      <XCircle className={`w-4 h-4 ${listingActionLoading ? "opacity-60" : ""}`} />
                       <span>Quarantine Listing &amp; Hold Payout</span>
                     </button>
                     <button
-                      onClick={() => setActionSuccess("Automated RFQ sent to merchant requesting authorization invoices.")}
-                      className="py-2 px-3 rounded-lg bg-[#151D27] hover:bg-[#1C2633] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      onClick={() =>
+                        setListingAction({
+                          kind: "demo",
+                          message: "Demo-only control: inventory proof requests are not connected to a live action route.",
+                        })
+                      }
+                      disabled={!isDemo || listingActionLoading}
+                      title={isDemo ? "Demo-only control" : "No live inventory-proof action route is configured"}
+                      className="py-2 px-3 rounded-lg bg-[#151D27] hover:bg-[#1C2633] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <AlertTriangle className="w-4 h-4 text-amber-400" />
                       <span>Request Inventory Proof</span>
                     </button>
                   </>
                 ) : (
-                  <button
-                    onClick={() => setActionSuccess("Listing approved and elevated in global marketplace search.")}
-                    className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
-                  >
+                  <div className="flex-1 py-2 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-400 font-mono flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Approve &amp; Whitelist Listing</span>
-                  </button>
+                    <span>Listing is below quarantine threshold; no operator action required.</span>
+                  </div>
                 )}
               </div>
 
-              {actionSuccess && (
-                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-xs text-blue-300 font-mono flex items-center gap-2">
-                  <Check className="w-4 h-4 shrink-0 text-blue-400" />
-                  <span>{actionSuccess}</span>
+              <p className="text-[10px] italic text-[var(--text-secondary)] mt-1">
+                Actions are accepted by the backend outbox first; provider execution is asynchronous.
+              </p>
+
+              {listingAction?.kind === "demo" && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 font-mono flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{listingAction.message}</span>
+                </div>
+              )}
+
+              {listingAction?.kind === "error" && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-400 font-mono flex items-start gap-2">
+                  <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{listingAction.message}</span>
+                </div>
+              )}
+
+              {listingAction?.kind === "receipt" && (
+                <div
+                  className={`p-3 rounded-lg border text-xs font-mono space-y-2 ${
+                    listingAction.receipt.status === "failed"
+                      ? "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400"
+                      : listingAction.receipt.status === "succeeded"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                      : "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {listingAction.receipt.status === "failed" ? (
+                      <XCircle className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <Check className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>
+                      {listingAction.receipt.status === "pending"
+                        ? "Action accepted — pending provider execution."
+                        : listingAction.receipt.status === "succeeded"
+                        ? "Action completed with provider receipt."
+                        : `Action failed: ${listingAction.receipt.error || "provider execution was not completed."}`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]">
+                    <span>Action ID: {listingAction.receipt.command_id}</span>
+                    <button
+                      type="button"
+                      onClick={() => void refreshListingAction()}
+                      disabled={listingActionLoading}
+                      className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                    >
+                      <span>{listingActionLoading ? "Refreshing…" : "Refresh status"}</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

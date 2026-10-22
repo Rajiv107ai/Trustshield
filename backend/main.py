@@ -5,7 +5,7 @@ Composes domain routers, application lifespan, Prometheus metrics middleware,
 and security policies:
 - Scoring Router:     /transaction/score, /transaction/explain
 - Operations Router:  /fraud-rings, /listing/analyze, /return/analyze, /investigation/generate-dossier
-- System Router:      /health, /ready, /results, /metrics, /system/benchmark
+- System Router:      /health, /ready, /results, /metrics, /system/benchmark, /version
 
 Start:
     uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
@@ -23,9 +23,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.auth import validate_security_configuration
 from backend.features import _build_feature_row, _risk_label
 from backend.model_loader import store
+from backend.routers.actions import router as actions_router
 from backend.routers.operations import router as operations_router
+from backend.routers.contracts import router as contracts_router
 from backend.routers.scoring import router as scoring_router, score_transaction
 from backend.routers.system import router as system_router
+from backend.routers.version import router as version_router
+from backend.routers.monitoring import router as monitoring_router
+from backend.routers.features import router as features_router
+from backend.routers.champion_challenger import router as champion_challenger_router
+from backend.release_manifest import validate_release_manifest_configuration
 from backend.services.metrics_service import metrics_service
 from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
 
@@ -34,11 +41,16 @@ logger = logging.getLogger(__name__)
 # CanonicalTrustEngine is the sole authoritative production engine.
 _canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not None else None
 
+# Enforce security configuration immediately at startup (fails fast before app init)
+validate_security_configuration()
+validate_release_manifest_configuration()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load models once at startup."""
     validate_security_configuration()
+    validate_release_manifest_configuration()
     if _canonical_trust_engine is None:
         logger.error("FATAL: CanonicalTrustEngine failed to load. Server cannot safely score transactions.")
     try:
@@ -100,7 +112,13 @@ app.add_middleware(
 # Mount domain routers
 app.include_router(scoring_router)
 app.include_router(operations_router)
+app.include_router(contracts_router)
+app.include_router(actions_router)
 app.include_router(system_router)
+app.include_router(version_router)
+app.include_router(monitoring_router)
+app.include_router(features_router)
+app.include_router(champion_challenger_router)
 
 # Public symbols preserved for backward compatibility with tests & scripts
 __all__ = [
