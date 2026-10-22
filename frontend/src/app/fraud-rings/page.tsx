@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { TrustShieldApi, ApiError } from "@/lib/api/client";
-import { FraudRingItem } from "@/lib/types/api";
+import { TrustShieldApi, ApiError, generateIdempotencyKey } from "@/lib/api/client";
+import { ActionReceipt, FraudRingItem } from "@/lib/types/api";
+import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useViewMode } from "@/context/ViewModeContext";
 import {
   Network,
   ShieldAlert,
@@ -17,11 +19,18 @@ import {
 } from "lucide-react";
 
 export default function FraudRingsPage() {
+  const { isDemo } = useViewMode();
   const [rings, setRings] = useState<FraudRingItem[]>([]);
   const [selectedRing, setSelectedRing] = useState<FraudRingItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [minRiskThreshold, setMinRiskThreshold] = useState<number>(0.0);
-  const [freezeMessage, setFreezeMessage] = useState<string | null>(null);
+  const [freezeAction, setFreezeAction] = useState<
+    | { kind: "demo"; message: string }
+    | { kind: "receipt"; receipt: ActionReceipt }
+    | { kind: "error"; message: string }
+    | null
+  >(null);
+  const [freezeLoading, setFreezeLoading] = useState(false);
   const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
 
   useEffect(() => {
@@ -51,12 +60,49 @@ export default function FraudRingsPage() {
     loadRings();
   }, [minRiskThreshold]);
 
-  const handleFreezeAccounts = () => {
+  const handleFreezeAccounts = async () => {
     if (!selectedRing) return;
-    setFreezeMessage(
-      `All ${selectedRing.members.length} member entities across ${selectedRing.ring_id} have been frozen in the ledger.`
-    );
-    setTimeout(() => setFreezeMessage(null), 5000);
+
+    if (isDemo) {
+      setFreezeAction({
+        kind: "demo",
+        message: "Demo mode only: no live fraud-ring freeze was submitted.",
+      });
+      return;
+    }
+
+    setFreezeAction(null);
+    setFreezeLoading(true);
+    try {
+      const receipt = await TrustShieldApi.freezeRing(selectedRing.ring_id, {
+        case_id: `CASE_RING_${selectedRing.ring_id}`,
+        reason: `Operator froze fraud ring ${selectedRing.ring_id} after collusion review.`,
+        idempotency_key: generateIdempotencyKey("ring-freeze"),
+        target: { target_type: "ring", target_id: selectedRing.ring_id },
+        target_confirmation: true as const,
+        policy_version: "policy.v1",
+      });
+      setFreezeAction({ kind: "receipt", receipt });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setFreezeAction({ kind: "error", message: `Fraud-ring freeze failed: ${message}` });
+    } finally {
+      setFreezeLoading(false);
+    }
+  };
+
+  const refreshFreezeAction = async () => {
+    if (freezeAction?.kind !== "receipt") return;
+    setFreezeLoading(true);
+    try {
+      const receipt = await TrustShieldApi.getAction(freezeAction.receipt.command_id);
+      setFreezeAction({ kind: "receipt", receipt });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setFreezeAction({ kind: "error", message: `Action status lookup failed: ${message}` });
+    } finally {
+      setFreezeLoading(false);
+    }
   };
 
   return (
@@ -127,7 +173,7 @@ export default function FraudRingsPage() {
                 <option value={0.0}>All Risks (&gt; 0)</option>
                 <option value={0.4}>Medium+ (&gt; 0.4)</option>
                 <option value={0.7}>High+ (&gt; 0.7)</option>
-                <option value={0.85}>Critical (&gt; 0.85)</option>
+                <option value={RISK_THRESHOLDS.BLOCK}>Critical (&gt; {RISK_THRESHOLDS.BLOCK.toFixed(2)})</option>
               </select>
               {/* END GENERATED */}
             </div>
@@ -230,19 +276,69 @@ export default function FraudRingsPage() {
                   </Link>
 
                   <button
-                    onClick={handleFreezeAccounts}
-                    className="px-3.5 py-2 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all flex items-center gap-1.5 focus-ring"
+                    onClick={() => void handleFreezeAccounts()}
+                    disabled={freezeLoading}
+                    className="px-3.5 py-2 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all flex items-center gap-1.5 focus-ring cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Lock className="w-3.5 h-3.5" />
+                    <Lock className={`w-3.5 h-3.5 ${freezeLoading ? "opacity-60" : ""}`} />
                     <span>Freeze All Accounts</span>
                   </button>
                 </div>
               </div>
 
-              {freezeMessage && (
-                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{freezeMessage}</span>
+              <p className="text-[10px] italic text-[var(--text-secondary)] -mt-2">
+                Actions are accepted by the backend outbox first; provider execution is asynchronous.
+              </p>
+
+              {freezeAction?.kind === "demo" && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 font-mono flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>{freezeAction.message}</span>
+                </div>
+              )}
+
+              {freezeAction?.kind === "error" && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-400 font-mono flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{freezeAction.message}</span>
+                </div>
+              )}
+
+              {freezeAction?.kind === "receipt" && (
+                <div
+                  className={`p-3 rounded-lg border text-xs font-mono space-y-2 ${
+                    freezeAction.receipt.status === "failed"
+                      ? "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400"
+                      : freezeAction.receipt.status === "succeeded"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                      : "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {freezeAction.receipt.status === "failed" ? (
+                      <ShieldAlert className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>
+                      {freezeAction.receipt.status === "pending"
+                        ? "Action accepted — pending provider execution."
+                        : freezeAction.receipt.status === "succeeded"
+                        ? "Action completed with provider receipt."
+                        : `Action failed: ${freezeAction.receipt.error || "provider execution was not completed."}`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]">
+                    <span>Action ID: {freezeAction.receipt.command_id}</span>
+                    <button
+                      type="button"
+                      onClick={() => void refreshFreezeAction()}
+                      disabled={freezeLoading}
+                      className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                    >
+                      <span>{freezeLoading ? "Refreshing…" : "Refresh status"}</span>
+                    </button>
+                  </div>
                 </div>
               )}
 

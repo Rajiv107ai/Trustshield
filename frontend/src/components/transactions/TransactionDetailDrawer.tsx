@@ -15,6 +15,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { DecisionBadge } from "@/components/ui/DecisionBadge";
+import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
 export interface DrawerTransactionData {
   order_id: string;
@@ -175,9 +176,9 @@ export function TransactionDetailDrawer({ transaction, isOpen, onClose }: Transa
               <div className="h-2 w-full rounded-full bg-[var(--border)] overflow-hidden">
                 <div
                   className={`h-full transition-all duration-500 ${
-                    transaction.risk_score > 0.7
+                    transaction.risk_score >= RISK_THRESHOLDS.HOLD
                       ? "bg-red-500"
-                      : transaction.risk_score > 0.3
+                      : transaction.risk_score >= RISK_THRESHOLDS.REVIEW
                       ? "bg-amber-500"
                       : "bg-emerald-500"
                   }`}
@@ -186,10 +187,10 @@ export function TransactionDetailDrawer({ transaction, isOpen, onClose }: Transa
               </div>
 
               <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)] pt-1">
-                <span>0.0 (Safe)</span>
-                <span>0.3 (Review)</span>
-                <span>0.7 (Block)</span>
-                <span>1.0 (Critical)</span>
+                <span>{RISK_THRESHOLDS.ALLOW}.0 (Safe)</span>
+                <span>{RISK_THRESHOLDS.REVIEW} (Review)</span>
+                <span>{RISK_THRESHOLDS.HOLD} (Hold)</span>
+                <span>{RISK_THRESHOLDS.BLOCK} (Block)</span>
               </div>
             </div>
 

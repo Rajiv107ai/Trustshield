@@ -2,11 +2,13 @@
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
 [![Pydantic](https://img.shields.io/badge/Pydantic-v2.0+-e92063.svg)](https://docs.pydantic.dev)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/Tests-51%20Backend%20Passing-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/Tests-190%20Backend%20Passing-brightgreen.svg)](https://github.com/Rajiv107ai/Trustshield)
 [![Explainability](https://img.shields.io/badge/Explainability-TreeSHAP%20Exact-8A2BE2.svg)](../trustshield_project/shap_explainer.py)
 
-Production-grade serving gateway for the **TrustShield AI** fraud intelligence platform. Built with FastAPI, Pydantic v2, and ASGI server optimizations, delivering sub-20ms inference latency, strict boundary schema validation, isotonic probability calibration, and orchestrator readiness probes.
+Production-grade serving gateway for the **TrustShield AI** fraud intelligence platform. Built with FastAPI, Pydantic v2, and ASGI server optimizations, delivering strict boundary schema validation, calibrated Phase 3 transaction scoring, and orchestrator readiness probes.
+
+> **Serving status:** Phase 5 hybrid/GNN transaction serving is retired and inactive. The authoritative transaction path serves the Phase 3 combined tabular-plus-point-in-time-graph model exclusively. Phase 4 CLIP support remains optional for listing analysis; it is not a transaction-scoring model.
 
 ---
 
@@ -33,26 +35,23 @@ graph LR
 - **`GET /health`**  
   **Purpose:** Kubernetes/ECS liveness probe.  
   **Status Code:** `200 OK`  
-  **Response:** Returns service status, version, and component availability flags.
+  **Response:** Returns service status and component availability flags. Phase 5 is reported as inactive.
   ```json
   {
-    "status": "healthy",
-    "version": "2.0.0",
+    "status": "ok",
     "models_loaded": true,
-    "components": {
-      "phase5_hybrid": true,
-      "phase5_calibrator": true,
-      "phase3_fallback": true,
-      "fraud_rings": true,
-      "clip_cache": true
-    }
+    "phase5_loaded": false,
+    "clip_loaded": true,
+    "shap_loaded": true,
+    "rings_loaded": true,
+    "n_rings": 123
   }
   ```
 
 - **`GET /ready`**  
   **Purpose:** Kubernetes readiness probe.  
   **Status Codes:** `200 OK` when ready, `503 Service Unavailable` if uninitialized.  
-  **Response:** Returns `ready`, `degraded`, or `not_ready` with detailed sub-system diagnostics.
+  **Response:** Returns `ready`, `degraded`, or `not_ready` with detailed sub-system diagnostics. The retired Phase 5 path is not a readiness dependency; `phase5_ready` remains `false`.
 
 ---
 
@@ -62,7 +61,7 @@ graph LR
   **Key Features:**
   - Strict Pydantic boundary schema validation.
   - Transparent support for either `amount` or `order_amount` (with explicit HTTP 400 validation if conflicting values are supplied).
-  - Production Isotonic probability calibration (`models/phase5_calibrator.joblib`).
+  - Phase 3 probability calibration when `models/calibrator.joblib` is available.
   - Binary Shannon entropy calculation for epistemic confidence estimation ($1 - H_2(p)$).
   - Decision routing: `ALLOW`, `REVIEW`, `HOLD`, `BLOCK`.
   - Informative diagnostic reason codes (`HIGH_VELOCITY`, `RING_COLLUSION_SUSPECT`, `CROSS_SELLER_IMAGE_REUSE`, etc.).
@@ -92,8 +91,8 @@ curl -X POST http://localhost:8000/transaction/score \
   "decision": "ALLOW",
   "trust_score": 91.58,
   "confidence": 0.923,
-  "model_used": "Hybrid GNN + XGBoost (Phase 5, tabular+graph+GNN embeddings)",
-  "model_version": "phase5-hybrid-calibrated",
+  "model_used": "tabular+graph XGBoost (Phase 3)",
+  "model_version": "phase3",
   "cold_start": false,
   "model_disagreement": 0.031,
   "reason_codes": []
@@ -106,7 +105,7 @@ curl -X POST http://localhost:8000/transaction/score \
 
 ### 3. TreeSHAP Explainability Engine
 - **`POST /transaction/explain`**  
-  **Purpose:** Computes sub-10ms exact local Shapley attributions for any transaction, highlighting features driving fraud risk higher vs. legitimate mitigating factors.  
+  **Purpose:** Computes exact local Shapley attributions for any transaction, highlighting features driving fraud risk higher vs. legitimate mitigating factors. Latency is deployment-specific and must be measured through the external load gate.
   **Key Features:**
   - Fast `TreeExplainer` computing local feature contributions.
   - Automatically splits into `top_positive_drivers` (risk amplifiers) and `top_negative_dampeners` (trust factors).

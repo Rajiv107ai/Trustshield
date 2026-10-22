@@ -1,10 +1,29 @@
 version: "3.8"
 
 # ==============================================================================
-# TrustShield AI — Single API Container Architecture
+# TrustShield AI — Container Architecture (API, Worker & PostgreSQL)
 # ==============================================================================
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: trustshield-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trustshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trustshield_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-trustshield}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trustshield} -d ${POSTGRES_DB:-trustshield}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   trustshield-api:
     build:
       context: .
@@ -13,13 +32,70 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
     environment:
       - PORT=8000
       - HOST=0.0.0.0
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - TRUSTSHIELD_ENV=${TRUSTSHIELD_ENV}
+      - TRUSTSHIELD_ADMIN_KEY=${TRUSTSHIELD_ADMIN_KEY}
+      - TRUSTSHIELD_API_KEY=${TRUSTSHIELD_API_KEY}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - TRUSTSHIELD_REQUIRE_PIT_HISTORY=${TRUSTSHIELD_REQUIRE_PIT_HISTORY:-true}
+      - TRUSTSHIELD_REQUIRE_RELEASE_MANIFEST=${TRUSTSHIELD_REQUIRE_RELEASE_MANIFEST:-true}
+      - TRUSTSHIELD_FEATURE_SERVICE_READY=${TRUSTSHIELD_FEATURE_SERVICE_READY:-true}
+      - TRUSTSHIELD_REDIS_URL=${TRUSTSHIELD_REDIS_URL:-redis://redis:6379/0}
+      - TRUSTSHIELD_RELEASE_COMMIT=${TRUSTSHIELD_RELEASE_COMMIT}
+      - TRUSTSHIELD_RELEASE_WORKTREE_CLEAN=${TRUSTSHIELD_RELEASE_WORKTREE_CLEAN:-false}
+      - TRUSTSHIELD_AUDIT_DECISIONS=${TRUSTSHIELD_AUDIT_DECISIONS:-true}
+      - TRUSTSHIELD_REQUIRE_AUDIT_DURABILITY=${TRUSTSHIELD_REQUIRE_AUDIT_DURABILITY:-true}
+      - TRUSTSHIELD_AUDIT_POSTGRES_DSN=${TRUSTSHIELD_AUDIT_POSTGRES_DSN:-postgresql://${POSTGRES_USER:-trustshield}:${POSTGRES_PASSWORD:-trustshield_secret}@postgres:5432/${POSTGRES_DB:-trustshield}}
+      - TRUSTSHIELD_ACTION_POSTGRES_DSN=${TRUSTSHIELD_ACTION_POSTGRES_DSN:-postgresql://${POSTGRES_USER:-trustshield}:${POSTGRES_PASSWORD:-trustshield_secret}@postgres:5432/${POSTGRES_DB:-trustshield}}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/ready"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  redis:
+    image: redis:7-alpine
+    container_name: trustshield-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  action-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trustshield-action-worker
+    restart: unless-stopped
+    command: ["python", "scripts/run_action_worker.py", "--poll-interval", "2.0", "--batch-size", "10"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - TRUSTSHIELD_ENV=${TRUSTSHIELD_ENV:-development}
+      - TRUSTSHIELD_ACTION_POSTGRES_DSN=${TRUSTSHIELD_ACTION_POSTGRES_DSN:-postgresql://${POSTGRES_USER:-trustshield}:${POSTGRES_PASSWORD:-trustshield_secret}@postgres:5432/${POSTGRES_DB:-trustshield}}
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { BarChart3 } from "lucide-react";
+import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
 interface MetricItem {
   roc_mean: number;
@@ -125,7 +126,7 @@ export default function EvaluationStudioPage() {
   const totalNegatives = totalHoldout - totalPositives;
 
   // Calibrated recall and false alarm curves derived from results.json
-  // At tau=0.50, recall ~32%, precision ~68%, aligned with threshold_evaluation_at_tau_0_50
+  // The research chart keeps its measured operating point explicit; the live policy constants govern serving decisions.
   const empiricalRecall = Math.max(0.01, Math.min(0.95, Math.pow(1.0 - threshold, 1.15) * 0.72));
   const empiricalFpr = Math.max(0.001, Math.min(0.20, Math.pow(1.0 - threshold, 2.5) * 0.08));
 
@@ -203,19 +204,24 @@ export default function EvaluationStudioPage() {
           {/* Slider */}
           <div className="space-y-1">
             <div className="flex justify-between text-[11px] text-[var(--text-muted)]">
-              <span>Conservative (0.20)</span>
-              <span>Balanced (0.45)</span>
-              <span>Aggressive (0.80)</span>
+               <span>Conservative ({RISK_THRESHOLDS.SIMULATOR_CONSERVATIVE.toFixed(2)})</span>
+              <span>Balanced ({RISK_THRESHOLDS.REVIEW.toFixed(2)})</span>
+               <span>Aggressive ({RISK_THRESHOLDS.SIMULATOR_AGGRESSIVE.toFixed(2)})</span>
             </div>
             <input
               type="range"
-              min="0.10"
-              max="0.90"
+               min={RISK_THRESHOLDS.SIMULATOR_MIN}
+               max={RISK_THRESHOLDS.SIMULATOR_MAX}
               step="0.05"
               value={threshold}
               onChange={(e) => setThreshold(parseFloat(e.target.value))}
               className="w-full accent-blue-600 cursor-pointer"
             />
+          </div>
+
+          {/* Analytical Derivation Disclaimer */}
+          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 dark:text-amber-400 font-sans leading-relaxed">
+            ⚠️ Confusion matrix values are analytically derived from reported precision, recall, and total sample counts. Raw threshold-grid confusion data was not available in this build.
           </div>
 
           {/* 2x2 Matrix Grid */}

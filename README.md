@@ -1,6 +1,6 @@
 # TrustShield AI
 
-A full-stack, multimodal fraud detection engine built for e-commerce marketplaces. It catches coordinated buyer-seller collusion rings, counterfeit product listings, and serial return abusers in real time—while providing human investigators with instant, sub-10ms SHAP explanations.
+A full-stack, multimodal fraud detection engine built for e-commerce marketplaces. It catches coordinated buyer-seller collusion rings, counterfeit product listings, and serial return abusers in real time—while providing human investigators with feature-level SHAP explanations. Serving latency claims require the deployment-specific HTTP/load evidence described in `docs/RELIABILITY.md`.
 
 ---
 
@@ -135,13 +135,13 @@ Comparing plain pairwise device/address counts against topological graph metrics
 
 ## Tech Stack
 
-- **Backend & Serving:** Python 3.10+, FastAPI, Pydantic v2, Uvicorn
+- **Backend & Serving:** Python 3.12+, FastAPI, Pydantic v2, Uvicorn
 - **Machine Learning:** XGBoost, Scikit-learn (Isotonic Regression, Calibration), NumPy, Pandas
 - **Graph & Embeddings:** NetworkX, PyTorch Geometric, OpenAI CLIP (ViT-B/32), FAISS
 - **Explainability:** TreeSHAP (interventional fast tree explainer)
 - **Frontend Console:** Next.js 16 (App Router), React 19, Turbopack, Tailwind CSS, Lucide Icons
 - **Infrastructure (Optional Mesh):** Redis (caching & ring lookups), Neo4j (graph queries), Prometheus & Grafana (telemetry)
-- **Testing & Verification:** Pytest (470+ automated tests), Pyright (strict static typing)
+- **Testing & Verification:** Pytest (417+ tests collected when optional Torch coverage is installed), Pyright (strict static typing)
 
 ---
 

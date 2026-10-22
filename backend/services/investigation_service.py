@@ -242,10 +242,12 @@ class InvestigationService:
             cluster_size = int(tx_data.get("share_component_size", 1))
             nodes = [{"id": buyer_id, "labels": ["Buyer"]}]
             relationships = []
+            matched_ring = False
             if getattr(store_instance, "rings_df", None) is not None:
                 for _, r in store_instance.rings_df.iterrows():
                     m = r.get("members", [])
                     if buyer_id in m:
+                        matched_ring = True
                         matched_ring_id = str(r.get("ring_id"))
                         cluster_size = max(cluster_size, len(m))
                         nodes.append({"id": f"DEV_{matched_ring_id}", "labels": ["Device"]})
@@ -256,11 +258,15 @@ class InvestigationService:
                         })
                         break
 
+            graph_source = "ring_artifact_lookup" if matched_ring else "unavailable"
             graph_findings = DossierGraphFindings(
-                graph_source="disk_artifact",
+                graph_source=graph_source,
                 cluster_id=matched_ring_id,
                 cluster_size=cluster_size,
-                topology_summary=f"Identified {len(nodes)} entities connected via {len(relationships)} relationships (Source: disk_artifact).",
+                topology_summary=(
+                    f"Identified {len(nodes)} entities connected via {len(relationships)} relationships (Source: {graph_source})."
+                    if matched_ring else "No collusion ring artifact found for entity (Source: unavailable)."
+                ),
                 suspicious_relationships=relationships[:10],
             )
 
@@ -289,12 +295,14 @@ class InvestigationService:
         shared_devs = int(tx_data.get("device_shared_buyer_count", 1))
 
         verified_facts = [
-            f"Verified transaction order amount: ${amt:.2f}",
-            f"Buyer account age: {age:.1f} days with {orders} prior order(s)",
-            f"Historical buyer return rate: {ret_rate * 100:.1f}%",
+            f"[CALLER-SUPPLIED] Declared transaction amount: ${amt:.2f}",
+            f"[CALLER-SUPPLIED] Declared buyer account age: {age:.1f} days with {orders} prior order(s)",
+            f"[CALLER-SUPPLIED] Declared buyer return rate: {ret_rate * 100:.1f}%",
         ]
         if shared_devs > 1:
-            verified_facts.append(f"Device fingerprint shared across {shared_devs} buyer accounts")
+            verified_facts.append(
+                f"[RING-ARTIFACT] Device fingerprint shared across {shared_devs} accounts (source: fraud_rings.joblib)"
+            )
 
         observed_evidence = DossierObservedEvidence(
             transaction_amount=amt,
@@ -427,6 +435,7 @@ class InvestigationService:
                 ),
             },
             grounding_verification_passed=verification_passed,
+            evidence_provenance_warning="Some observed_evidence fields are caller-declared inputs, not independently verified server observations. See verified_facts prefixes for source attribution.",
         )
 
 

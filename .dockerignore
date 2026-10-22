@@ -26,8 +26,13 @@ pyrightconfig.json
 pytest.ini
 
 # Large datasets and archives
+# Research/training data remains excluded, but the minimal read-only PIT history
+# required by production serving is explicitly included below.
 data/
 **/data/
+!data/
+!data/synthetic_v2_1/
+!data/synthetic_v2_1/orders.csv
 *.tar
 *.tar.gz
 *.zip

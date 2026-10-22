@@ -16,6 +16,9 @@ from typing import Any, Callable, Dict, Optional
 logger = logging.getLogger("trustshield.metrics")
 
 
+DEFAULT_HISTOGRAM_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+
+
 class _MetricCounter:
     def __init__(self, name: str):
         self.name = name
@@ -30,8 +33,9 @@ class _MetricCounter:
 
 
 class _MetricHistogram:
-    def __init__(self, name: str):
+    def __init__(self, name: str, buckets: tuple = DEFAULT_HISTOGRAM_BUCKETS):
         self.name = name
+        self.buckets = buckets
         self._observations: list[float] = []
 
     def labels(self, **kwargs) -> "_MetricHistogram":
@@ -42,6 +46,21 @@ class _MetricHistogram:
         if len(self._observations) > 10000:
             self._observations = self._observations[-5000:]
         logger.debug("metric_histogram_observe", extra={"metric": self.name, "value": amount})
+
+    def export(self) -> list[str]:
+        lines = [
+            f"# HELP {self.name} Execution duration in seconds",
+            f"# TYPE {self.name} histogram",
+        ]
+        total_count = len(self._observations)
+        total_sum = sum(self._observations)
+        for b in self.buckets:
+            count = sum(1 for v in self._observations if v <= b)
+            lines.append(f'{self.name}_bucket{{le="{b}"}} {count}')
+        lines.append(f'{self.name}_bucket{{le="+Inf"}} {total_count}')
+        lines.append(f'{self.name}_sum {total_sum:.6f}')
+        lines.append(f'{self.name}_count {total_count}')
+        return lines
 
 
 class MetricsService:
@@ -55,6 +74,7 @@ class MetricsService:
         self.trust_engine_seconds = _MetricHistogram("trustshield_trust_engine_latency_seconds")
         self.dossier_duration = _MetricHistogram("trustshield_dossier_duration_seconds")
         self.dossier_total = _MetricCounter("trustshield_dossier_total")
+        self.service_ready: int = 1
         self._decisions: Dict[str, int] = defaultdict(int)
 
     def record_decision(self, decision: str, risk_label: str, model_version: str) -> None:
@@ -69,16 +89,22 @@ class MetricsService:
         )
 
     def export_metrics(self) -> str:
-        """Text format export of in-memory metrics for basic health/monitoring scrapes."""
+        """Text format export of in-memory metrics for Prometheus scraping."""
         lines = [
             "# HELP trustshield_requests_total Total HTTP requests handled",
             "# TYPE trustshield_requests_total counter",
             f"trustshield_requests_total {sum(self.requests_total._counts.values())}",
+            "# HELP trustshield_service_ready Service readiness state (1=ready, 0=not ready)",
+            "# TYPE trustshield_service_ready gauge",
+            f"trustshield_service_ready {self.service_ready}",
             "# HELP trustshield_decisions_total Operational decisions routed",
             "# TYPE trustshield_decisions_total counter",
         ]
         for dec, count in self._decisions.items():
             lines.append(f'trustshield_decisions_total{{decision="{dec}"}} {count}')
+
+        lines.extend(self.request_duration.export())
+        lines.extend(self.model_inference_seconds.export())
         return "\n".join(lines) + "\n"
 
 

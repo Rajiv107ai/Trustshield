@@ -7,8 +7,6 @@
 
 This directory contains standalone execution scripts for synthetic data generation, end-to-end model training, probability calibration, multimodal feature extraction, benchmark evaluation, and deployment smoke validation.
 
-Canonical multi-step experiment workflows are located in the top-level `experiments/` directory.
-
 ---
 
 ## 📜 Script Index & Descriptions
@@ -37,19 +35,16 @@ Canonical multi-step experiment workflows are located in the top-level `experime
 ```bash
 python scripts/generate_realistic_synthetic_data_v2_1.py
 ```
-*(Or via `python experiments/01_generate_data.py`)*
 
 ### 2. Training Models & Generating Calibrators
 ```bash
 python scripts/train_and_save_models.py
 ```
-*(Or via `python experiments/02_train_models.py`)*
 
 ### 3. Running 20-Seed Canonical Benchmark
 ```bash
 python scripts/run_all_experiments.py
 ```
-*(Or via `python experiments/03_evaluate_20seeds.py`)*
 
 ### 4. Running End-to-End Smoke Validation
 Validates model serialization, offline-vs-online numerical parity, and API response contracts:
@@ -62,7 +57,6 @@ To regenerate the CLIP embeddings cache used by `/listing/analyze`:
 ```bash
 python scripts/build_clip_embeddings.py
 ```
-*(Or via `python experiments/04_build_clip_cache.py`)*
 
 ### 6. Running CI Allowlist Metric Grounding Check
 ```bash
