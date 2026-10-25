@@ -45,7 +45,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any, Optional, List, Tuple, Set
 
 import numpy as np
 import pandas as pd
@@ -95,6 +96,151 @@ def _image_ref_to_path(image_ref: str, abo_root: str) -> Optional[str]:
     image_ref_norm = image_ref.replace("\\", "/")
     full = os.path.normpath(os.path.join(abo_root, image_ref_norm))
     return full if os.path.isfile(full) else None
+
+
+# ---------------------------------------------------------------------------
+# Perceptual Image Hashing & Visual Duplicate Forensics
+# ---------------------------------------------------------------------------
+
+def compute_image_dhash(image_input: Any, hash_size: int = 8) -> Optional[str]:
+    """Computes a 64-bit difference hash (dHash) for an image to detect duplicate listings and clones.
+
+    Parameters
+    ----------
+    image_input:
+        Either a file path (str) or a PIL Image instance.
+    hash_size:
+        Size of hash grid (default 8 yields 8x8 = 64-bit hash).
+    """
+    try:
+        from PIL import Image
+        if isinstance(image_input, str):
+            if not os.path.isfile(image_input):
+                return None
+            img = Image.open(image_input)
+        elif hasattr(image_input, "convert"):
+            img = image_input
+        else:
+            return None
+
+        # Resize to (hash_size + 1, hash_size), convert to grayscale
+        resized = img.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
+        pixels = np.asarray(resized, dtype=np.float32)
+        # Compare adjacent horizontal pixels
+        diff = pixels[:, 1:] > pixels[:, :-1]
+        # Pack boolean array into 16-char hex string
+        bit_str = "".join("1" if b else "0" for b in diff.flatten())
+        return f"{int(bit_str, 2):016x}"
+    except Exception as exc:
+        logger.debug("Failed to compute dHash: %s", exc)
+        return None
+
+
+def compute_image_hamming_distance(hash1: Optional[str], hash2: Optional[str]) -> int:
+    """Computes the Hamming distance (number of bit differences) between two 16-hex-char dHashes.
+
+    A distance <= 5 indicates near-identical images (same product / minor compression difference).
+    A distance <= 10 indicates high visual similarity / potential duplicate.
+    """
+    if not hash1 or not hash2 or len(hash1) != 16 or len(hash2) != 16:
+        return 64
+    try:
+        i1 = int(hash1, 16)
+        i2 = int(hash2, 16)
+        return bin(i1 ^ i2).count("1")
+    except ValueError:
+        return 64
+
+
+# ---------------------------------------------------------------------------
+# Forensic Text & Off-Platform Contact Detection
+# ---------------------------------------------------------------------------
+
+_OFF_PLATFORM_REGEXES: Dict[str, re.Pattern] = {
+    "phone_number": re.compile(
+        r"(?:(?:\+|0{0,2})91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}\b|"  # Indian 10-digit mobile
+        r"\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b"                     # US 10-digit standard
+    ),
+    "telegram_handle": re.compile(
+        r"(?:t\.me/|telegram(?:\.me)?/|@)[a-zA-Z0-9_]{5,32}\b", re.IGNORECASE
+    ),
+    "whatsapp_invite": re.compile(
+        r"(?:wa\.me/|whatsapp(?:\.com)?/chat/|chat\.whatsapp\.com/)[a-zA-Z0-9]{10,32}\b", re.IGNORECASE
+    ),
+    "upi_vpa": re.compile(
+        r"\b[a-zA-Z0-9.\-_]{2,64}@(okhdfcbank|okaxis|oksbi|okicici|paytm|ybl|apl|upi|postbank)\b", re.IGNORECASE
+    ),
+    "suspicious_url": re.compile(
+        r"https?://(?:bit\.ly|tinyurl\.com|t\.co|goo\.gl|cutt\.ly|is\.gd|rb\.gy)/[a-zA-Z0-9_\-]+", re.IGNORECASE
+    ),
+    "off_platform_cta": re.compile(
+        r"\b(?:direct\s+order|pay\s+outside|contact\s+on\s+whatsapp|call\s+before\s+booking|"
+        r"bank\s+transfer\s+only|gpay\s+directly|no\s+platform\s+fee\s+discount)\b", re.IGNORECASE
+    ),
+}
+
+
+def scan_off_platform_contact(text: str) -> Dict[str, Any]:
+    """Scans product title, description, or image OCR text for off-platform scam signals."""
+    if not text or not isinstance(text, str):
+        return {"has_violation": False, "violations": [], "threat_score": 0.0}
+
+    findings = []
+    total_threat = 0.0
+
+    for rule_name, pattern in _OFF_PLATFORM_REGEXES.items():
+        matches = pattern.findall(text)
+        if matches:
+            weight = 0.90 if rule_name in ("upi_vpa", "off_platform_cta") else (
+                0.80 if rule_name in ("whatsapp_invite", "telegram_handle", "suspicious_url") else 0.65
+            )
+            findings.append({
+                "rule": rule_name,
+                "matches": [m if isinstance(m, str) else m[0] for m in matches[:3]],
+                "weight": weight,
+            })
+            total_threat = max(total_threat, weight)
+
+    return {
+        "has_violation": len(findings) > 0,
+        "violations": findings,
+        "threat_score": round(min(total_threat, 1.0), 3),
+    }
+
+
+def detect_catalog_clone(
+    target_hash: Optional[str],
+    reference_hashes: Dict[str, str],
+    threshold_distance: int = 5,
+) -> Dict[str, Any]:
+    """Checks if target_hash matches any existing reference hash from other sellers.
+    
+    Parameters
+    ----------
+    target_hash:
+        The 16-hex-char dHash of the current listing image.
+    reference_hashes:
+        Map of existing {listing_id: dhash} across the catalog.
+    threshold_distance:
+        Maximum Hamming distance to declare a clone (default 5).
+    """
+    if not target_hash or not reference_hashes:
+        return {"is_clone": False, "matched_listings": [], "min_distance": 64}
+
+    matches = []
+    min_dist = 64
+    for other_id, other_h in reference_hashes.items():
+        dist = compute_image_hamming_distance(target_hash, other_h)
+        if dist < min_dist:
+            min_dist = dist
+        if dist <= threshold_distance:
+            matches.append({"listing_id": other_id, "hamming_distance": dist})
+
+    return {
+        "is_clone": len(matches) > 0,
+        "matched_listings": matches,
+        "min_distance": min_dist,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -416,8 +562,27 @@ class CLIPMultimodalScorer:
 
         raw_sim = np.sum(u * v, axis=1)
         # CLIP raw cosine is roughly in [−1, 1]; calibrate to [0.05, 0.98]
-        calibrated = np.clip(0.50 + 0.50 * raw_sim, 0.05, 0.98).round(4)
-        return pd.Series(calibrated, index=listings_df.index, name="multimodal_similarity_score")
+        calibrated = np.clip(0.50 + 0.50 * raw_sim, 0.05, 0.98).round(4).astype(np.float64)
+        return pd.Series(calibrated.tolist(), index=listings_df.index, name="multimodal_similarity_score")
+
+    def score_pair(self, product_id: str, displayed_product_id: Optional[str] = None) -> float:
+        """High-throughput single-item scoring with fast O(1) embedding lookup."""
+        if not self._fitted:
+            return 0.5
+        pid_str = str(product_id).strip()
+        disp_str = str(displayed_product_id).strip() if displayed_product_id else pid_str
+
+        p_idx = self.id_to_idx.get(pid_str)
+        d_idx = self.id_to_idx.get(disp_str, p_idx)
+        if p_idx is None:
+            return 0.5  # Neutral similarity for cold-start unseen items
+        if d_idx is None:
+            d_idx = p_idx
+
+        u = self.text_embeddings[p_idx]
+        v = self.image_embeddings[d_idx]
+        raw_sim = float(np.dot(u, v))
+        return float(np.clip(0.50 + 0.50 * raw_sim, 0.05, 0.98))
 
 
 # ---------------------------------------------------------------------------
@@ -494,7 +659,7 @@ class SyntheticImageTextSimilarity:
 
         raw_sim = np.sum(u * v, axis=1)
         calibrated = np.clip(0.55 + 0.90 * raw_sim, 0.05, 0.98).round(4)
-        return pd.Series(calibrated, index=listings_df.index, name=feature_name)
+        return pd.Series(calibrated.tolist(), index=listings_df.index, name=feature_name)
 
 
 # Backwards compatibility alias
@@ -695,6 +860,30 @@ def explain_listing_risk(
         evidence.append(
             f"New seller account ({seller_age:.0f} days old) with limited track record "
             f"({listings_before} prior listings)."
+        )
+
+    # Forensic off-platform contact analysis
+    text_to_scan = " ".join([
+        str(features.get("title", "")),
+        str(features.get("description", "")),
+        str(features.get("text_content", "")),
+    ]).strip()
+    contact_scan = features.get("off_platform_contact") or (scan_off_platform_contact(text_to_scan) if text_to_scan else None)
+    if contact_scan and contact_scan.get("has_violation"):
+        rule_list = ", ".join(v["rule"] for v in contact_scan.get("violations", []))
+        evidence.append(
+            f"CRITICAL: Off-platform contact detected ({rule_list}). High risk of payment circumvention."
+        )
+        if not is_high_risk:
+            risk_label = "HIGH"
+            is_high_risk = True
+
+    # Catalog clone analysis
+    clone_info = features.get("clone_detection")
+    if clone_info and clone_info.get("is_clone"):
+        matched = len(clone_info.get("matched_listings", []))
+        evidence.append(
+            f"SUSPICIOUS: Image is visually identical or near-duplicate to {matched} existing catalog listings (dHash collision)."
         )
 
     # Recommended action

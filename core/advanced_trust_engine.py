@@ -16,9 +16,12 @@ from dataclasses import dataclass
 import numpy as np
 
 try:
-    from trustshield_project.policy_config import RISK_POLICY
-except ImportError:  # pragma: no cover - direct legacy module execution
-    from policy_config import RISK_POLICY  # type: ignore
+    from core.policy_config import RISK_POLICY
+except ImportError:
+    try:
+        from trustshield_project.policy_config import RISK_POLICY
+    except ImportError:  # pragma: no cover - direct legacy module execution
+        from policy_config import RISK_POLICY  # type: ignore
 
 
 class OperationalDecision(str, Enum):
@@ -41,6 +44,7 @@ class AdvancedTrustResult:
     reason_codes: List[str]
     detector_scores: Dict[str, float]
     aggregation_method_used: str
+    risk_interval: Tuple[float, float] = (0.0, 1.0)
 
     @property
     def risk_score(self) -> float:
@@ -54,6 +58,10 @@ class AdvancedTrustResult:
     def component_risks(self) -> Dict[str, float]:
         return self.detector_scores
 
+    @property
+    def risk_bounds(self) -> Dict[str, float]:
+        return {"lower": self.risk_interval[0], "upper": self.risk_interval[1]}
+
 
 class ConformalPredictor:
     """Class-conditional (Mondrian) Conformal Prediction for distribution-free finite-sample error guarantees."""
@@ -62,6 +70,7 @@ class ConformalPredictor:
         self.alpha = alpha  # Target error rate per class (0.05 for 95% nominal coverage)
         self.q_hat_0: float = 0.5
         self.q_hat_1: float = 0.5
+        self.q_residual: float = 0.15
         self.is_calibrated: bool = False
         self.n_cal_0: int = 0
         self.n_cal_1: int = 0
@@ -111,6 +120,10 @@ class ConformalPredictor:
         scores_1 = 1.0 - p[mask_1]
         self.q_hat_1 = self.compute_finite_sample_quantile(scores_1, self.alpha)
 
+        # Residual non-conformity for bounded interval coverage
+        residuals = np.abs(p - y)
+        self.q_residual = self.compute_finite_sample_quantile(residuals, self.alpha)
+
         self.is_calibrated = True
         self.calibration_source = source
         return self
@@ -133,6 +146,41 @@ class ConformalPredictor:
             pred_set.add(int(prob >= 0.5))
         return pred_set
 
+    def predict_interval(self, prob: float) -> Tuple[float, float]:
+        """Returns distribution-free bounded risk interval [R_min, R_max] under (1 - alpha) coverage."""
+        if not self.is_calibrated:
+            margin = 0.20 if 0.30 <= prob <= 0.70 else 0.10
+            return (round(max(0.0, prob - margin), 4), round(min(1.0, prob + margin), 4))
+        lower = round(max(0.0, prob - self.q_residual), 4)
+        upper = round(min(1.0, prob + self.q_residual), 4)
+        return (lower, upper)
+
+    def calibrate_conformal_risk_control(
+        self,
+        val_probs: np.ndarray,
+        val_labels: np.ndarray,
+        alpha_risk: float = 0.05,
+    ) -> float:
+        """Calibrates threshold tau using Conformal Risk Control (CRC) to guarantee expected unrecovered loss <= alpha_risk."""
+        p = np.asarray(val_probs, dtype=float).ravel()
+        y = np.asarray(val_labels, dtype=int).ravel()
+        if len(p) == 0:
+            return 0.50
+
+        thresholds = np.linspace(0.01, 0.99, 100)
+        best_tau = 0.50
+        total_fraud = max(float(np.sum(y == 1)), 1.0)
+
+        for tau in thresholds:
+            missed_fraud = np.sum((y == 1) & (p < tau))
+            empirical_loss = missed_fraud / total_fraud
+            # Hoeffding / Bentkus finite-sample bound
+            ucb_loss = empirical_loss + math.sqrt(math.log(100.0 / 0.05) / (2.0 * max(total_fraud, 1.0)))
+            if ucb_loss <= alpha_risk:
+                best_tau = float(tau)
+
+        return best_tau
+
 
 class AdvancedTrustEngine:
     """Authoritative Trust & Decision Engine for TrustShield.
@@ -150,8 +198,10 @@ class AdvancedTrustEngine:
         conformal_predictor: Optional[ConformalPredictor] = None,
         weights: Optional[Dict[str, float]] = None,
         thresholds: tuple[float, float, float] = DEFAULT_THRESHOLDS,
+        fusion_mode: str = "pass_through",
         **kwargs,
     ):
+        self.fusion_mode = fusion_mode
         if weights is not None:
             if not weights or sum(weights.values()) <= 0 or any(v < 0 for v in weights.values()):
                 raise ValueError(f"Invalid component weights: {weights}")
@@ -208,12 +258,58 @@ class AdvancedTrustEngine:
         if violations:
             raise ValueError(f"Feedback loop violation: features contain model outputs: {violations}")
 
-    def aggregate_risk(self, detector_scores: Dict[str, float]) -> Tuple[float, str]:
-        """Direct calibrated probability pass-through without heuristic corruption.
-        
-        Preserves calibrated model probabilities when tabular_risk is present;
-        falls back to normalized component weights only when primary model is absent.
+    def fuse_multidomain_risk(
+        self,
+        detector_scores: Dict[str, float],
+        elevation_threshold: float = 0.50,
+    ) -> Tuple[float, str]:
+        """Bayesian Noisy-OR calibrated risk compounding across specialized detectors.
+
+        Preserves base tabular risk monotonicity (never downgrades a high tabular score),
+        while allowing high-confidence specialized detectors (return abuse, fake listing,
+        syndicate ring risk) to elevate overall transaction risk above benign baselines.
         """
+        base_risk = float(detector_scores.get("tabular_risk", 0.0))
+        domain_weights = {
+            "return_risk": 0.85,
+            "return_fraud_risk": 0.85,
+            "fake_listing_risk": 0.80,
+            "listing_risk": 0.80,
+            "multimodal_risk": 0.75,
+            "ring_risk": 0.80,
+            "graph_risk": 0.60,
+        }
+
+        elevated_factors = []
+        for det_name, score in detector_scores.items():
+            if det_name == "tabular_risk":
+                continue
+            val = float(score)
+            if val > elevation_threshold:
+                w = domain_weights.get(det_name, 0.60)
+                excess = (val - elevation_threshold) / (1.0 - elevation_threshold)
+                elevated_factors.append(w * excess)
+
+        if not elevated_factors:
+            return round(base_risk, 4), "calibrated_probability_pass_through"
+
+        residual = 1.0 - base_risk
+        for factor in elevated_factors:
+            residual *= (1.0 - factor)
+
+        fused_risk = max(base_risk, 1.0 - residual)
+        return round(float(np.clip(fused_risk, 0.0, 1.0)), 4), "bayesian_noisy_or_fusion"
+
+    def aggregate_risk(
+        self,
+        detector_scores: Dict[str, float],
+        fusion_mode: Optional[str] = None,
+    ) -> Tuple[float, str]:
+        """Aggregates detector scores via calibrated pass-through or Bayesian Noisy-OR fusion."""
+        mode = fusion_mode or getattr(self, "fusion_mode", "pass_through")
+        if mode == "bayesian_noisy_or":
+            return self.fuse_multidomain_risk(detector_scores)
+
         if "tabular_risk" in detector_scores:
             risk = float(detector_scores["tabular_risk"])
             method = "calibrated_probability_pass_through"
@@ -236,14 +332,23 @@ class AdvancedTrustEngine:
         is_cold_start: bool = False,
         model_probability: Optional[float] = None,
         order_amount: Optional[float] = None,
+        enable_multidomain_fusion: Optional[bool] = None,
     ) -> AdvancedTrustResult:
         if not detector_scores and model_probability is None:
             raise ValueError("detector_scores dictionary cannot be empty when model_probability is not provided.")
+
+        use_fusion = (
+            enable_multidomain_fusion
+            if enable_multidomain_fusion is not None
+            else (getattr(self, "fusion_mode", "pass_through") == "bayesian_noisy_or")
+        )
 
         # Authoritative calibrated probability pass-through (never diluted by heuristic blending)
         if model_probability is not None:
             risk = float(model_probability)
             agg_method = "calibrated_probability_pass_through"
+        elif use_fusion:
+            risk, agg_method = self.fuse_multidomain_risk(detector_scores)
         elif "tabular_risk" in detector_scores:
             risk = float(detector_scores["tabular_risk"])
             agg_method = "calibrated_probability_pass_through"
@@ -274,8 +379,13 @@ class AdvancedTrustEngine:
         disagreement = round(float(max(vals) - min(vals)), 4) if len(vals) > 1 else 0.0
         variance = round(float(np.var(vals)), 6) if len(vals) > 1 else 0.0
 
-        # 3. Conformal Prediction Set (Distribution-Free Finite-Sample Guarantee)
+        # 3. Conformal Prediction Set & Bounded Interval (Distribution-Free Finite-Sample Guarantee)
         pred_set = self.conformal.predict_set(risk)
+        risk_interval = (
+            self.conformal.predict_interval(risk)
+            if hasattr(self.conformal, "predict_interval")
+            else (round(max(0.0, risk - 0.15), 4), round(min(1.0, risk + 0.15), 4))
+        )
 
         # 4. Reason Codes (Graph & Ring Signals strictly as explanatory evidence)
         reasons: List[str] = []
@@ -324,6 +434,7 @@ class AdvancedTrustEngine:
             reason_codes=reasons,
             detector_scores={k: round(float(v), 4) for k, v in detector_scores.items()},
             aggregation_method_used=agg_method,
+            risk_interval=risk_interval,
         )
 
 

@@ -1,6 +1,6 @@
 """Graph-topological feature extraction and fraud ring detection using NetworkX."""
 
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -404,23 +404,86 @@ def train_and_eval(train, val, test, feature_cols, label: str):
     return model, scores
 
 
-def detect_fraud_rings(rel_graph: nx.Graph, orders_df: pd.DataFrame, score_col: str = "fraud_score", min_ring_size: int = 2) -> pd.DataFrame:
-    """Surfaces suspicious clusters of accounts sharing infrastructure scored by predicted risk."""
+def compute_collusion_indicators(
+    orders_df: pd.DataFrame,
+    rel_graph: Optional[nx.Graph] = None,
+) -> pd.DataFrame:
+    """Computes order-level collusion and wash-trading indicators strictly point-in-time.
+
+    In clean organic marketplaces, buyers shopping with the same merchant do not share
+    hardware devices or physical delivery addresses. In merchant-buyer collusion or
+    fake review rings, the seller's transactions are concentrated among mutually connected buyers.
+
+    Features computed:
+    - seller_buyer_shared_infra_ratio: proportion of prior buyers at this seller who share hardware/address
+    """
+    df = orders_df.copy()
+    if "order_date" in df.columns:
+        df["order_date"] = pd.to_datetime(df["order_date"])
+        df = df.sort_values(by="order_date", kind="mergesort")
+
+    comp_map: dict[Any, int] = {}
+    if rel_graph is not None:
+        for idx, comp in enumerate(nx.connected_components(rel_graph)):
+            for node in comp:
+                comp_map[node] = idx
+
+    df["_buyer_cluster"] = df["buyer_id"].map(comp_map).fillna(-1)
+    df["_has_shared_cluster"] = (df["_buyer_cluster"] >= 0).astype(int)
+
+    df["seller_prior_orders"] = df.groupby("seller_id").cumcount()
+    df["seller_prior_shared_orders"] = df.groupby("seller_id")["_has_shared_cluster"].cumsum() - df["_has_shared_cluster"]
+
+    df["seller_buyer_shared_infra_ratio"] = (
+        df["seller_prior_shared_orders"] / df["seller_prior_orders"].clip(lower=1)
+    ).round(4)
+
+    df = df.drop(columns=["_buyer_cluster", "_has_shared_cluster", "seller_prior_orders", "seller_prior_shared_orders"])
+    return df
+
+
+def detect_dense_fraud_clusters(
+    rel_graph: nx.Graph,
+    orders_df: pd.DataFrame,
+    score_col: str = "fraud_score",
+    min_ring_size: int = 2,
+    min_density: float = 0.0,
+) -> pd.DataFrame:
+    """Surfaces suspicious clusters of accounts with topological density, graph motifs, and risk weighting."""
     forbidden = {"is_fraudulent", "fraud_type", "fraud_ring_id"}
     assert score_col not in forbidden, f"Leakage: ground-truth column {score_col} used in ring detection"
     assert "fraud_ring_id" not in orders_df.columns, "Leakage: fraud_ring_id present in orders_df"
 
-    buyer_scores = orders_df.groupby("buyer_id")[score_col].apply(list).to_dict()
-    buyer_order_counts = orders_df.groupby("buyer_id")["order_id"].count().to_dict()
+    buyer_scores = {str(k): v for k, v in orders_df.groupby("buyer_id")[score_col].apply(list).to_dict().items()}
+    buyer_order_counts = {str(k): v for k, v in orders_df.groupby("buyer_id")["order_id"].count().to_dict().items()}
 
     ring_rows = []
     ring_counter = 0
 
     for comp in nx.connected_components(rel_graph):
-        if len(comp) < min_ring_size:
+        n_nodes = len(comp)
+        if n_nodes < min_ring_size:
             continue
 
         members = sorted(str(n) for n in comp)
+        subG = rel_graph.subgraph(comp)
+        n_edges = subG.number_of_edges()
+
+        max_possible_edges = n_nodes * (n_nodes - 1) / 2.0
+        density = round(n_edges / max_possible_edges, 4) if max_possible_edges > 0 else 1.0
+
+        if density < min_density:
+            continue
+
+        if density >= 0.95:
+            topology_type = "CLIQUE"
+        elif any(subG.degree(n) == n_nodes - 1 for n in subG.nodes()):
+            topology_type = "STAR_HUB"
+        elif n_edges == n_nodes - 1:
+            topology_type = "TREE_OR_CHAIN"
+        else:
+            topology_type = "DENSE_MESH"
+
         all_scores = [s for b in members for s in buyer_scores.get(b, [])]
         total_orders = sum(buyer_order_counts.get(b, 0) for b in members)
 
@@ -432,18 +495,45 @@ def detect_fraud_rings(rel_graph: nx.Graph, orders_df: pd.DataFrame, score_col: 
             max_score = float(scores_arr.max())
             n_high_risk = int((scores_arr >= 0.5).sum())
 
+        cluster_threat = round(avg_score * (0.60 + 0.40 * density), 4)
+
         ring_counter += 1
         ring_rows.append({
             "ring_id": f"RING_{ring_counter:04d}",
             "members": members,
-            "size": len(members),
+            "size": n_nodes,
             "n_orders": total_orders,
             "avg_risk_score": round(avg_score, 4),
             "max_risk_score": round(max_score, 4),
             "n_high_risk_orders": n_high_risk,
+            "density": density,
+            "topology_type": topology_type,
+            "cluster_threat_score": cluster_threat,
         })
 
-    return pd.DataFrame(ring_rows).sort_values("avg_risk_score", ascending=False).reset_index(drop=True)
+    if not ring_rows:
+        return pd.DataFrame(columns=[
+            "ring_id", "members", "size", "n_orders", "avg_risk_score",
+            "max_risk_score", "n_high_risk_orders", "density", "topology_type", "cluster_threat_score"
+        ])
+
+    return pd.DataFrame(ring_rows).sort_values("cluster_threat_score", ascending=False).reset_index(drop=True)
+
+
+def detect_fraud_rings(
+    rel_graph: nx.Graph,
+    orders_df: pd.DataFrame,
+    score_col: str = "fraud_score",
+    min_ring_size: int = 2,
+) -> pd.DataFrame:
+    """Surfaces suspicious clusters of accounts sharing infrastructure scored by predicted risk."""
+    return detect_dense_fraud_clusters(
+        rel_graph=rel_graph,
+        orders_df=orders_df,
+        score_col=score_col,
+        min_ring_size=min_ring_size,
+        min_density=0.0,
+    )
 
 
 def run_phase_3():
