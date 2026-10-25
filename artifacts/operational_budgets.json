@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "validation_samples": 12129,
+    "validation_fraud_rate_pct": 7.04,
+    "total_fraud_orders": 854,
+    "total_fraud_dollar_exposure": 120706.4,
+    "generated_at_utc": "2026-10-24T18:12:59"
+  },
+  "capacity_budgets": {
+    "1%_daily_capacity": {
+      "budget_pct": 1.0,
+      "threshold": 0.5046,
+      "realized_volume_pct": 1.97,
+      "precision": 0.272,
+      "recall": 0.0761,
+      "fraud_value_recall": 0.0805,
+      "fraud_value_saved": 9712.13
+    },
+    "2%_daily_capacity": {
+      "budget_pct": 2.0,
+      "threshold": 0.5,
+      "realized_volume_pct": 2.14,
+      "precision": 0.2692,
+      "recall": 0.082,
+      "fraud_value_recall": 0.0842,
+      "fraud_value_saved": 10166.59
+    },
+    "5%_daily_capacity": {
+      "budget_pct": 5.0,
+      "threshold": 0.1671,
+      "realized_volume_pct": 8.21,
+      "precision": 0.1717,
+      "recall": 0.2002,
+      "fraud_value_recall": 0.2147,
+      "fraud_value_saved": 25915.09
+    },
+    "10%_daily_capacity": {
+      "budget_pct": 10.0,
+      "threshold": 0.0936,
+      "realized_volume_pct": 15.19,
+      "precision": 0.1254,
+      "recall": 0.2705,
+      "fraud_value_recall": 0.2831,
+      "fraud_value_saved": 34169.1
+    }
+  },
+  "calibrated_thresholds": {
+    "budget_1pct": 0.5046,
+    "budget_2pct": 0.5,
+    "budget_5pct": 0.1671,
+    "budget_10pct": 0.0936
+  },
+  "dollar_weighted_cost_optimal": {
+    "threshold": 0.1627,
+    "total_loss": 111311.32,
+    "fraud_value_lost": 94791.32,
+    "review_friction_cost": 16520.0,
+    "fraud_value_saved": 25915.09,
+    "value_recall_pct": 21.47,
+    "transaction_recall_pct": 20.02,
+    "review_volume_pct": 8.22
+  },
+  "conformal_calibration": {
+    "is_calibrated": true,
+    "coverage_guarantee_pct": 95.0,
+    "miscoverage_alpha": 0.05,
+    "q_hat_prediction_set": 0.9913,
+    "q_residual_interval": 0.9282,
+    "conformal_risk_control_fnr_2pct_threshold": 0.5
+  }
+}

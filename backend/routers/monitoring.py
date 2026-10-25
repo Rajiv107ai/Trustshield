@@ -35,6 +35,7 @@ from backend.services.drift_service import (
     DriftThresholds,
 )
 from backend.services.monitoring_store import MonitoringStore
+from core.policy_config import RISK_POLICY
 
 logger = logging.getLogger(__name__)
 
@@ -93,18 +94,25 @@ def _generate_drift_report(store: MonitoringStore, service: DriftService) -> Dic
 
     # Pre-calculate synthetic prediction scores and decisions for demo/eval parity
     rng = np.random.RandomState(42)
-    ref_df["score"] = np.clip(
-        np.where(ref_df["is_fraudulent"] == 1, rng.beta(7, 3, size=len(ref_df)), rng.beta(2, 8, size=len(ref_df))),
+    ref_scores = np.clip(
+        np.where(ref_df["is_fraudulent"].to_numpy() == 1, rng.beta(7, 3, size=len(ref_df)), rng.beta(2, 8, size=len(ref_df))),
         0.0,
         1.0,
     )
-    cur_df["score"] = np.clip(
-        np.where(cur_df["is_fraudulent"] == 1, rng.beta(6, 4, size=len(cur_df)), rng.beta(2.5, 7.5, size=len(cur_df))),
+    ref_df["score"] = ref_scores.tolist()
+
+    cur_scores = np.clip(
+        np.where(cur_df["is_fraudulent"].to_numpy() == 1, rng.beta(6, 4, size=len(cur_df)), rng.beta(2.5, 7.5, size=len(cur_df))),
         0.0,
         1.0,
     )
-    ref_df["decision"] = np.where(ref_df["score"] >= 0.85, "BLOCK", np.where(ref_df["score"] >= 0.55, "HOLD", np.where(ref_df["score"] >= 0.25, "REVIEW", "ALLOW")))
-    cur_df["decision"] = np.where(cur_df["score"] >= 0.85, "BLOCK", np.where(cur_df["score"] >= 0.55, "HOLD", np.where(cur_df["score"] >= 0.25, "REVIEW", "ALLOW")))
+    cur_df["score"] = cur_scores.tolist()
+
+    ref_decisions = np.where(ref_scores >= RISK_POLICY.block, "BLOCK", np.where(ref_scores >= RISK_POLICY.hold, "HOLD", np.where(ref_scores >= RISK_POLICY.review, "REVIEW", "ALLOW")))
+    ref_df["decision"] = ref_decisions.tolist()
+
+    cur_decisions = np.where(cur_scores >= RISK_POLICY.block, "BLOCK", np.where(cur_scores >= RISK_POLICY.hold, "HOLD", np.where(cur_scores >= RISK_POLICY.review, "REVIEW", "ALLOW")))
+    cur_df["decision"] = cur_decisions.tolist()
 
     now = datetime.now(timezone.utc)
     window = MonitoringWindowV1(
@@ -141,12 +149,14 @@ def _generate_calibration_report(store: MonitoringStore, service: CalibrationSer
     sample = df.iloc[:3000].copy()
 
     rng = np.random.RandomState(42)
-    sample["score"] = np.clip(
-        np.where(sample["is_fraudulent"] == 1, rng.beta(8, 2, size=len(sample)), rng.beta(1.5, 8.5, size=len(sample))),
+    sample_scores = np.clip(
+        np.where(sample["is_fraudulent"].to_numpy() == 1, rng.beta(8, 2, size=len(sample)), rng.beta(1.5, 8.5, size=len(sample))),
         0.0,
         1.0,
     )
-    sample["decision"] = np.where(sample["score"] >= 0.85, "BLOCK", np.where(sample["score"] >= 0.55, "HOLD", np.where(sample["score"] >= 0.25, "REVIEW", "ALLOW")))
+    sample["score"] = sample_scores.tolist()
+    sample_decisions = np.where(sample_scores >= RISK_POLICY.block, "BLOCK", np.where(sample_scores >= RISK_POLICY.hold, "HOLD", np.where(sample_scores >= RISK_POLICY.review, "REVIEW", "ALLOW")))
+    sample["decision"] = sample_decisions.tolist()
     sample["event_time"] = pd.to_datetime(sample["order_date"], utc=True)
     sample["outcome_window_days"] = 14
     sample["label_time"] = sample["event_time"] + pd.to_timedelta(15, unit="D")

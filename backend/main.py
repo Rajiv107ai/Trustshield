@@ -21,7 +21,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.auth import validate_security_configuration
-from backend.features import _build_feature_row, _risk_label
 from backend.model_loader import store
 from backend.routers.actions import router as actions_router
 from backend.routers.operations import router as operations_router
@@ -32,18 +31,11 @@ from backend.routers.version import router as version_router
 from backend.routers.monitoring import router as monitoring_router
 from backend.routers.features import router as features_router
 from backend.routers.champion_challenger import router as champion_challenger_router
+from backend.features import _build_feature_row, _risk_label
 from backend.release_manifest import validate_release_manifest_configuration
 from backend.services.metrics_service import metrics_service
-from trustshield_project.advanced_trust_engine import CanonicalTrustEngine
 
 logger = logging.getLogger(__name__)
-
-# CanonicalTrustEngine is the sole authoritative production engine.
-_canonical_trust_engine = CanonicalTrustEngine() if CanonicalTrustEngine is not None else None
-
-# Enforce security configuration immediately at startup (fails fast before app init)
-validate_security_configuration()
-validate_release_manifest_configuration()
 
 
 @asynccontextmanager
@@ -51,8 +43,6 @@ async def lifespan(app: FastAPI):
     """Load models once at startup."""
     validate_security_configuration()
     validate_release_manifest_configuration()
-    if _canonical_trust_engine is None:
-        logger.error("FATAL: CanonicalTrustEngine failed to load. Server cannot safely score transactions.")
     try:
         store.load()
         logger.info(
@@ -127,5 +117,4 @@ __all__ = [
     "score_transaction",
     "_build_feature_row",
     "_risk_label",
-    "_canonical_trust_engine",
 ]

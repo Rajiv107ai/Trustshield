@@ -16,6 +16,9 @@ __pycache__/
 .coverage
 htmlcov/
 .tox/
+*.egg-info/
+build/
+dist/
 
 # IDE / OS
 .vscode/

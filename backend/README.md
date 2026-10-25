@@ -221,9 +221,11 @@ The `ModelStore` singleton lazily initializes and caches authoritative productio
 
 ## 🌐 Containerized Deployment
 
-The serving layer operates as a single, lightweight container (`docker-compose.yml`):
-- **FastAPI Gateway (`trustshield-api`)**: Sub-25ms inference server exposing REST and OpenAPI documentation.
-- Zero external database dependencies: eliminates Neo4j, Redis, Prometheus, and Grafana containers.
+The platform is orchestrated via Docker Compose (`docker-compose.yml`) with clearly separated service boundaries:
+- **FastAPI Gateway (`trustshield-api`)**: Low-latency inference server exposing REST and OpenAPI endpoints.
+- **Action Worker (`trustshield-action-worker`)**: Dedicated worker processing outbox actions with idempotency guards.
+- **PostgreSQL (`trustshield-postgres`)**: Durable storage for hash-chained audit trails and operational actions.
+- **Redis (`trustshield-redis`)**: Distributed caching and operational feature store backend.
 
 ### Environment Configuration (`.env.example`)
 Configure runtime settings by copying `.env.example`:
@@ -232,24 +234,25 @@ cp .env.example .env
 ```
 Key configuration keys:
 ```ini
-FASTAPI_HOST=0.0.0.0
-FASTAPI_PORT=8000
-ENVIRONMENT=production
-LOG_LEVEL=INFO
+HOST=0.0.0.0
+PORT=8000
+TRUSTSHIELD_ENV=production
+LOG_LEVEL=info
 
-NEO4J_URI=bolt://neo4j:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=trustshield_secret
+TRUSTSHIELD_API_KEY=your-production-scoring-api-key-here-32chars
+TRUSTSHIELD_ADMIN_KEY=your-production-admin-api-key-here-32chars
 
-REDIS_URL=redis://redis:6379/0
-PROMETHEUS_ENABLED=true
+TRUSTSHIELD_REDIS_URL=redis://redis:6379/0
+POSTGRES_USER=trustshield
+POSTGRES_PASSWORD=trustshield_secret
+POSTGRES_DB=trustshield
 ```
 
 ---
 
-## 🎨 Frontend Contract Alignment (`frontend_master_prompts/`)
+## 🎨 Frontend Contract Alignment
 
-The Pydantic v2 schemas defined in `backend/schemas.py` (`HealthResponse`, `ReadyResponse`, `TransactionScoreRequest`, `TransactionScoreResponse`, `FraudRingsResponse`, `ListingScoreRequest`, `ReturnScoreRequest`, `ExplainResponse`, `InvestigationDossierResponse`) are 100% matched in TypeScript definitions under `frontend_master_prompts/02_API_SCHEMAS_TYPESCRIPT.md` and `frontend/src/lib/types/api.ts`, guaranteeing end-to-end type safety between backend responses and UI components.
+The Pydantic v2 schemas defined in `backend/schemas.py` (`HealthResponse`, `ReadyResponse`, `TransactionScoreRequest`, `TransactionScoreResponse`, `FraudRingsResponse`, `ListingScoreRequest`, `ReturnScoreRequest`, `ExplainResponse`, `InvestigationDossierResponse`) are 100% matched in TypeScript definitions under `frontend/src/lib/types/api.ts`, guaranteeing end-to-end type safety between backend responses and UI components.
 
 ---
 

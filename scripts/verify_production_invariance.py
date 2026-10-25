@@ -41,7 +41,7 @@ def verify_invariance() -> bool:
 
     from fastapi.testclient import TestClient
     from backend.main import app, store
-    from backend.test_production_baseline_regression import compare_response_against_golden
+    from tests.reliability.test_production_baseline_regression import compare_response_against_golden
 
     if not store.is_loaded:
         store.load()

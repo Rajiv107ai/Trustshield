@@ -229,6 +229,7 @@ def _evaluate_and_build_response(
         model_disagreement = getattr(t_res, "detector_disagreement", getattr(t_res, "model_disagreement", 0.0))
         reason_codes = t_res.reason_codes
         conformal_set = sorted(list(t_res.conformal_prediction_set)) if hasattr(t_res, "conformal_prediction_set") else None
+        risk_interval = [round(float(b), 4) for b in t_res.risk_interval] if getattr(t_res, "risk_interval", None) is not None else None
     else:
         final_risk = prob_cal
         decision = "REVIEW" if final_risk >= RISK_POLICY.review else "ALLOW"
@@ -238,6 +239,7 @@ def _evaluate_and_build_response(
         model_disagreement = 0.0
         reason_codes = []
         conformal_set = [0, 1] if 0.35 <= prob_cal <= 0.65 else ([1] if prob_cal > 0.65 else [0])
+        risk_interval = None
 
     metrics_service.trust_engine_seconds.observe(time.perf_counter() - t_te0)
     metrics_service.record_decision(decision, _risk_label(final_risk), model_version)
@@ -267,6 +269,8 @@ def _evaluate_and_build_response(
         conformal_is_calibrated=conformal_calibrated,
         conformal_coverage_guarantee=0.95 if conformal_calibrated else None,
         conformal_q_hat=conformal_q,
+        risk_interval=risk_interval,
+        component_risks={k: round(float(v), 4) for k, v in component_risks.items()},
         risk_label=_risk_label(final_risk),
         decision=decision,
         trust_score=trust_score,
@@ -295,6 +299,7 @@ def _evaluate_and_build_response(
         note=note_prefix + (f" [{graph_notes}]" if graph_notes else ""),
     )
     _record_decision_audit(req, response)
+
     return response
 
 

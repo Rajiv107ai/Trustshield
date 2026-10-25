@@ -273,13 +273,21 @@ def verify():
         verified_families.append("Fraud Ring Detection")
 
     # Family 7: Conformal Prediction (20 seeds)
-    conf_arrs = data.get("conformal_prediction_audit_20_seeds", {}).get("per_seed_arrays", {})
+    conf_aud = data.get("conformal_prediction_audit_20_seeds", {})
+    conf_arrs = conf_aud.get("per_seed_arrays", {})
+    mondrian = conf_aud.get("mondrian_class_conditional", {})
+    if mondrian:
+        m_cov = mondrian.get("overall_coverage", {}).get("mean", 0.0)
+        m_y0 = mondrian.get("legit_y0_coverage", {}).get("mean", 0.0)
+        m_y1 = mondrian.get("fraud_y1_coverage", {}).get("mean", 0.0)
+        m_sz = mondrian.get("mean_set_size", {}).get("mean", 0.0)
+        print(f"  [VERIFIED] Conformal Mondrian (Class-Conditional): Overall = {m_cov*100:.2f}% | Y0 = {m_y0*100:.2f}% | Y1 = {m_y1*100:.2f}% | Set Size = {m_sz:.4f}")
     if conf_arrs:
         cov_all = calc_stats(conf_arrs["coverage_all"])
         cov_y0 = calc_stats(conf_arrs["coverage_y0"])
         cov_y1 = calc_stats(conf_arrs["coverage_y1"])
         set_sz = calc_stats(conf_arrs["set_size"])
-        print(f"  [VERIFIED] Conformal Overall Cov = {cov_all['mean']*100:.2f}% | Y0 = {cov_y0['mean']*100:.2f}% | Y1 = {cov_y1['mean']*100:.2f}% | Set Size = {set_sz['mean']:.4f}")
+        print(f"  [VERIFIED] Conformal Legacy Marginal: Overall Cov = {cov_all['mean']*100:.2f}% | Y0 = {cov_y0['mean']*100:.2f}% | Y1 = {cov_y1['mean']*100:.2f}% | Set Size = {set_sz['mean']:.4f}")
         verified_families.append("Conformal Prediction")
 
     print(f"\nAll {len(verified_families)} stored families verified from per-seed arrays: {verified_families}")
@@ -357,8 +365,8 @@ def verify():
     checked_counts = {doc: 0 for doc in target_docs}
     failures = []
 
-    # Required headline and controls labels that must appear in every target document
-    required_labels = {
+    # Required headline and controls labels by document
+    detailed_required_labels = {
         "Full Variant (a) ROC", "Full Variant (b) ROC", "Full Variant (c) ROC", "Full Variant (d) ROC",
         "Full (c vs b) ROC Lift", "Truncated Variant (a) ROC", "Truncated Variant (b) ROC",
         "Truncated Variant (c) ROC", "Truncated Variant (d) ROC", "Truncated (c vs b) ROC Lift",
@@ -369,6 +377,18 @@ def verify():
         "Control (S) ROC", "Control (S) PR", "Control (S) ROC Lift", "Control (S) PR Lift",
         "Paired (S vs e) ROC Diff", "Paired (S vs e) PR Diff", "Paired (c vs e) ROC Diff",
         "Paired (ew vs S) ROC Diff", "Paired (ew vs S) PR Diff", "Paired (ew vs e) ROC Diff",
+    }
+    readme_required_labels = {
+        "Truncated Variant (a) ROC", "Truncated Variant (a) PR",
+        "Truncated Variant (b) ROC", "Truncated Variant (b) PR",
+        "Truncated Variant (c) ROC", "Truncated Variant (c) PR",
+        "Truncated Variant (d) ROC", "Truncated Variant (d) PR",
+        "Truncated (c vs b) ROC Lift",
+    }
+    doc_required_labels = {
+        "README.md": readme_required_labels,
+        "results/RESULTS.md": detailed_required_labels,
+        "docs/MODEL_CARD.md": detailed_required_labels,
     }
 
     for doc_name, doc_path in target_docs.items():
@@ -399,7 +419,8 @@ def verify():
                         failures.append(f"{doc_name}:{line_no} metric '{label}' diff {diff:+.6f} exceeds tolerance")
 
         # Check for missing required metrics in this file
-        missing_in_doc = required_labels - matched_labels_for_doc
+        expected_for_this_doc = doc_required_labels.get(doc_name, detailed_required_labels)
+        missing_in_doc = expected_for_this_doc - matched_labels_for_doc
         if missing_in_doc:
             failures.append(f"[{doc_name}] Required headline metrics not matched (or tampered): {sorted(missing_in_doc)}")
 

@@ -78,6 +78,7 @@ def get_configured_keys() -> dict[str, tuple[str, Role]]:
 
     admin_key = os.getenv("TRUSTSHIELD_ADMIN_KEY")
     operator_key = os.getenv("TRUSTSHIELD_API_KEY")
+    analyst_key = os.getenv("TRUSTSHIELD_ANALYST_KEY")
 
     if is_prod:
         if not admin_key or len(admin_key) < 16:
@@ -88,14 +89,20 @@ def get_configured_keys() -> dict[str, tuple[str, Role]]:
             raise RuntimeError(
                 "CRITICAL SECURITY: TRUSTSHIELD_API_KEY must be set with at least 16 characters in production."
             )
+        if analyst_key and len(analyst_key) < 16:
+            raise RuntimeError(
+                "CRITICAL SECURITY: TRUSTSHIELD_ANALYST_KEY if configured must be set with at least 16 characters in production."
+            )
 
     # Development defaults (only active when NOT in production)
     admin_key = admin_key or "dev-admin-secret-key-32chars-long!"
     operator_key = operator_key or "dev-operator-api-key-32chars-long"
+    analyst_key = analyst_key or "dev-analyst-api-key-32chars-long"
 
     return {
         admin_key: ("admin_user", Role.ADMIN),
         operator_key: ("operator_user", Role.OPERATOR),
+        analyst_key: ("analyst_user", Role.ANALYST),
     }
 
 

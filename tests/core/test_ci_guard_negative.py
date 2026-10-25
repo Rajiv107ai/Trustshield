@@ -142,7 +142,7 @@ class TestCIGuardNegative:
         assert exc_info.value.code == 1
 
     def test_verify_results_fails_when_metric_tampered_in_readme(self, monkeypatch):
-        """Negative test: verify_results.py exits non-zero if 0.7410 is tampered to 0.7510 in README.md."""
+        """Negative test: verify_results.py exits non-zero if 0.7635 is tampered to 0.7535 in README.md."""
         from scripts.verify_results import verify
         orig_open = builtins.open
         readme_norm = os.path.normpath(os.path.join(_ROOT_DIR, "README.md")).replace("\\", "/")
@@ -151,7 +151,7 @@ class TestCIGuardNegative:
             norm_file = os.path.normpath(str(file)).replace("\\", "/")
             if norm_file == readme_norm:
                 real_content = orig_open(file, *args, **kwargs).read()
-                tampered = real_content.replace("0.7410", "0.7510")
+                tampered = real_content.replace("0.7635", "0.7535")
                 return StringIO(tampered)
             return orig_open(file, *args, **kwargs)
 

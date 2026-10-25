@@ -19,13 +19,26 @@ logger = logging.getLogger("trustshield.metrics")
 DEFAULT_HISTOGRAM_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
 
 
+class _LabeledCounterProxy:
+    """Lightweight proxy that increments a specific label slot in a MetricCounter."""
+
+    def __init__(self, parent: "_MetricCounter", label_key: tuple):
+        self._parent = parent
+        self._key = label_key
+
+    def inc(self, amount: float = 1.0) -> None:
+        self._parent._counts[self._key] += amount
+        logger.debug("metric_counter_inc", extra={"metric": self._parent.name, "amount": amount})
+
+
 class _MetricCounter:
     def __init__(self, name: str):
         self.name = name
         self._counts: Dict[tuple, float] = defaultdict(float)
 
-    def labels(self, **kwargs) -> "_MetricCounter":
-        return self
+    def labels(self, **kwargs) -> "_LabeledCounterProxy":
+        label_key = tuple(sorted(kwargs.items()))
+        return _LabeledCounterProxy(self, label_key)
 
     def inc(self, amount: float = 1.0) -> None:
         self._counts[()] += amount
@@ -94,12 +107,19 @@ class MetricsService:
             "# HELP trustshield_requests_total Total HTTP requests handled",
             "# TYPE trustshield_requests_total counter",
             f"trustshield_requests_total {sum(self.requests_total._counts.values())}",
+        ]
+        for label_key, count in sorted(self.requests_total._counts.items()):
+            if label_key:
+                label_str = ",".join(f'{k}="{v}"' for k, v in label_key)
+                lines.append(f"trustshield_requests_total{{{label_str}}} {count}")
+
+        lines.extend([
             "# HELP trustshield_service_ready Service readiness state (1=ready, 0=not ready)",
             "# TYPE trustshield_service_ready gauge",
             f"trustshield_service_ready {self.service_ready}",
             "# HELP trustshield_decisions_total Operational decisions routed",
             "# TYPE trustshield_decisions_total counter",
-        ]
+        ])
         for dec, count in self._decisions.items():
             lines.append(f'trustshield_decisions_total{{decision="{dec}"}} {count}')
 

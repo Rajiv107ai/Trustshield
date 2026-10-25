@@ -49,6 +49,17 @@ def test_fraud_rings_min_risk_filtering(client):
         assert ring["avg_risk_score"] >= 0.4
 
 
+def test_operational_budgets_endpoint(client):
+    response = client.get("/system/operational-budgets")
+    assert response.status_code == 200
+    data = response.json()
+    assert "capacity_budgets" in data
+    assert "calibrated_thresholds" in data
+    assert "dollar_weighted_cost_optimal" in data
+    assert "conformal_calibration" in data
+    assert data["conformal_calibration"]["is_calibrated"] is True
+
+
 def test_transaction_scoring_phase5_rejected(client):
     payload = {
         "order_id": "ORDER_TEST_P5",
@@ -669,6 +680,12 @@ class TestServingModelAndStreamSemantics:
         assert "conformal_prediction_set" in data
         assert isinstance(data["conformal_prediction_set"], list)
         assert data["conformal_is_calibrated"] is True
+        assert "risk_interval" in data
+        if data["risk_interval"] is not None:
+            assert len(data["risk_interval"]) == 2
+            assert data["risk_interval"][0] <= data["risk_interval"][1]
+        assert "component_risks" in data
+        assert "tabular_risk" in data["component_risks"]
 
     def test_stream_event_schema_separates_calibrated_and_policy_risk(self):
         from backend.schemas import StreamTransactionEvent

@@ -121,6 +121,12 @@ jobs:
             --manifest models/release_manifest.json \
             --benchmark models/http_benchmark_results.json
 
+      - name: Verify Scientific Benchmark Results
+        run: python scripts/verify_results.py
+
+      - name: Verify Production Invariance (29-Field Schema)
+        run: python scripts/verify_production_invariance.py
+
   # ============================================================================
   # 4. Next.js Enterprise Frontend Build & Typecheck Verification
   # ============================================================================
@@ -145,6 +151,10 @@ jobs:
       - name: Build Next.js Production Bundle
         working-directory: ./frontend
         run: npm run build
+
+      - name: Frontend ESLint Check
+        working-directory: ./frontend
+        run: npm run lint
 
   # ============================================================================
   # 5. Multi-Stage Docker Container Build Verification
