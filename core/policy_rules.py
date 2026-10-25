@@ -7,10 +7,6 @@ CRITICAL CONSTRAINT: RAG provides context for human explanation only; it never p
 
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
-
-
-
-
 @dataclass(frozen=True)
 class KnowledgeChunk:
     chunk_id: str

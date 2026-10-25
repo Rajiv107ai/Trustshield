@@ -13,11 +13,14 @@ MANDATORY ARCHITECTURAL CONSTRAINTS:
 
 from __future__ import annotations
 import re
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from trustshield_project.policy_rules import ForensicRAGIndex
+try:
+    from core.policy_rules import ForensicRAGIndex
+except ImportError:
+    from trustshield_project.policy_rules import ForensicRAGIndex
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,7 @@ class ForensicInvestigationDossier:
     retrieved_policy_guidelines: List[str] # Retrieved via RAG
     recommended_ops_action: str          # Analyst protocol
     grounding_verification_passed: bool  # Verifies strict grounding against telemetry
+    risk_interval: Optional[Tuple[float, float]] = None  # Conformal prediction interval
 
 
 def verify_dossier_grounding(
@@ -100,6 +104,13 @@ def verify_dossier_grounding(
         if d_match and int(d_match.group(1)) != deg:
             return False
 
+    # 7. Conformal interval grounding check
+    true_interval = getattr(trust_engine_result, "risk_interval", None)
+    if true_interval is not None and dossier.risk_interval is not None:
+        if (abs(dossier.risk_interval[0] - true_interval[0]) > 1e-4 or
+            abs(dossier.risk_interval[1] - true_interval[1]) > 1e-4):
+            return False
+
     return True
 
 
@@ -150,6 +161,11 @@ class RuleBasedInvestigationAgent:
             if r not in evidence:
                 evidence.append(f"Triggered Detector Code: {r}")
 
+        interval = getattr(trust_engine_result, "risk_interval", None)
+        interval_tuple = tuple(interval) if interval is not None and len(interval) == 2 else None
+        if interval_tuple is not None:
+            evidence.append(f"95% Conformal Prediction Interval: [{interval_tuple[0]*100:.1f}%, {interval_tuple[1]*100:.1f}%]")
+
         # 2. Graph Topology Analysis
         if ring_report is not None:
             graph_analysis = (
@@ -195,6 +211,7 @@ class RuleBasedInvestigationAgent:
             retrieved_policy_guidelines=policy_summaries,
             recommended_ops_action=action,
             grounding_verification_passed=True,
+            risk_interval=interval_tuple,
         )
 
         # 5. Real Grounding Guard: Ensure strict alignment with all ground-truth inputs
@@ -215,6 +232,7 @@ class RuleBasedInvestigationAgent:
             retrieved_policy_guidelines=policy_summaries,
             recommended_ops_action=action,
             grounding_verification_passed=verification_passed,
+            risk_interval=interval_tuple,
         )
 
 

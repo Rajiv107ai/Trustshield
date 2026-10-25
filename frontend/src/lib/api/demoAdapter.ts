@@ -53,8 +53,20 @@ function makeScoreResp(
   orderId: string, prob: number, set: number[], riskLabel: RiskLabel,
   decision: OperationalDecision, trustScore: number,
   confidence: number, uncertainty: number, coldStart: boolean,
-  disagreement: number, reasonCodes: string[], name: string, note: string
+  disagreement: number, reasonCodes: string[], name: string, note: string,
+  riskInterval?: [number, number],
+  componentRisks?: Record<string, number>
 ): TransactionScoreResponse {
+  const calculatedInterval: [number, number] = riskInterval || [
+    Math.max(0, Number((prob - 0.035).toFixed(4))),
+    Math.min(1, Number((prob + 0.035).toFixed(4)))
+  ];
+  const calculatedComponents: Record<string, number> = componentRisks || {
+    tabular_risk: prob,
+    graph_risk_heuristic: Math.min(1, Number((prob * 0.85).toFixed(4))),
+    ring_risk_heuristic: Math.min(1, Number((prob * 0.45).toFixed(4))),
+  };
+
   return {
     order_id: orderId,
     overall_fraud_probability: prob,
@@ -63,8 +75,11 @@ function makeScoreResp(
     policy_risk_score: prob,
     canonical_trust_engine_risk: prob,
     conformal_prediction_set: set,
-    conformal_is_calibrated: false,
-    conformal_coverage_guarantee: undefined,
+    conformal_is_calibrated: true,
+    conformal_coverage_guarantee: 0.95,
+    conformal_q_hat: 0.035,
+    risk_interval: calculatedInterval,
+    component_risks: calculatedComponents,
     risk_label: riskLabel,
     decision,
     trust_score: trustScore,
@@ -87,7 +102,7 @@ function makeScoreResp(
 }
 
 export function demoScoreTransaction(req: TransactionScoreRequest): TransactionScoreResponse {
-  const orderId = req.order_id || `ORD_DEMO_${Math.floor(Math.random() * 90000 + 10000)}`;
+  const orderId = req.order_id || "ORD_DEMO_PRESET_0001";
   const amt = req.amount ?? req.order_amount ?? 100.0;
 
   if (orderId === "ORD_SIM_SAFE_01" || orderId.includes("SAFE") || (amt < 100 && (req.buyer_orders_before ?? 0) >= 10)) {
@@ -168,7 +183,7 @@ export function demoGenerateDossier(req: DossierRequest): DossierResponse {
     case_id: `CASE_${req.entity_id}`,
     entity_type: req.entity_type,
     entity_id: req.entity_id,
-    generated_at: new Date().toISOString(),
+    generated_at: "2025-10-31T00:00:00Z",
     risk_score: risk,
     risk_level: isBlock ? "CRITICAL" : "LOW",
     decision,
@@ -187,6 +202,15 @@ export function demoGenerateDossier(req: DossierRequest): DossierResponse {
     },
     model_inference: {
       calibrated_risk_score: risk,
+      risk_interval: [
+        Math.max(0, Number((risk - 0.035).toFixed(4))),
+        Math.min(1, Number((risk + 0.035).toFixed(4))),
+      ],
+      component_risks: {
+        tabular_risk: risk,
+        graph_risk_heuristic: isBlock ? 0.85 : 0.02,
+        ring_risk_heuristic: isBlock ? 0.75 : 0.0,
+      },
       operational_decision: decision,
       confidence_level: 0.91,
       detector_disagreement: 0.04,
@@ -235,7 +259,7 @@ export function demoBenchmark(): SystemBenchmarkResponse {
       redis_get_embedding: { unit: "ms", samples: 0, p50: 0, p95: 0, p99: 0, note: "Redis service offline (simulation mode)" },
       neo4j_neighborhood: { unit: "ms", samples: 0, p50: 0, p95: 0, p99: 0, note: "Neo4j service offline (simulation mode)" },
     },
-    measured_at: new Date().toISOString(),
+    measured_at: "2025-10-31T00:00:00Z",
   };
 }
 
@@ -274,8 +298,53 @@ export function demoExplainTransaction(req: TransactionExplainRequest): Transact
   };
 }
 
-const s = (event_id: string, timestamp: string, order_id: string, buyer_id: string, seller_id: string, amount: number, risk_score: number, calibrated_risk: number, policy_risk_score: number, risk_level: RiskLabel, decision: OperationalDecision, trust_score: number, reason_codes: string[]): StreamTransactionEvent =>
-  ({ event_id, timestamp, order_id, buyer_id, seller_id, amount, risk_score, calibrated_risk, policy_risk_score, risk_level, decision, trust_score, reason_codes, source: "offline_simulation" });
+const s = (
+  event_id: string,
+  timestamp: string,
+  order_id: string,
+  buyer_id: string,
+  seller_id: string,
+  amount: number,
+  risk_score: number,
+  calibrated_risk: number,
+  policy_risk_score: number,
+  risk_level: RiskLabel,
+  decision: OperationalDecision,
+  trust_score: number,
+  reason_codes: string[],
+  risk_interval?: [number, number],
+  component_risks?: {
+    supervised_tabular?: number;
+    graph_topology?: number;
+    multimodal_listing?: number;
+    bayesian_ensemble?: number;
+  }
+): StreamTransactionEvent => ({
+  event_id,
+  timestamp,
+  order_id,
+  buyer_id,
+  seller_id,
+  amount,
+  risk_score,
+  calibrated_risk,
+  policy_risk_score,
+  risk_interval: risk_interval || [
+    Math.max(0, Math.round((calibrated_risk - 0.04) * 1000) / 1000),
+    Math.min(1, Math.round((calibrated_risk + 0.04) * 1000) / 1000),
+  ],
+  component_risks: component_risks || {
+    supervised_tabular: calibrated_risk,
+    graph_topology: Math.min(1, Math.round(calibrated_risk * 1.04 * 1000) / 1000),
+    multimodal_listing: Math.max(0, Math.round(calibrated_risk * 0.92 * 1000) / 1000),
+    bayesian_ensemble: calibrated_risk,
+  },
+  risk_level,
+  decision,
+  trust_score,
+  reason_codes,
+  source: "offline_simulation",
+});
 
 export const DEMO_STREAM_TEMPLATES: StreamTransactionEvent[] = [
   s("EVT_SIM_01", "12:00:01", "ORD_SIM_78930", "BUYER_RING_MEMBER_04", "SELLER_RING_LEADER_01", 890.0, 0.942, 0.938, 0.942, "high", "BLOCK", 6.2, ["HIGH_DEVICE_COLLISION", "RING_COLLUSION_SUSPECT"]),

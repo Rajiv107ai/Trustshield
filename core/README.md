@@ -22,7 +22,7 @@ This directory contains the core machine learning models, point-in-time graph to
 
 ### 2. Decisioning, Calibration & Conformal Coverage
 - **`advanced_trust_engine.py`**:  
-  Canonical Trust Engine combining tabular gradient-boosted models with graph topological features. Implements split conformal prediction sets (`{0}`, `{1}`, or `{0, 1}`) with $\ge 95\%$ statistical coverage guarantees ($\alpha = 0.05$).
+  Canonical Trust Engine combining tabular gradient-boosted models with graph topological features. Implements split Mondrian class-conditional conformal prediction sets (`{0}`, `{1}`, or `{0, 1}`) targeting nominal $\alpha = 0.05$ (empirical validation: 95.1% overall coverage, 95.3% on legit, 93.1% on fraud with mean set size 1.74).
 - **`calibration.py`**:  
   Post-hoc probability calibration utilizing validation-fitted Isotonic Regression and Platt scaling. Evaluates Expected Calibration Error (ECE) and Brier Score.
 - **`policy_config.py` & `policy_rules.py`**:  

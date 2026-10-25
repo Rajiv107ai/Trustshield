@@ -341,6 +341,8 @@ class InvestigationService:
 
         model_inference = DossierModelInference(
             calibrated_risk_score=score_res.overall_fraud_probability,
+            risk_interval=getattr(score_res, "risk_interval", None),
+            component_risks=getattr(score_res, "component_risks", None),
             operational_decision=score_res.decision,
             confidence_level=score_res.confidence,
             detector_disagreement=score_res.model_disagreement,

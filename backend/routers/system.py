@@ -70,7 +70,18 @@ def ready(response: Response):
     shap_ready = getattr(store, "shap_loaded", False)
     rings_ready = store.rings_df is not None
     pit_history_ready = getattr(store, "transaction_history", None) is not None
-    feature_service_ready = os.getenv("TRUSTSHIELD_FEATURE_SERVICE_READY", "").strip().lower() in {"1", "true", "yes", "on"}
+
+    # Feature service readiness: check BOTH the env var permission AND the actual
+    # service instance state (is_ready + has_required_sources).
+    fs_env_configured = os.getenv("TRUSTSHIELD_FEATURE_SERVICE_READY", "").strip().lower() in {"1", "true", "yes", "on"}
+    fs_instance = getattr(store, "feature_service", None)
+    fs_instance_ready = (
+        fs_instance is not None
+        and getattr(fs_instance, "is_ready", False)
+        and getattr(fs_instance, "has_required_sources", False)
+    )
+    feature_service_ready = fs_env_configured and fs_instance_ready
+
     pit_required_raw = os.getenv("TRUSTSHIELD_REQUIRE_PIT_HISTORY", "")
     pit_required = (
         pit_required_raw.strip().lower() in {"1", "true", "yes", "on"}
@@ -78,7 +89,6 @@ def ready(response: Response):
         else os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower() == "production"
     )
 
-    fs_instance = getattr(store, "feature_service", None)
     redis_connected = bool(
         fs_instance is not None
         and getattr(fs_instance, "redis", None) is not None
@@ -96,17 +106,38 @@ def ready(response: Response):
         "pit_history_required": pit_required,
         "trusted_feature_service_ready": feature_service_ready,
     }
+
+    # Report feature service env/actual state mismatch for operational visibility
+    if fs_env_configured and not fs_instance_ready:
+        details["feature_service_warning"] = (
+            "TRUSTSHIELD_FEATURE_SERVICE_READY env var is set but actual service is "
+            + ("not initialized" if fs_instance is None
+               else "not ready (missing sources: {})".format(
+                   getattr(fs_instance, "missing_sources", ["unknown"])
+               ))
+        )
+
     if fs_instance is not None and getattr(fs_instance, "is_ready", False):
         details["feature_service"] = fs_instance.get_status()
 
     if not pit_history_ready:
         details["pit_history"] = "unavailable — edge weights default to 0.0"
 
+    # Graph snapshot staleness reporting
     graph_snap = getattr(store, "graph_snapshot", None)
+    graph_snapshot_stale = getattr(store, "graph_snapshot_stale", False)
+    graph_age_days = getattr(store, "_graph_snapshot_age_days", None)
     if isinstance(graph_snap, dict):
         as_of = graph_snap.get("effective_as_of") or graph_snap.get("snapshot_cutoff")
         if as_of:
             details["graph_snapshot_as_of"] = str(as_of)
+    if graph_snapshot_stale:
+        details["graph_snapshot_stale"] = True
+        details["graph_snapshot_age_days"] = graph_age_days
+        details["graph_snapshot_warning"] = (
+            f"Graph snapshot is {int(graph_age_days or 0)} days old. "
+            "Schedule a snapshot rebuild for current topology features."
+        )
 
     feature_service_required = os.getenv("TRUSTSHIELD_ENV", os.getenv("ENV", "development")).strip().lower() == "production"
     if models_ready and rings_ready and pit_history_ready and (feature_service_ready or not feature_service_required):
@@ -146,6 +177,19 @@ def get_canonical_results():
     if not os.path.exists(results_path):
         raise HTTPException(status_code=404, detail="results.json not found on disk")
     with open(results_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@router.get("/system/operational-budgets", tags=["system"])
+def get_operational_budgets():
+    """Returns calibrated operational capacity budgets, optimal dollar thresholds, and conformal coverage bounds."""
+    budgets_path = os.path.join(_ROOT_DIR, "artifacts", "operational_budgets.json")
+    if not os.path.exists(budgets_path):
+        raise HTTPException(
+            status_code=404,
+            detail="operational_budgets.json not found on disk. Run scripts/calibrate_operational_budgets.py first.",
+        )
+    with open(budgets_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 

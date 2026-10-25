@@ -45,6 +45,10 @@ ALL_MODEL_FEATURE_KEYS = [
     "buyer_seller_edge_weight_before",
 ]
 
+# Required data sources for full production readiness.
+# The feature service must have all of these indexed before has_required_sources=True.
+REQUIRED_PRODUCTION_SOURCES = frozenset({"orders", "buyers", "sellers", "returns", "device_mapping"})
+
 
 def normalize_timestamp(ts: Any) -> pd.Timestamp:
     """Normalize input timestamp to tz-naive UTC pd.Timestamp for consistent comparisons."""
@@ -339,6 +343,7 @@ class PointInTimeFeatureService:
     ) -> None:
         self._lock = threading.RLock()
         self.is_ready: bool = False
+        self._loaded_sources: set = set()
         self.data_dir = data_dir
         self.catalog_path = catalog_path
 
@@ -355,6 +360,19 @@ class PointInTimeFeatureService:
         if data_dir and os.path.isdir(data_dir):
             self.load_historical_data(data_dir)
 
+    @property
+    def has_required_sources(self) -> bool:
+        """True when all required production data sources are loaded and indexed.
+
+        Required sources: orders, buyers, sellers, returns, device_mapping.
+        """
+        return REQUIRED_PRODUCTION_SOURCES.issubset(self._loaded_sources)
+
+    @property
+    def missing_sources(self) -> list:
+        """List of required sources that have not been loaded."""
+        return sorted(REQUIRED_PRODUCTION_SOURCES - self._loaded_sources)
+
     def load_historical_data(self, data_dir: str) -> bool:
         """Loads historical orders, returns, buyers, sellers, and devices into memory."""
         try:
@@ -366,7 +384,10 @@ class PointInTimeFeatureService:
                 df_b = pd.read_csv(buyers_path, usecols=["buyer_id", "signup_date"])
                 for b_id, s_date in zip(df_b["buyer_id"], df_b["signup_date"]):
                     self.buyer_signups[str(b_id).strip()] = normalize_timestamp(s_date)
+                self._loaded_sources.add("buyers")
                 logger.info("Loaded %d buyer profiles", len(self.buyer_signups))
+            else:
+                logger.warning("buyers.csv not found in %s — buyer age features will default to 0", data_dir)
 
             # 2. Sellers table
             sellers_path = os.path.join(data_dir, "sellers.csv")
@@ -380,7 +401,10 @@ class PointInTimeFeatureService:
                     self.seller_signups[s_id] = normalize_timestamp(r["signup_date"])
                     if "total_listings" in r:
                         self.seller_listings_count[s_id] = int(r["total_listings"])
+                self._loaded_sources.add("sellers")
                 logger.info("Loaded %d seller profiles", len(self.seller_signups))
+            else:
+                logger.warning("sellers.csv not found in %s — seller age features will default to 0", data_dir)
 
             # 3. Device mapping
             dev_map_path = os.path.join(data_dir, "device_mapping.csv")
@@ -388,45 +412,54 @@ class PointInTimeFeatureService:
                 df_dev = pd.read_csv(dev_map_path)
                 for b_id, d_id in zip(df_dev["buyer_id"], df_dev["device_id"]):
                     self.buyer_primary_device[str(b_id).strip()] = str(d_id).strip()
+                self._loaded_sources.add("device_mapping")
+                logger.info("Loaded %d device mappings", len(self.buyer_primary_device))
+            else:
+                logger.warning("device_mapping.csv not found in %s — device sharing features will default to 1", data_dir)
 
-            # 4. Orders table (chronologically sorted)
+            # 4. Orders table (chronologically sorted) - required for PIT feature serving
             orders_path = os.path.join(data_dir, "orders.csv")
-            if os.path.isfile(orders_path):
-                df_o = pd.read_csv(
-                    orders_path,
-                    usecols=["order_id", "buyer_id", "seller_id", "order_date", "amount", "device_id"],
-                )
-                df_o["order_date_norm"] = pd.to_datetime(df_o["order_date"])
-                df_o = df_o.sort_values(by="order_date_norm", kind="mergesort")
+            if not os.path.isfile(orders_path):
+                logger.error("PointInTimeFeatureService cannot initialize: required orders.csv missing in %s", data_dir)
+                self.is_ready = False
+                return False
 
-                b_orders = self.store.buyer_orders
-                s_orders = self.store.seller_orders
-                p_orders = self.store.pair_orders
-                d_events = self.store.device_events
-                rec_orders = self.store.recorded_orders
+            df_o = pd.read_csv(
+                orders_path,
+                usecols=["order_id", "buyer_id", "seller_id", "order_date", "amount", "device_id"],
+            )
+            df_o["order_date_norm"] = pd.to_datetime(df_o["order_date"])
+            df_o = df_o.sort_values(by="order_date_norm", kind="mergesort")
 
-                for o_id, b_id, s_id, o_date, amt, d_id in zip(
-                    df_o["order_id"],
-                    df_o["buyer_id"],
-                    df_o["seller_id"],
-                    df_o["order_date_norm"],
-                    df_o["amount"],
-                    df_o["device_id"],
-                ):
-                    clean_oid = str(o_id).strip()
-                    rec_orders.add(clean_oid)
-                    clean_bid = str(b_id).strip()
-                    clean_sid = str(s_id).strip()
-                    float_amt = float(amt) if pd.notnull(amt) else 0.0
-                    clean_did = str(d_id).strip() if pd.notnull(d_id) else None
+            b_orders = self.store.buyer_orders
+            s_orders = self.store.seller_orders
+            p_orders = self.store.pair_orders
+            d_events = self.store.device_events
+            rec_orders = self.store.recorded_orders
 
-                    b_orders.setdefault(clean_bid, []).append((o_date, float_amt, clean_oid))
-                    s_orders.setdefault(clean_sid, []).append((o_date, float_amt, clean_oid))
-                    p_orders.setdefault((clean_bid, clean_sid), []).append(o_date)
-                    if clean_did:
-                        d_events.setdefault(clean_did, []).append((o_date, clean_bid))
+            for o_id, b_id, s_id, o_date, amt, d_id in zip(
+                df_o["order_id"],
+                df_o["buyer_id"],
+                df_o["seller_id"],
+                df_o["order_date_norm"],
+                df_o["amount"],
+                df_o["device_id"],
+            ):
+                clean_oid = str(o_id).strip()
+                rec_orders.add(clean_oid)
+                clean_bid = str(b_id).strip()
+                clean_sid = str(s_id).strip()
+                float_amt = float(amt) if pd.notnull(amt) else 0.0
+                clean_did = str(d_id).strip() if pd.notnull(d_id) else None
 
-                logger.info("Loaded %d historical orders into sliding window store", len(df_o))
+                b_orders.setdefault(clean_bid, []).append((o_date, float_amt, clean_oid))
+                s_orders.setdefault(clean_sid, []).append((o_date, float_amt, clean_oid))
+                p_orders.setdefault((clean_bid, clean_sid), []).append(o_date)
+                if clean_did:
+                    d_events.setdefault(clean_did, []).append((o_date, clean_bid))
+
+            self._loaded_sources.add("orders")
+            logger.info("Loaded %d historical orders into sliding window store", len(df_o))
 
             # 5. Returns table
             returns_path = os.path.join(data_dir, "returns.csv")
@@ -441,10 +474,21 @@ class PointInTimeFeatureService:
                     clean_rid = str(r_id).strip()
                     b_returns.setdefault(clean_bid, []).append((r_date, clean_rid))
 
+                self._loaded_sources.add("returns")
                 logger.info("Loaded %d historical returns into sliding window store", len(df_r))
+            else:
+                logger.warning("returns.csv not found in %s — return rate features will default to 0", data_dir)
 
             self.is_ready = True
-            logger.info("PointInTimeFeatureService is fully ready and operational")
+
+            if self.has_required_sources:
+                logger.info("PointInTimeFeatureService is fully ready with all required sources: %s", sorted(self._loaded_sources))
+            else:
+                logger.warning(
+                    "PointInTimeFeatureService is partially ready (orders loaded) but missing required sources: %s. "
+                    "Production readiness (has_required_sources) will report False until all sources are available.",
+                    self.missing_sources,
+                )
             return True
         except Exception as exc:
             logger.error("Failed to load historical data in PointInTimeFeatureService: %s", exc)
@@ -671,6 +715,9 @@ class PointInTimeFeatureService:
         """Returns health and status of the feature service."""
         return {
             "ready": self.is_ready,
+            "has_required_sources": self.has_required_sources,
+            "loaded_sources": sorted(self._loaded_sources),
+            "missing_sources": self.missing_sources,
             "engine": "redis+in_memory" if self.redis.is_connected else "in_memory",
             "redis_connected": self.redis.is_connected,
             "orders_indexed": len(self.store.recorded_orders),

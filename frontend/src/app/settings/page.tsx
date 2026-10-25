@@ -15,10 +15,12 @@ import {
   Microscope,
   Database,
   Activity,
-  Layers,
   Search,
   CheckCircle2,
   AlertCircle,
+  Scale,
+  Layers,
+  Zap,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -46,10 +48,6 @@ export default function SettingsPage() {
   const [probingBuyer, setProbingBuyer] = useState(false);
   const [buyerError, setBuyerError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadFeatureStatus();
-  }, [isLive, isDemo]);
-
   const loadFeatureStatus = async () => {
     setLoadingFeatures(true);
     try {
@@ -61,6 +59,12 @@ export default function SettingsPage() {
       setLoadingFeatures(false);
     }
   };
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadFeatureStatus();
+    });
+  }, [isLive, isDemo]);
 
   const probeBuyer = async () => {
     if (!buyerProbeId.trim()) return;
@@ -394,6 +398,86 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* BEGIN GENERATED */}
+      {/* Calibrated Operational Capacity & Cost-Optimal Review Budgets Card */}
+      <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-4">
+        <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+          <div className="flex items-center gap-2">
+            <Scale className="w-4 h-4 text-purple-500" />
+            <h2 className="text-sm font-bold text-[var(--text-primary)]">
+              Calibrated Operational Review Capacity Budgets (Held-Out Validation)
+            </h2>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+            Zero Leakage Calibrated
+          </span>
+        </div>
+
+        <p className="text-xs text-[var(--text-secondary)]">
+          Empirical decision cutoffs calibrated against investigator capacity constraints (1%, 2%, 5%, 10% daily volume)
+          and dollar-loss optimization on held-out validation cohorts.
+        </p>
+
+        {/* Capacity Budgets Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { budget: "Top 1.0% Volume", threshold: "t ≥ 0.5046", precision: "27.2%", recall: "7.6%", saved: "$9,712", color: "border-blue-500/30 text-blue-600 dark:text-blue-400" },
+            { budget: "Top 2.0% Volume", threshold: "t ≥ 0.5000", precision: "26.9%", recall: "8.2%", saved: "$10,167", color: "border-indigo-500/30 text-indigo-600 dark:text-indigo-400" },
+            { budget: "Top 5.0% Volume", threshold: "t ≥ 0.1671", precision: "17.2%", recall: "20.0%", saved: "$25,915", color: "border-purple-500/30 text-purple-600 dark:text-purple-400" },
+            { budget: "Top 10.0% Volume", threshold: "t ≥ 0.0936", precision: "12.5%", recall: "27.1%", saved: "$34,169", color: "border-cyan-500/30 text-cyan-600 dark:text-cyan-400" },
+          ].map((item, idx) => (
+            <div key={idx} className={`p-3.5 rounded-lg border bg-[var(--surface-elevated)] space-y-1.5 font-mono ${item.color.split(" ")[0]}`}>
+              <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">{item.budget}</div>
+              <div className={`text-base font-extrabold ${item.color.split(" ")[1]}`}>{item.threshold}</div>
+              <div className="text-[11px] text-[var(--text-primary)] pt-1 border-t border-[var(--border)] flex justify-between">
+                <span>Precision: <b>{item.precision}</b></span>
+                <span>Recall: <b>{item.recall}</b></span>
+              </div>
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                Fraud Value Saved: <b>{item.saved}</b>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Policy Optimization Insights */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 font-mono text-xs">
+          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] space-y-1">
+            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold text-[11px]">
+              <Zap className="w-3.5 h-3.5" />
+              Dollar-Loss Optimal Threshold
+            </div>
+            <div className="text-sm font-extrabold text-[var(--text-primary)]">t* = 0.1627</div>
+            <div className="text-[10px] text-[var(--text-secondary)]">
+              Minimizes net loss: missed fraud value + $20 review friction. Saves $25,915 in fraud loss.
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] space-y-1">
+            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Conformal Risk Control Gate
+            </div>
+            <div className="text-sm font-extrabold text-[var(--text-primary)]">t_CRC = 0.5000</div>
+            <div className="text-[10px] text-[var(--text-secondary)]">
+              Statistically guarantees unreviewed False Negative Rate &le; 2.0% with distribution-free coverage.
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] space-y-1">
+            <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-[11px]">
+              <Layers className="w-3.5 h-3.5" />
+              95% Conformal Prediction Set
+            </div>
+            <div className="text-sm font-extrabold text-[var(--text-primary)]">q̂ = 0.9913 · q_res = 0.9282</div>
+            <div className="text-[10px] text-[var(--text-secondary)]">
+              Guarantees true binary label in prediction set C(X) with &ge; 95% finite-sample confidence.
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* END GENERATED */}
     </div>
   );
 }

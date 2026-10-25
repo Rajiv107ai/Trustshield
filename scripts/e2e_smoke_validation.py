@@ -202,7 +202,7 @@ def run_e2e_suite():
         print("  PASS: Temporal strict historical invariant (< decision_time) validated")
 
         # Case 9: Known suspicious ring
-        print("\n[Case 9/9] Testing Precomputed Fraud Rings Query...")
+        print("\n[Case 9/10] Testing Precomputed Fraud Rings Query...")
         r9 = client.get("/fraud-rings?min_risk=0.3&limit=5")
         assert r9.status_code == 200, f"Case 9 failed: {r9.text}"
         d9 = r9.json()
@@ -213,8 +213,33 @@ def run_e2e_suite():
         assert top_ring["avg_risk_score"] >= 0.3
         print(f"  PASS: Retrieved {d9['total_rings']} total rings ({d9['high_risk_rings']} high risk); Top Ring: {top_ring['ring_id']} (size={top_ring['size']}, risk={top_ring['avg_risk_score']})")
 
+        # Case 10: Conformal Bounded Interval, Component Risks, & Operational Capacity Budgets
+        print("\n[Case 10/10] Testing Conformal Uncertainty Intervals & Operational Capacity Budgets...")
+        c10_req = {
+            "order_id": "CONFORMAL_E2E_010",
+            "buyer_id": "BUYER_000001",
+            "seller_id": "SELLER_000001",
+            "amount": 120.0,
+            "base_price": 120.0,
+            "category_median_price": 120.0,
+        }
+        r10 = client.post("/transaction/score", json=c10_req)
+        assert r10.status_code == 200, f"Case 10 scoring failed: {r10.text}"
+        d10 = r10.json()
+        assert "risk_interval" in d10 and d10["risk_interval"] is not None
+        assert len(d10["risk_interval"]) == 2
+        assert d10["risk_interval"][0] <= d10["risk_interval"][1]
+        assert "component_risks" in d10 and "tabular_risk" in d10["component_risks"]
+
+        r10_budgets = client.get("/system/operational-budgets")
+        assert r10_budgets.status_code == 200, f"Case 10 budgets query failed: {r10_budgets.text}"
+        d10_budgets = r10_budgets.json()
+        assert "capacity_budgets" in d10_budgets
+        assert "dollar_weighted_cost_optimal" in d10_budgets
+        print(f"  PASS: Risk Interval=[{d10['risk_interval'][0]*100:.1f}%, {d10['risk_interval'][1]*100:.1f}%], Operational Budgets={list(d10_budgets['capacity_budgets'].keys())}")
+
     print("\n" + "=" * 60)
-    print("ALL 9 OPERATIONAL CASES PASSED CLEANLY!")
+    print("ALL 10 OPERATIONAL CASES PASSED CLEANLY!")
     print("=" * 60)
 
 

@@ -23,7 +23,9 @@ predictions without error.
 """
 
 import os
+import logging
 import sys
+from datetime import datetime, timedelta
 import joblib
 import pandas as pd
 from typing import Optional, Any
@@ -32,6 +34,8 @@ _ROOT = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 )
 MODELS_DIR = os.path.join(_ROOT, "models")
+
+logger = logging.getLogger(__name__)
 
 try:
     import trustshield_project.calibration as _cal
@@ -79,11 +83,15 @@ class ModelStore:
 
         # --- Serving Flags ---
         self._phase5_loaded: bool = False
+        self.graph_snapshot_stale: bool = False
+        self._graph_snapshot_age_days: Optional[float] = None
 
         # --- Explainability Layer (TreeSHAP) ---
         self.shap_explainer: Any = None
 
-    def load(self):
+    def load(self, force: bool = False):
+        if self._loaded and not force:
+            return
         # ---- Phase 3 ----
         missing = [
             f for f in _REQUIRED
@@ -95,43 +103,71 @@ class ModelStore:
                 f"Run:  python scripts/train_and_save_models.py"
             )
 
-        self.combined_graph_model = joblib.load(
-            os.path.join(MODELS_DIR, "combined_graph_model.joblib")
-        )
-        self.fake_listing_model   = joblib.load(
-            os.path.join(MODELS_DIR, "fake_listing_model.joblib")
-        )
-        self.return_fraud_model   = joblib.load(
-            os.path.join(MODELS_DIR, "return_fraud_model.joblib")
-        )
-        self.rings_df             = joblib.load(
-            os.path.join(MODELS_DIR, "fraud_rings.joblib")
-        )
-        self.feature_meta         = joblib.load(
-            os.path.join(MODELS_DIR, "feature_meta.joblib")
-        )
-        calibrator_path = os.path.join(MODELS_DIR, "calibrator.joblib")
-        if os.path.isfile(calibrator_path):
-            self.calibrator = joblib.load(calibrator_path)
-            print("[model_loader] Loaded ProbabilityCalibrator from models/calibrator.joblib")
+        import warnings
+        try:
+            from sklearn.exceptions import InconsistentVersionWarning
+        except ImportError:
+            InconsistentVersionWarning = Warning
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", InconsistentVersionWarning)
+            self.combined_graph_model = joblib.load(
+                os.path.join(MODELS_DIR, "combined_graph_model.joblib")
+            )
+            self.fake_listing_model   = joblib.load(
+                os.path.join(MODELS_DIR, "fake_listing_model.joblib")
+            )
+            self.return_fraud_model   = joblib.load(
+                os.path.join(MODELS_DIR, "return_fraud_model.joblib")
+            )
+            self.rings_df             = joblib.load(
+                os.path.join(MODELS_DIR, "fraud_rings.joblib")
+            )
+            self.feature_meta         = joblib.load(
+                os.path.join(MODELS_DIR, "feature_meta.joblib")
+            )
+            calibrator_path = os.path.join(MODELS_DIR, "calibrator.joblib")
+            if os.path.isfile(calibrator_path):
+                self.calibrator = joblib.load(calibrator_path)
+                logger.info("Loaded ProbabilityCalibrator from models/calibrator.joblib")
 
         snap_path = os.path.join(MODELS_DIR, "graph_snapshot.joblib")
         if os.path.isfile(snap_path):
             self.graph_snapshot = joblib.load(snap_path)
-            print(f"[model_loader] Loaded graph snapshot from {snap_path}")
+            logger.info("Loaded graph snapshot from %s", snap_path)
             snap_as_of = None
             if isinstance(self.graph_snapshot, dict):
                 snap_as_of = self.graph_snapshot.get("effective_as_of") or self.graph_snapshot.get("snapshot_cutoff")
             if snap_as_of:
-                print(f"[model_loader] Graph snapshot effective_as_of: {snap_as_of}")
-            print(
-                "[model_loader] WARNING: Graph topology is a static snapshot. "
+                logger.info("Graph snapshot effective_as_of: %s", snap_as_of)
+                # --- Graph Snapshot Freshness Gate ---
+                max_stale_days = int(os.getenv("TRUSTSHIELD_GRAPH_MAX_STALE_DAYS", "400"))
+                try:
+                    snap_date = pd.Timestamp(str(snap_as_of)).to_pydatetime()
+                    if snap_date.tzinfo is not None:
+                        snap_date = snap_date.replace(tzinfo=None)
+                    age_days = (datetime.now() - snap_date).days
+                    self._graph_snapshot_age_days = float(age_days)
+                    if age_days > max_stale_days:
+                        self.graph_snapshot_stale = True
+                        logger.error(
+                            "CRITICAL: Graph snapshot is %d days old (threshold: %d days). "
+                            "Graph topology features are stale. Schedule a snapshot rebuild or "
+                            "set TRUSTSHIELD_GRAPH_MAX_STALE_DAYS to adjust the threshold.",
+                            age_days, max_stale_days,
+                        )
+                    else:
+                        logger.info("Graph snapshot age: %d days (within %d-day threshold)", age_days, max_stale_days)
+                except Exception as _age_exc:
+                    logger.warning("Could not parse graph snapshot date for freshness check: %s", _age_exc)
+            logger.warning(
+                "Graph topology is a static snapshot. "
                 "Serving requests after the snapshot date receive stale topology features."
             )
         else:
             self.graph_snapshot = None
-            print(
-                "[model_loader] WARNING: graph_snapshot.joblib not found. "
+            logger.warning(
+                "graph_snapshot.joblib not found. "
                 "All graph features will be accepted from callers without server-side validation."
             )
 
@@ -142,7 +178,7 @@ class ModelStore:
             orders_path = os.path.join(data_dir, "orders.csv")
             self.transaction_history = PointInTimeHistoryStore(orders_csv_path=orders_path if os.path.isfile(orders_path) else None)
         except Exception as _pit_exc:
-            print(f"[model_loader] PointInTimeHistoryStore initialization failed: {_pit_exc}")
+            logger.warning("PointInTimeHistoryStore initialization failed: %s", _pit_exc)
             self.transaction_history = None
 
         # Governed Real-Time Point-in-Time Feature Service (sliding windows & catalog)
@@ -154,9 +190,9 @@ class ModelStore:
                 data_dir=data_dir if os.path.isdir(data_dir) else None,
                 catalog_path=catalog_path if os.path.isfile(catalog_path) else None,
             )
-            print(f"[model_loader] PointInTimeFeatureService initialized (status={self.feature_service.get_status()})")
+            logger.info("PointInTimeFeatureService initialized (status=%s)", self.feature_service.get_status())
         except Exception as _fs_exc:
-            print(f"[model_loader] PointInTimeFeatureService initialization failed: {_fs_exc}")
+            logger.warning("PointInTimeFeatureService initialization failed: %s", _fs_exc)
             self.feature_service = None
 
         # Conformal Predictor: Load held-out validation calibration data if available
@@ -172,22 +208,26 @@ class ModelStore:
                 _y_val = _np.load(val_label_path)
                 cal_src = os.path.basename(val_pred_path)
                 self.conformal_predictor = ConformalPredictor(alpha=0.05).calibrate(_p_val, _y_val, source=cal_src)
-                print(
-                    f"[model_loader] ConformalPredictor calibrated on validation data from {cal_src} "
-                    f"({len(_y_val):,} samples, q_hat_0={self.conformal_predictor.q_hat_0:.4f}, q_hat_1={self.conformal_predictor.q_hat_1:.4f})"
+                logger.info(
+                    "ConformalPredictor calibrated on validation data from %s "
+                    "(%d samples, q_hat_0=%.4f, q_hat_1=%.4f)",
+                    cal_src, len(_y_val),
+                    self.conformal_predictor.q_hat_0,
+                    self.conformal_predictor.q_hat_1,
                 )
             except Exception as _c_exc:
-                print(f"[model_loader] ConformalPredictor validation init failed: {_c_exc}")
+                logger.warning("ConformalPredictor validation init failed: %s", _c_exc)
                 self.conformal_predictor = None
         else:
             self.conformal_predictor = None
 
         self._loaded = True
-        print(f"[model_loader] Loaded Phase 3 models from {MODELS_DIR}")
+        logger.info("Loaded Phase 3 models from %s", MODELS_DIR)
         if self.rings_df is not None:
-            print(
-                f"[model_loader] {len(self.rings_df)} fraud rings pre-computed "
-                f"({(self.rings_df['avg_risk_score'] >= 0.3).sum()} high-risk)"
+            logger.info(
+                "%d fraud rings pre-computed (%d high-risk)",
+                len(self.rings_df),
+                int((self.rings_df["avg_risk_score"] >= 0.3).sum()),
             )
 
         # ---- Explainability: Initialize TreeSHAP Explainer for Phase 3 ----
@@ -199,12 +239,9 @@ class ModelStore:
                 feature_names=p3_cols,
                 model_name="Combined Graph Detector (Phase 3)",
             )
-            print(
-                f"[model_loader] Phase 3 TreeSHAP explainer initialized "
-                f"({len(p3_cols)} features)"
-            )
+            logger.info("Phase 3 TreeSHAP explainer initialized (%d features)", len(p3_cols))
         except Exception as exc:
-            print(f"[model_loader] TreeSHAP Phase 3 explainer init failed: {exc}")
+            logger.warning("TreeSHAP Phase 3 explainer init failed: %s", exc)
             self.shap_explainer = None
 
         # ---- Phase 4: CLIP embedding cache (optional — feature flag controlled) ----
@@ -212,7 +249,7 @@ class ModelStore:
         clip_cache_dir = os.path.join(MODELS_DIR, "clip_cache")
         clip_meta_path = os.path.join(clip_cache_dir, "clip_meta.npz")
         if not clip_enabled:
-            print("[model_loader] Phase 4 CLIP scorer disabled via CLIP_ENABLED=false.")
+            logger.info("Phase 4 CLIP scorer disabled via CLIP_ENABLED=false.")
             self._clip_loaded = False
         elif os.path.isfile(clip_meta_path):
             try:
@@ -240,28 +277,29 @@ class ModelStore:
                     self.clip_scorer.id_to_idx, self.clip_scorer.text_embeddings, self.clip_scorer.image_embeddings = cached
                     self.clip_scorer._fitted = True
                     self._clip_loaded = True
-                    print(
-                        f"[model_loader] Phase 4 CLIP scorer loaded from cache "
-                        f"({len(self.clip_scorer.id_to_idx):,} products, "
-                        f"text_emb={self.clip_scorer.text_embeddings.shape}, "
-                        f"image_emb={self.clip_scorer.image_embeddings.shape})"
+                    logger.info(
+                        "Phase 4 CLIP scorer loaded from cache (%d products, text_emb=%s, image_emb=%s)",
+                        len(self.clip_scorer.id_to_idx),
+                        self.clip_scorer.text_embeddings.shape,
+                        self.clip_scorer.image_embeddings.shape,
                     )
                 else:
-                    print(
-                        "[model_loader] Phase 4 CLIP cache fingerprint mismatch or stale. "
+                    logger.warning(
+                        "Phase 4 CLIP cache fingerprint mismatch or stale. "
                         "Run scripts/build_clip_embeddings.py to refresh cache. "
                         "The /listing/analyze endpoint will use caller-supplied "
                         "multimodal_similarity_score instead."
                     )
             except Exception as exc:
-                print(
-                    f"[model_loader] Phase 4 CLIP scorer unavailable ({exc}). "
+                logger.warning(
+                    "Phase 4 CLIP scorer unavailable (%s). "
                     "The /listing/analyze endpoint will use caller-supplied "
-                    "multimodal_similarity_score instead."
+                    "multimodal_similarity_score instead.",
+                    exc,
                 )
         else:
-            print(
-                "[model_loader] Phase 4 CLIP cache not found — "
+            logger.info(
+                "Phase 4 CLIP cache not found — "
                 "run scripts/build_clip_embeddings.py to enable real CLIP scoring."
             )
 

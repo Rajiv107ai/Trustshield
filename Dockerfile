@@ -39,7 +39,7 @@ COPY backend/ ./backend/
 COPY core/ ./core/
 COPY trustshield_project/ ./trustshield_project/
 COPY scripts/ ./scripts/
-COPY data/synthetic_v2_1/orders.csv ./data/synthetic_v2_1/orders.csv
+COPY data/synthetic_v2_1/ ./data/synthetic_v2_1/
 COPY models/ ./models/
 RUN pip install --no-cache-dir --no-deps -e .
 

@@ -3,7 +3,7 @@ TrustShield AI — Pydantic schemas for the FastAPI layer.
 """
 
 from enum import Enum
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -56,6 +56,7 @@ class TransactionScoreRequest(BaseModel):
 
 
 class TransactionScoreResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
     order_id: Optional[str] = None
     overall_fraud_probability: float
     raw_fraud_probability: Optional[float] = None
@@ -284,6 +285,8 @@ class DossierObservedEvidence(BaseModel):
 
 class DossierModelInference(BaseModel):
     calibrated_risk_score: float
+    risk_interval: Optional[List[float]] = None
+    component_risks: Optional[Dict[str, float]] = None
     operational_decision: str
     confidence_level: float
     detector_disagreement: float
@@ -344,6 +347,8 @@ class StreamTransactionEvent(BaseModel):
     risk_score: float
     calibrated_risk: float
     policy_risk_score: Optional[float] = None
+    risk_interval: Optional[Tuple[float, float]] = None
+    component_risks: Optional[Dict[str, float]] = None
     risk_level: str
     decision: str
     trust_score: float

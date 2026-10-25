@@ -170,6 +170,8 @@ export interface TransactionScoreResponse {
   conformal_is_calibrated?: boolean;
   conformal_coverage_guarantee?: number;
   conformal_q_hat?: number;
+  risk_interval?: [number, number];
+  component_risks?: Record<string, number>;
   risk_label: RiskLabel;
   model_used: string;
   model_version: string;
@@ -286,6 +288,8 @@ export interface DossierObservedEvidence {
 
 export interface DossierModelInference {
   calibrated_risk_score: number;
+  risk_interval?: [number, number];
+  component_risks?: Record<string, number>;
   operational_decision: OperationalDecision;
   confidence_level: number;
   detector_disagreement: number;
@@ -343,6 +347,13 @@ export interface StreamTransactionEvent {
   risk_score: number;
   calibrated_risk: number;
   policy_risk_score?: number;
+  risk_interval?: [number, number];
+  component_risks?: {
+    supervised_tabular?: number;
+    graph_topology?: number;
+    multimodal_listing?: number;
+    bayesian_ensemble?: number;
+  };
   risk_level: RiskLabel;
   decision: OperationalDecision;
   trust_score: number;

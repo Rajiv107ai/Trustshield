@@ -65,10 +65,44 @@ def strict_server_features_enabled() -> bool:
 
 
 def trusted_feature_service_ready() -> bool:
-    """Whether a governed real-data feature service has been configured."""
+    """Whether a governed real-data feature service has been configured and operational.
+
+    Readiness requires BOTH:
+    1. Explicit deployment permission via TRUSTSHIELD_FEATURE_SERVICE_READY env var.
+    2. The actual PointInTimeFeatureService instance is initialized, ready,
+       and has all required data sources (orders, buyers, sellers, returns,
+       device_mapping) loaded and indexed.
+
+    The environment variable alone is NOT sufficient — it is an explicit
+    deployment permission, not the source of truth for operational readiness.
+    """
 
     configured = os.getenv("TRUSTSHIELD_FEATURE_SERVICE_READY", "").strip().lower()
-    return configured in {"1", "true", "yes", "on"}
+    if configured not in {"1", "true", "yes", "on"}:
+        return False
+
+    # Verify the actual feature service instance exists and is operational
+    feature_service = getattr(store, "feature_service", None)
+    if feature_service is None:
+        logger.warning(
+            "TRUSTSHIELD_FEATURE_SERVICE_READY is set but feature_service is None; "
+            "readiness denied until the service is initialized."
+        )
+        return False
+    if not getattr(feature_service, "is_ready", False):
+        logger.warning(
+            "TRUSTSHIELD_FEATURE_SERVICE_READY is set but feature_service.is_ready=False; "
+            "readiness denied until historical data is loaded."
+        )
+        return False
+    if not getattr(feature_service, "has_required_sources", False):
+        logger.warning(
+            "TRUSTSHIELD_FEATURE_SERVICE_READY is set but feature_service.has_required_sources=False; "
+            "readiness denied until all required data tables are indexed."
+        )
+        return False
+
+    return True
 
 
 def require_trusted_feature_service() -> None:
@@ -110,7 +144,7 @@ def enforce_server_feature_boundary(req: TransactionScoreRequest) -> None:
 
 
 def _risk_label(score: float) -> str:
-    """Canonical risk label mapping aligned with Trust Engine thresholds (0.25, 0.55)."""
+    """Canonical risk label mapping aligned with Trust Engine policy thresholds (RISK_POLICY.hold, RISK_POLICY.review)."""
     if score >= RISK_POLICY.hold:
         return "high"
     if score >= RISK_POLICY.review:

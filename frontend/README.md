@@ -22,7 +22,7 @@ npm run dev
 http://localhost:3000
 ```
 
-The frontend connects by default to the FastAPI backend running at `http://localhost:8000`. If the backend is not yet started, the interface automatically runs in deterministic fallback mode using pre-verified scenario datasets.
+The frontend connects by default to the FastAPI backend running at `http://localhost:8000`. Health and readiness status is live-probed, and when the backend is offline or explicit Demo Mode is toggled on, the console operates in deterministic fallback mode with pre-verified scenario datasets.
 
 ---
 
@@ -35,12 +35,12 @@ The frontend connects by default to the FastAPI backend running at `http://local
 | **`/transactions/feed`** | **Audit Stream** | High-density real-time transaction feed with Server-Sent Events (SSE) live streaming and risk filtering. |
 | **`/fraud-rings`** | **Collusion Canvas** | Ranked candidate clusters, topological density, merchant concentration (HHI), and account freeze actions. |
 | **`/trust-graph`** | **Trust Graph** | Multi-entity relational graph canvas (Buyers, Sellers, Devices, Addresses) with historical timeline controls. |
-| **`/listings`** | **Listing Intelligence** | CLIP visual-semantic embeddings and FAISS nearest-neighbor indexing detecting stolen catalog photos. |
+| **`/listings`** | **Listing Intelligence** | CLIP visual-semantic embeddings and nearest-neighbor indexing detecting stolen catalog photos. |
 | **`/returns`** | **Return Abuse** | Serial return abuse detector evaluating return velocity and wardrobing risk. |
 | **`/investigations`** | **Evidence Dossiers** | Formal investigation incident dossiers with TreeSHAP risk breakdowns, graph topology, and evidence grounding indicators. |
 | **`/models`** | **Model Registry** | Model provenance, Isotonic probability calibration ECE reliability curve, and Brier metrics. |
 | **`/evaluation`** | **Evaluation Studio** | Algorithmic ablation ladders, test ROC/PR benchmarks, and dynamic decision threshold matrix. |
-| **`/monitoring`** | **Mesh Telemetry** | Kubernetes Liveness (`/health`) vs. Readiness (`/ready`), live Prometheus metrics, latency percentiles, and Docker mesh status. |
+| **`/monitoring`** | **Mesh Telemetry** | Kubernetes Liveness (`/health`) vs. Readiness (`/ready`), backend performance telemetry, latency percentiles, and service status. |
 | **`/settings`** | **Settings** | Base API URL configuration, active model version switcher, and default persona settings. |
 
 ---
@@ -49,7 +49,7 @@ The frontend connects by default to the FastAPI backend running at `http://local
 
 Toggle between views instantly using the header switch:
 - **`✨ Executive Story View`**: Translates model outputs into plain-English narratives, risk meters, and clear operational recommendations.
-- **`🔬 Deep AI Inspector`**: Exposes raw calibrated probabilities, GNN 16-dimensional node embeddings, continuous-time edge assertions, and split conformal coverage sets ($\{0\}$, $\{1\}$, $\{0, 1\}$).
+- **`🔬 Deep AI Inspector`**: Exposes raw calibrated probabilities, precomputed graph topology metrics (PageRank, degree centrality, component sizes), TreeSHAP feature attributions, and split conformal coverage sets ($\{0\}$, $\{1\}$, $\{0, 1\}$).
 
 ---
 

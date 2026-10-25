@@ -236,6 +236,11 @@ function TransactionAnalyzerContent() {
                   <span className="text-xs px-2.5 py-1 rounded-md bg-[var(--surface-elevated)] text-[var(--text-primary)] font-mono font-medium border border-[var(--border)]">
                     Calibrated Risk: {(result.overall_fraud_probability * 100).toFixed(1)}%
                   </span>
+                  {result.risk_interval && (
+                    <span className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 font-mono font-semibold border border-blue-500/20" title="95% Conformal Prediction Bounded Interval">
+                      95% Interval: [{(result.risk_interval[0] * 100).toFixed(1)}%, {(result.risk_interval[1] * 100).toFixed(1)}%]
+                    </span>
+                  )}
                   {result.cold_start && (
                     <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
                       Cold Start Account
@@ -479,7 +484,7 @@ function TransactionAnalyzerContent() {
                 <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3 font-mono">
                   <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                     <Layers className="w-4 h-4" />
-                    <span>Conformal Coverage Set</span>
+                    <span>Conformal Uncertainty & Interval</span>
                   </div>
                   {/* BEGIN GENERATED */}
                   <div className="space-y-2 text-xs pt-1">
@@ -489,11 +494,12 @@ function TransactionAnalyzerContent() {
                         : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) > 0.65 ? "{ 1 } (High Risk)"
                         : (result.calibrated_fraud_probability ?? result.overall_fraud_probability) < 0.35 ? "{ 0 } (Low Risk)"
                         : "{ 0, 1 } (Ambiguous / Review)", "text-[var(--text-primary)] font-bold bg-[var(--surface-elevated)] px-2 py-0.5 rounded border border-[var(--border)]"],
+                      ["Bounded Risk Interval:", result.risk_interval ? `[${(result.risk_interval[0] * 100).toFixed(1)}%, ${(result.risk_interval[1] * 100).toFixed(1)}%]` : `[${Math.max(0, (result.overall_fraud_probability - 0.05) * 100).toFixed(1)}%, ${Math.min(100, (result.overall_fraud_probability + 0.05) * 100).toFixed(1)}%]`, "text-blue-600 dark:text-blue-400 font-bold"],
                       ["Target Miscoverage (α):", "0.05 (95% Coverage)", "text-[var(--text-primary)]"],
                       ["Calibration Status:", result.conformal_is_calibrated ? "Calibrated (Val Split)" : "Fallback (Uncalibrated)", result.conformal_is_calibrated ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-amber-600 dark:text-amber-400 font-semibold"],
                       ["Conformal Quantile (q̂):", result.conformal_q_hat !== undefined && result.conformal_q_hat !== null ? `q̂ = ${result.conformal_q_hat.toFixed(4)}` : "q̂ = 0.5000 (Default)", "text-[var(--text-primary)]"],
                     ].map(([lbl, val, cls], idx) => (
-                      <div key={idx} className={`flex justify-between py-1 ${idx < 3 ? "border-b border-[var(--border)]" : ""}`}>
+                      <div key={idx} className={`flex justify-between py-1 ${idx < 4 ? "border-b border-[var(--border)]" : ""}`}>
                         <span className="text-[var(--text-secondary)]">{lbl}</span>
                         <span className={cls}>{val}</span>
                       </div>
@@ -523,6 +529,56 @@ function TransactionAnalyzerContent() {
                   </div>
                 </div>
               </div>
+
+              {/* Multi-Domain Bayesian Noisy-OR Risk Breakdown */}
+              {result.component_risks && (
+                <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-purple-500" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                        Multi-Domain Bayesian Risk Fusion Breakdown
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-mono text-[var(--text-secondary)]">
+                      Fused Risk: {(result.overall_fraud_probability * 100).toFixed(1)}% · Non-downgrade monotonic
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {Object.entries(result.component_risks).map(([domain, score]) => {
+                      const numScore = typeof score === "number" ? score : parseFloat(String(score)) || 0;
+                      const pct = Math.min(100, Math.max(0, numScore * 100));
+                      const label = {
+                        tabular_risk: "Tabular Features",
+                        graph_risk_heuristic: "Graph Topology",
+                        ring_risk_heuristic: "Fraud Ring / Cluster",
+                        multimodal_risk: "Multimodal Mismatch",
+                      }[domain] || domain.replace(/_/g, " ");
+
+                      const color = pct >= 65 ? "bg-rose-500 text-rose-600 dark:text-rose-400"
+                                  : pct >= 35 ? "bg-amber-500 text-amber-600 dark:text-amber-400"
+                                  : "bg-emerald-500 text-emerald-600 dark:text-emerald-400";
+
+                      return (
+                        <div key={domain} className="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] space-y-2 font-mono">
+                          <div className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider truncate" title={label}>
+                            {label}
+                          </div>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-lg font-bold text-[var(--text-primary)]">{pct.toFixed(1)}%</span>
+                            <span className={`text-[10px] font-semibold ${color.split(" ")[1]}`}>
+                              {pct >= 65 ? "HIGH" : pct >= 35 ? "MED" : "LOW"}
+                            </span>
+                          </div>
+                          <div className="w-full bg-[var(--border)] rounded-full h-1.5 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${color.split(" ")[0]}`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Explicit TreeSHAP Attribution Waterfall Section */}
               <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">

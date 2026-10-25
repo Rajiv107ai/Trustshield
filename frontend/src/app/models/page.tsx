@@ -12,11 +12,8 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertTriangle,
-  Layers,
-  Sliders,
   Zap,
   Scale,
-  Check,
 } from "lucide-react";
 import { TrustShieldApi } from "@/lib/api/client";
 import {
@@ -102,7 +99,7 @@ export default function ModelRegistryPage() {
 
   // Disagreements Audit State
   const [disagreements, setDisagreements] = useState<ChampionChallengerComparisonResponse[]>([]);
-  const [isLoadingDisagreements, setIsLoadingDisagreements] = useState<boolean>(false);
+  const [, setIsLoadingDisagreements] = useState<boolean>(false);
 
   const fetchStatus = async () => {
     try {
@@ -136,8 +133,10 @@ export default function ModelRegistryPage() {
       .then((data) => setResultsData(data))
       .catch((err) => console.error("Could not fetch results.json:", err));
 
-    fetchStatus();
-    fetchDisagreements();
+    queueMicrotask(() => {
+      fetchStatus();
+      fetchDisagreements();
+    });
   }, []);
 
   const handleConfigureMode = async (mode: "SHADOW" | "AB_SPLIT" | "CANARY", splitPct: number) => {
@@ -245,7 +244,6 @@ export default function ModelRegistryPage() {
 
   const primaryAnalysis = resultsData?.pre_registered_primary_analysis_20_seeds;
   const graphFree = resultsData?.graph_free_baseline_comparisons_20_seeds;
-  const hybridModel = resultsData?.tuned_hybrid_model_5_seeds?.standard_dataset;
   const ablations = resultsData?.design_rule_ablations;
 
   const modelsList = [

@@ -23,6 +23,13 @@ export interface DrawerTransactionData {
   user_id?: string;
   timestamp?: string;
   risk_score: number;
+  risk_interval?: [number, number];
+  component_risks?: {
+    supervised_tabular?: number;
+    graph_topology?: number;
+    multimodal_listing?: number;
+    bayesian_ensemble?: number;
+  };
   decision: "ALLOW" | "REVIEW" | "HOLD" | "BLOCK" | string;
   channel?: string;
   ip_address?: string;
@@ -166,9 +173,16 @@ export function TransactionDetailDrawer({ transaction, isOpen, onClose }: Transa
               <div className="flex items-center justify-between text-xs font-medium">
                 <span className="text-[var(--text-secondary)]">Calibrated Fraud Probability</span>
                 {/* BEGIN GENERATED */}
-                <span className="font-mono font-bold text-sm text-[var(--text-primary)]">
-                  {(transaction.risk_score * 100).toFixed(1)}%
-                </span>
+                <div className="flex items-center gap-2">
+                  {transaction.risk_interval && (
+                    <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 font-semibold">
+                      95% CI: [{(transaction.risk_interval[0] * 100).toFixed(1)}%, {(transaction.risk_interval[1] * 100).toFixed(1)}%]
+                    </span>
+                  )}
+                  <span className="font-mono font-bold text-sm text-[var(--text-primary)]">
+                    {(transaction.risk_score * 100).toFixed(1)}%
+                  </span>
+                </div>
                 {/* END GENERATED */}
               </div>
 
@@ -193,6 +207,46 @@ export function TransactionDetailDrawer({ transaction, isOpen, onClose }: Transa
                 <span>{RISK_THRESHOLDS.BLOCK} (Block)</span>
               </div>
             </div>
+
+            {/* Multi-Domain Risk Fusion Breakdown */}
+            {transaction.component_risks && (
+              <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[var(--text-primary)]">
+                    Multi-Domain Risk Breakdown
+                  </span>
+                  <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 font-medium">
+                    Bayesian Fusion
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="p-2 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+                    <div className="text-[10px] text-[var(--text-muted)]">Tabular</div>
+                    <div className="font-mono font-bold text-[var(--text-primary)] mt-0.5">
+                      {transaction.component_risks.supervised_tabular !== undefined
+                        ? `${(transaction.component_risks.supervised_tabular * 100).toFixed(1)}%`
+                        : "N/A"}
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+                    <div className="text-[10px] text-[var(--text-muted)]">Graph</div>
+                    <div className="font-mono font-bold text-[var(--text-primary)] mt-0.5">
+                      {transaction.component_risks.graph_topology !== undefined
+                        ? `${(transaction.component_risks.graph_topology * 100).toFixed(1)}%`
+                        : "N/A"}
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+                    <div className="text-[10px] text-[var(--text-muted)]">Multimodal</div>
+                    <div className="font-mono font-bold text-[var(--text-primary)] mt-0.5">
+                      {transaction.component_risks.multimodal_listing !== undefined
+                        ? `${(transaction.component_risks.multimodal_listing * 100).toFixed(1)}%`
+                        : "N/A"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Financial & Context Metadata */}
             <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">

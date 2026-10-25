@@ -442,7 +442,7 @@ async def stream_transactions(
         while not await request.is_disconnected():
             if limit is not None and count >= limit:
                 break
-            tmpl = dict(STREAM_SEEDS[seq % len(STREAM_SEEDS)])
+            tmpl = dict(STREAM_SEEDS[count % len(STREAM_SEEDS)])
             seq += 1
             count += 1
             ord_id = f"ORD_LIVE_{79000 + seq}"
@@ -462,6 +462,8 @@ async def stream_transactions(
                 risk_score=score_res.overall_fraud_probability,
                 calibrated_risk=float(score_res.calibrated_fraud_probability if score_res.calibrated_fraud_probability is not None else score_res.overall_fraud_probability),
                 policy_risk_score=score_res.policy_risk_score,
+                risk_interval=score_res.risk_interval,
+                component_risks=score_res.component_risks,
                 risk_level=score_res.risk_label,
                 decision=score_res.decision,
                 trust_score=score_res.trust_score,
