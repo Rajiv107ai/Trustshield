@@ -25,6 +25,13 @@ interface FeedItem {
   seller: string;
   amount: number;
   risk: number;
+  risk_interval?: [number, number];
+  component_risks?: {
+    supervised_tabular?: number;
+    graph_topology?: number;
+    multimodal_listing?: number;
+    bayesian_ensemble?: number;
+  };
   decision: "ALLOW" | "REVIEW" | "HOLD" | "BLOCK";
   reason: string;
   isNew?: boolean;
@@ -32,15 +39,27 @@ interface FeedItem {
 
 /* BEGIN GENERATED */
 const INITIAL_FEED_DATA: FeedItem[] = [
-  { id: "ORD_78921", timestamp: "10:58:12", buyer: "BUYER_RING_MEMBER_04", seller: "SELLER_RING_LEADER_01", amount: 890.00, risk: 0.942, decision: "BLOCK", reason: "HIGH_DEVICE_COLLISION" },
-  { id: "ORD_78920", timestamp: "10:57:44", buyer: "BUYER_REFUND_ABUSER", seller: "SELLER_ELECTRONICS_09", amount: 320.00, risk: 0.785, decision: "HOLD", reason: "HIGH_RETURN_VELOCITY" },
-  { id: "ORD_78919", timestamp: "10:56:30", buyer: "BUYER_NEWBIE_99", seller: "SELLER_UNKNOWN_44", amount: 450.00, risk: 0.380, decision: "REVIEW", reason: "PRICE_OUTLIER_99TH_PCT" },
-  { id: "ORD_78918", timestamp: "10:55:10", buyer: "BUYER_VERIFIED_77", seller: "SELLER_REPUTABLE_12", amount: 65.50, risk: 0.042, decision: "ALLOW", reason: "CLEAN_BASELINE" },
-  { id: "ORD_78917", timestamp: "10:54:02", buyer: "BUYER_MOBILE_USER_11", seller: "SELLER_SHOES_55", amount: 110.00, risk: 0.082, decision: "ALLOW", reason: "CLEAN_BASELINE" },
-  { id: "ORD_78916", timestamp: "10:52:19", buyer: "BUYER_RING_MEMBER_02", seller: "SELLER_RING_LEADER_01", amount: 940.00, risk: 0.915, decision: "BLOCK", reason: "RING_COLLUSION_SUSPECT" },
-  { id: "ORD_78915", timestamp: "10:50:41", buyer: "BUYER_GUEST_104", seller: "SELLER_WATCHES_02", amount: 1200.00, risk: 0.810, decision: "BLOCK", reason: "COLD_START_BUYER_HIGH_VALUE" },
-  { id: "ORD_78914", timestamp: "10:48:33", buyer: "BUYER_ACCOUNT_62", seller: "SELLER_REPUTABLE_12", amount: 44.00, risk: 0.035, decision: "ALLOW", reason: "CLEAN_BASELINE" },
+  { id: "ORD_78921", timestamp: "10:58:12", buyer: "BUYER_RING_MEMBER_04", seller: "SELLER_RING_LEADER_01", amount: 890.00, risk: 0.942, risk_interval: [0.910, 0.974], component_risks: { supervised_tabular: 0.93, graph_topology: 0.97, multimodal_listing: 0.72, bayesian_ensemble: 0.942 }, decision: "BLOCK", reason: "HIGH_DEVICE_COLLISION" },
+  { id: "ORD_78920", timestamp: "10:57:44", buyer: "BUYER_REFUND_ABUSER", seller: "SELLER_ELECTRONICS_09", amount: 320.00, risk: 0.785, risk_interval: [0.742, 0.828], component_risks: { supervised_tabular: 0.76, graph_topology: 0.81, multimodal_listing: 0.65, bayesian_ensemble: 0.785 }, decision: "HOLD", reason: "HIGH_RETURN_VELOCITY" },
+  { id: "ORD_78919", timestamp: "10:56:30", buyer: "BUYER_NEWBIE_99", seller: "SELLER_UNKNOWN_44", amount: 450.00, risk: 0.380, risk_interval: [0.335, 0.425], component_risks: { supervised_tabular: 0.39, graph_topology: 0.32, multimodal_listing: 0.41, bayesian_ensemble: 0.380 }, decision: "REVIEW", reason: "PRICE_OUTLIER_99TH_PCT" },
+  { id: "ORD_78918", timestamp: "10:55:10", buyer: "BUYER_VERIFIED_77", seller: "SELLER_REPUTABLE_12", amount: 65.50, risk: 0.042, risk_interval: [0.018, 0.066], component_risks: { supervised_tabular: 0.04, graph_topology: 0.03, multimodal_listing: 0.05, bayesian_ensemble: 0.042 }, decision: "ALLOW", reason: "CLEAN_BASELINE" },
+  { id: "ORD_78917", timestamp: "10:54:02", buyer: "BUYER_MOBILE_USER_11", seller: "SELLER_SHOES_55", amount: 110.00, risk: 0.082, risk_interval: [0.051, 0.113], component_risks: { supervised_tabular: 0.08, graph_topology: 0.07, multimodal_listing: 0.09, bayesian_ensemble: 0.082 }, decision: "ALLOW", reason: "CLEAN_BASELINE" },
+  { id: "ORD_78916", timestamp: "10:52:19", buyer: "BUYER_RING_MEMBER_02", seller: "SELLER_RING_LEADER_01", amount: 940.00, risk: 0.915, risk_interval: [0.880, 0.950], component_risks: { supervised_tabular: 0.90, graph_topology: 0.94, multimodal_listing: 0.68, bayesian_ensemble: 0.915 }, decision: "BLOCK", reason: "RING_COLLUSION_SUSPECT" },
+  { id: "ORD_78915", timestamp: "10:50:41", buyer: "BUYER_GUEST_104", seller: "SELLER_WATCHES_02", amount: 1200.00, risk: 0.810, risk_interval: [0.768, 0.852], component_risks: { supervised_tabular: 0.82, graph_topology: 0.79, multimodal_listing: 0.84, bayesian_ensemble: 0.810 }, decision: "BLOCK", reason: "COLD_START_BUYER_HIGH_VALUE" },
+  { id: "ORD_78914", timestamp: "10:48:33", buyer: "BUYER_ACCOUNT_62", seller: "SELLER_REPUTABLE_12", amount: 44.00, risk: 0.035, risk_interval: [0.012, 0.058], component_risks: { supervised_tabular: 0.03, graph_topology: 0.02, multimodal_listing: 0.04, bayesian_ensemble: 0.035 }, decision: "ALLOW", reason: "CLEAN_BASELINE" },
 ];
+
+const computeFallbackInterval = (p: number): [number, number] => [
+  Math.max(0, Math.round((p - 0.04) * 1000) / 1000),
+  Math.min(1, Math.round((p + 0.04) * 1000) / 1000),
+];
+
+const computeFallbackComponentRisks = (p: number) => ({
+  supervised_tabular: p,
+  graph_topology: Math.min(1, Math.round(p * 1.05 * 1000) / 1000),
+  multimodal_listing: Math.max(0, Math.round(p * 0.9 * 1000) / 1000),
+  bayesian_ensemble: p,
+});
 /* END GENERATED */
 
 export default function TransactionFeedPage() {
@@ -57,6 +76,8 @@ export default function TransactionFeedPage() {
       amount: tx.amount,
       user_id: tx.buyer,
       risk_score: tx.risk,
+      risk_interval: tx.risk_interval || computeFallbackInterval(tx.risk),
+      component_risks: tx.component_risks || computeFallbackComponentRisks(tx.risk),
       decision: tx.decision,
       timestamp: tx.timestamp,
       account_age_days: tx.decision === "ALLOW" ? 210 : tx.decision === "REVIEW" ? 2 : 0,
@@ -82,6 +103,8 @@ export default function TransactionFeedPage() {
           seller: event.seller_id,
           amount: event.amount,
           risk: event.calibrated_risk,
+          risk_interval: event.risk_interval || computeFallbackInterval(event.calibrated_risk),
+          component_risks: event.component_risks || computeFallbackComponentRisks(event.calibrated_risk),
           decision: event.decision as "ALLOW" | "REVIEW" | "HOLD" | "BLOCK",
           reason: event.reason_codes[0] || "CANONICAL_TRUST_ENGINE",
           isNew: true,

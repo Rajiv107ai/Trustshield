@@ -4,9 +4,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Activity,
-  Server,
   Database,
-  ExternalLink,
   RefreshCw,
   AlertTriangle,
   CheckCircle2,

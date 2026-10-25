@@ -22,7 +22,6 @@ import {
   Activity,
   Scale,
   FileText,
-  ChevronRight,
   AlertTriangle,
   Cpu,
   Terminal,
@@ -166,12 +165,14 @@ function InvestigationsContent() {
 
   // Sync targetEntityId when selected case changes
   useEffect(() => {
-    setTargetEntityId(selectedCase.primaryEntity);
-    setCopilotResponse(null);
-    setCopilotError(null);
-    setVerifyResult(null);
-    setVerifyError(null);
-    setShowFullBriefMarkdown(false);
+    queueMicrotask(() => {
+      setTargetEntityId(selectedCase.primaryEntity);
+      setCopilotResponse(null);
+      setCopilotError(null);
+      setVerifyResult(null);
+      setVerifyError(null);
+      setShowFullBriefMarkdown(false);
+    });
   }, [selectedCase.id, selectedCase.primaryEntity]);
 
   useEffect(() => {
@@ -1058,12 +1059,56 @@ function InvestigationsContent() {
                         Live Telemetry Synthesis (Deterministic Audit Pack)
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold">
-                      Decision: {liveDossier.decision}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {/* BEGIN GENERATED */}
+                      {liveDossier.model_inference?.risk_interval && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 font-semibold" title="95% Conformal Prediction Bounded Interval">
+                          95% Interval: [{(liveDossier.model_inference.risk_interval[0] * 100).toFixed(1)}%, {(liveDossier.model_inference.risk_interval[1] * 100).toFixed(1)}%]
+                        </span>
+                      )}
+                      {/* END GENERATED */}
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold">
+                        Decision: {liveDossier.decision}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {liveDossier.model_inference?.component_risks && (
+                      <div className="col-span-1 md:col-span-2 p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-mono font-bold uppercase text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                            <Activity className="w-3.5 h-3.5" />
+                            Multi-Domain Bayesian Fusion Breakdown
+                          </span>
+                          {liveDossier.model_inference.conformal_prediction_set && (
+                            <span className="text-[10px] font-mono text-[var(--text-secondary)]">
+                              Conformal Set: {liveDossier.model_inference.conformal_prediction_set}
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-xs">
+                          {Object.entries(liveDossier.model_inference.component_risks).map(([domain, score]) => {
+                            const val = typeof score === "number" ? score : parseFloat(String(score)) || 0;
+                            const pct = Math.min(100, Math.max(0, val * 100));
+                            const label = {
+                              tabular_risk: "Tabular",
+                              graph_risk_heuristic: "Graph Topology",
+                              ring_risk_heuristic: "Collusion Ring",
+                              multimodal_risk: "Multimodal",
+                            }[domain] || domain.replace(/_/g, " ");
+
+                            return (
+                              <div key={domain} className="bg-[var(--surface)] p-2 rounded border border-[var(--border)]">
+                                <div className="text-[10px] text-[var(--text-secondary)] uppercase truncate">{label}</div>
+                                <div className="text-sm font-bold text-[var(--text-primary)] mt-0.5">{pct.toFixed(1)}%</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
                       <span className="text-[11px] font-mono font-bold uppercase text-blue-600 dark:text-blue-400">
                         1. Observed Facts
