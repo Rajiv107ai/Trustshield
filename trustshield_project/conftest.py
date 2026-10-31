@@ -1,3 +1,3 @@
-"""Backward compatibility alias forwarding to core.conftest."""
+"""Backward compatibility alias forwarding to tests.conftest."""
 
-from core.conftest import *  # noqa: F401, F403
+from tests.conftest import *  # noqa: F401, F403
