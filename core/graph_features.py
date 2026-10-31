@@ -428,7 +428,7 @@ def compute_collusion_indicators(
             for node in comp:
                 comp_map[node] = idx
 
-    df["_buyer_cluster"] = df["buyer_id"].map(comp_map).fillna(-1)
+    df["_buyer_cluster"] = df["buyer_id"].map(comp_map.get).fillna(-1)
     df["_has_shared_cluster"] = (df["_buyer_cluster"] >= 0).astype(int)
 
     df["seller_prior_orders"] = df.groupby("seller_id").cumcount()
@@ -601,9 +601,8 @@ def run_phase_3():
     # Score full dataset and surface rings
     df_scored = pd.concat([train, val, test], axis=0, ignore_index=True)
     features_full = df_scored[tabular_cols + graph_cols].fillna(0)
-    df_scored = df_scored.assign(
-        fraud_score=pd.Series(np.asarray(rf_combined.predict_proba(features_full))[:, 1], index=df_scored.index)
-    )
+    scores_full = np.asarray(rf_combined.predict_proba(features_full))[:, 1]
+    df_scored = df_scored.assign(fraud_score=scores_full.tolist())
 
     rings_df = detect_fraud_rings(rel_graph, df_scored, score_col="fraud_score", min_ring_size=2)
     print(f"\nDetected {len(rings_df)} suspicious account clusters (rings). Top 5:")
