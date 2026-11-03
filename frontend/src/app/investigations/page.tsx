@@ -121,7 +121,18 @@ const CASES_DATA: CaseItem[] = [
 
 function InvestigationsContent() {
   const searchParams = useSearchParams();
-  const targetParam = searchParams.get("order_id") || searchParams.get("entity_id");
+  const targetParam = searchParams.get("case_id") || searchParams.get("order_id") || searchParams.get("entity_id");
+
+  const handleSelectCase = (id: string) => {
+    setSelectedCaseId(id);
+    setLiveDossier(null);
+    setErrorState(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("case_id", id);
+      window.history.pushState({}, "", url.toString());
+    }
+  };
 
   const [selectedCaseId, setSelectedCaseId] = useState<string>(() => {
     if (targetParam) {
@@ -187,6 +198,25 @@ function InvestigationsContent() {
   const [notes, setNotes] = useState<{ text: string; author: string; timestamp: string; tag: string }[]>([]);
   const [newNoteText, setNewNoteText] = useState("");
   const [selectedTag, setSelectedTag] = useState("Under Review");
+
+    // Synchronize browser history and Back/Forward buttons
+  useEffect(() => {
+    const onPopState = () => {
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+      const caseId = url.searchParams.get("case_id") || url.searchParams.get("order_id") || url.searchParams.get("entity_id");
+      if (caseId) {
+        const match = CASES_DATA.find((item) => item.id === caseId || item.primaryEntity === caseId);
+        if (match) {
+          setSelectedCaseId(match.id);
+          setLiveDossier(null);
+          setErrorState(null);
+        }
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   // Sync targetEntityId when selected case changes
   useEffect(() => {
@@ -504,11 +534,7 @@ function InvestigationsContent() {
                 return (
                   <div
                     key={c.id}
-                    onClick={() => {
-                      setSelectedCaseId(c.id);
-                      setLiveDossier(null);
-                      setErrorState(null);
-                    }}
+                    onClick={() => handleSelectCase(c.id)}
                     className={`p-3 rounded-lg border cursor-pointer transition-all ${
                       isSelected
                         ? "bg-[var(--surface-elevated)] border-blue-500 shadow-sm ring-1 ring-blue-500/30"

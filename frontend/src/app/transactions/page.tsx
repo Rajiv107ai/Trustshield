@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useViewMode } from "@/context/ViewModeContext";
 import { TrustShieldApi, ApiError, generateIdempotencyKey } from "@/lib/api/client";
 import { DecisionBadge } from "@/components/ui/DecisionBadge";
@@ -30,6 +31,7 @@ import {
   User,
   ShoppingBag,
   Network,
+  Activity,
 } from "lucide-react";
 import { Suspense } from "react";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
@@ -163,8 +165,49 @@ function TransactionAnalyzerContent() {
 
   return (
     <div className="space-y-6">
-  return (
-    <div className="space-y-6">
+      {/* Page Header with Cross-Workflow Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+              Risk Analyzer &amp; Inference Studio
+            </h1>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
+              PHASE 3 ACTIVE
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            Real-time multi-signal scoring combining tabular attributes, NetworkX graph centrality, and conformal risk bounds.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/investigations?order_id=${formData.order_id || 'ORD_SIM_SAFE_01'}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors"
+            title="Create or view investigation case dossier"
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>Open in Dossier Studio</span>
+          </Link>
+          <Link
+            href="/fraud-rings"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] text-xs font-medium transition-colors"
+            title="Analyze graph collusion topology"
+          >
+            <Network className="w-3.5 h-3.5" />
+            <span>Inspect Graph Rings</span>
+          </Link>
+          <Link
+            href="/transactions/feed"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] text-xs font-medium transition-colors"
+            title="Live audit stream"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>Live Feed</span>
+          </Link>
+        </div>
+      </div>
       {/* 1. SCENARIO PRESETS TOOLBAR */}
       <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-3 sticky top-16 z-20 backdrop-blur-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -859,7 +902,6 @@ function TransactionAnalyzerContent() {
 
         </div>
       </div>
-    </div>
   );
 }
 

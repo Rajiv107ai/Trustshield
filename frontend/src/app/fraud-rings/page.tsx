@@ -474,11 +474,11 @@ export default function FraudRingsPage() {
                   return (
                     <div
                       key={i}
-                      className="p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-between font-mono text-xs"
+                      className="p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-between font-mono text-xs hover:border-purple-500/30 transition-all"
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <span
-                          className={`w-2 h-2 rounded-full ${
+                          className={`w-2 h-2 rounded-full shrink-0 ${
                             isDevice
                               ? "bg-cyan-500"
                               : isAddress
@@ -488,21 +488,30 @@ export default function FraudRingsPage() {
                               : "bg-blue-500"
                           }`}
                         />
-                        <span className="text-[var(--text-primary)] font-semibold">{member}</span>
+                        <span className="text-[var(--text-primary)] font-semibold truncate" title={member}>{member}</span>
                       </div>
-                      <span
-                        className={`text-[9px] px-2 py-0.5 rounded font-semibold uppercase ${
-                          isDevice
-                            ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-                            : isAddress
-                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                            : isSeller
-                            ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                            : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                        }`}
-                      >
-                        {isDevice ? "Hardware" : isAddress ? "Address" : isSeller ? "Merchant" : "Buyer"}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className={`text-[9px] px-2 py-0.5 rounded font-semibold uppercase ${
+                            isDevice
+                              ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                              : isAddress
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                              : isSeller
+                              ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                              : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          }`}
+                        >
+                          {isDevice ? "Hardware" : isAddress ? "Address" : isSeller ? "Merchant" : "Buyer"}
+                        </span>
+                        <Link
+                          href={`/investigations?entity_id=${encodeURIComponent(member)}`}
+                          className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                          title={`Investigate ${member} in Dossier Studio`}
+                        >
+                          Investigate →
+                        </Link>
+                      </div>
                     </div>
                   );
                 })}

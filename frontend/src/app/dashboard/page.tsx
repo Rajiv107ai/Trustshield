@@ -83,6 +83,7 @@ export default function DashboardPage() {
   const [guideExpanded, setGuideExpanded] = useState<boolean>(true);
   const [selectedDrawerTx, setSelectedDrawerTx] = useState<DrawerTransactionData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [decisionFilter, setDecisionFilter] = useState<"ALL" | "BLOCK" | "HOLD" | "REVIEW" | "ALLOW">("ALL");
 
   const handleOpenDrawer = (tx: {
     id: string;
@@ -213,6 +214,11 @@ export default function DashboardPage() {
     },
   ]);
   /* END GENERATED */
+
+  // Filtered transactions for Priority Risk Queue
+  const displayedTransactions = decisionFilter === "ALL"
+    ? recentTransactions
+    : recentTransactions.filter((tx) => tx.decision === decisionFilter);
 
   useEffect(() => {
     const cleanup = TrustShieldApi.createTransactionEventSource(
@@ -458,12 +464,50 @@ export default function DashboardPage() {
                 <DecisionBadge decision={item.decision} size="sm" />
               </div>
               <div className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">{item.reason}</div>
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] text-[11px]">
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] text-[11px] gap-2">
                 <span className="font-mono font-semibold text-[var(--text-primary)]">{item.amount}</span>
-                <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
-                  <span>Quick Inspect</span>
-                  <ArrowRight className="w-3 h-3" />
-                </span>
+                <div className="flex items-center gap-2">
+                  {item.decision === "BLOCK" && (
+                    <Link
+                      href="/fraud-rings"
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] font-semibold hover:bg-rose-500/20 transition-colors"
+                    >
+                      Explore Ring →
+                    </Link>
+                  )}
+                  {item.decision === "HOLD" && (
+                    <Link
+                      href="/returns"
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-[10px] font-semibold hover:bg-orange-500/20 transition-colors"
+                    >
+                      Inspect Return →
+                    </Link>
+                  )}
+                  {item.decision === "REVIEW" && (
+                    <Link
+                      href="/transactions?preset=anomaly"
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-semibold hover:bg-amber-500/20 transition-colors"
+                    >
+                      Score in Analyzer →
+                    </Link>
+                  )}
+                  {item.decision === "ALLOW" && (
+                    <Link
+                      href="/transactions?preset=verified"
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold hover:bg-emerald-500/20 transition-colors"
+                    >
+                      Verify Profile →
+                    </Link>
+                  )}
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-0.5">
+                    <span>Inspect</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
               </div>
             </div>
           ))}
@@ -535,6 +579,36 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {/* Filter Pills for Decision Routing */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[var(--border)]">
+          <span className="text-[11px] font-medium text-[var(--text-secondary)] mr-1">Filter Decision:</span>
+          {(["ALL", "BLOCK", "HOLD", "REVIEW", "ALLOW"] as const).map((filter) => {
+            const count = filter === "ALL"
+              ? recentTransactions.length
+              : recentTransactions.filter((t) => t.decision === filter).length;
+            const isSelected = decisionFilter === filter;
+            return (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setDecisionFilter(filter)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                    : "bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--border)] hover:text-[var(--text-primary)] hover:border-blue-500/40"
+                }`}
+              >
+                <span>{filter}</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                  isSelected ? "bg-white/20 text-white" : "bg-[var(--surface)] text-[var(--text-muted)]"
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="overflow-x-auto">
           {viewMode === "executive" ? (
             <table className="w-full text-left border-collapse">
@@ -550,7 +624,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)] text-xs">
-                {recentTransactions.map((tx, idx) => {
+                {displayedTransactions.map((tx, idx) => {
                   const meta = DECISION_META[tx.decision] ?? DECISION_META.ALLOW;
                   return (
                     <tr
@@ -572,16 +646,31 @@ export default function DashboardPage() {
                       </td>
                       <td className="py-3 px-3 text-[11px] text-[var(--text-secondary)]">{meta.rec}</td>
                       <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDrawer(tx);
-                          }}
-                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Review</span>
-                          <ArrowUpRight className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            href={`/investigations?order_id=${tx.id}`}
+                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                            title="Open in Case Dossier Studio"
+                          >
+                            Investigate
+                          </Link>
+                          <span className="text-[var(--border)]">|</span>
+                          <Link
+                            href={`/transactions?order_id=${tx.id}`}
+                            className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium"
+                            title="Analyze Features"
+                          >
+                            Score
+                          </Link>
+                          <span className="text-[var(--border)]">|</span>
+                          <button
+                            onClick={() => handleOpenDrawer(tx)}
+                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold inline-flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>Inspect</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -604,7 +693,7 @@ export default function DashboardPage() {
               </thead>
               {/* BEGIN GENERATED */}
               <tbody className="divide-y divide-[var(--border)] text-xs font-mono">
-                {recentTransactions.map((tx, idx) => {
+                {displayedTransactions.map((tx, idx) => {
                   const probPercent = (tx.calibratedProb * 100).toFixed(1);
                   return (
                     <tr
@@ -662,16 +751,31 @@ export default function DashboardPage() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDrawer(tx);
-                          }}
-                          className="text-xs text-purple-600 dark:text-purple-400 hover:underline font-semibold inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Inspect</span>
-                          <ArrowUpRight className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            href={`/investigations?order_id=${tx.id}`}
+                            className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-semibold"
+                            title="Open in Case Dossier Studio"
+                          >
+                            Investigate
+                          </Link>
+                          <span className="text-[var(--border)]">|</span>
+                          <Link
+                            href={`/transactions?order_id=${tx.id}`}
+                            className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium"
+                            title="Analyze Features"
+                          >
+                            Score
+                          </Link>
+                          <span className="text-[var(--border)]">|</span>
+                          <button
+                            onClick={() => handleOpenDrawer(tx)}
+                            className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-semibold inline-flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>Inspect</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

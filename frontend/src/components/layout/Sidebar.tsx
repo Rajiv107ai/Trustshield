@@ -21,9 +21,10 @@ import {
 
 const NAV_ITEMS = [
   {
-    category: "OVERVIEW",
+    category: "OPERATIONAL HUB",
     items: [
       { name: "Command Center", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Platform Overview", href: "/overview", icon: BarChart3 },
     ],
   },
   {
@@ -81,7 +82,7 @@ export function Sidebar() {
         </Link>
 
         <Link
-          href="/"
+          href="/overview"
           title="View Public Overview Landing Page"
           className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-md hover:bg-[var(--surface-elevated)] transition-colors"
         >
