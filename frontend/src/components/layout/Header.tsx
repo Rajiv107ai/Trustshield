@@ -121,7 +121,7 @@ export function Header() {
               onClick={() => setViewMode("executive")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
                 viewMode === "executive"
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-semibold"
+                  ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border)] shadow-xs font-semibold"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
             >
@@ -133,7 +133,7 @@ export function Header() {
               onClick={() => setViewMode("inspector")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
                 viewMode === "inspector"
-                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm font-semibold"
+                  ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border)] shadow-xs font-semibold"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
             >

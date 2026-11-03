@@ -112,10 +112,7 @@ export default function LandingPage() {
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[var(--text-primary)] leading-tight">
-            Stop Marketplace Fraud{" "}
-            <span className="bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-500 bg-clip-text text-transparent">
-              Before It Costs You Money
-            </span>
+            Stop Marketplace Fraud Before It Costs You Money
           </h1>
 
           {/* Subtitle */}
@@ -128,7 +125,7 @@ export default function LandingPage() {
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/dashboard"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all transform hover:-translate-y-0.5 card-interactive"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold text-white shadow-sm transition-all transform hover:-translate-y-0.5 card-interactive"
             >
               <ShieldAlert className="w-4 h-4" />
               <span>Launch Investigator Console</span>
@@ -765,7 +762,7 @@ export default function LandingPage() {
               <div className="text-xs text-[var(--text-muted)] font-mono">PRECISION-RECALL</div>
               <div className="text-sm font-semibold text-[var(--text-primary)] mt-1">PR-AUC (20 Seeds)</div>
               {/* BEGIN GENERATED */}
-              <div className="text-3xl font-extrabold font-mono text-indigo-600 dark:text-indigo-400 mt-2">0.7842</div>
+              <div className="text-3xl font-extrabold font-mono text-blue-600 dark:text-blue-400 mt-2">0.7842</div>
               <div className="text-xs text-[var(--text-secondary)] mt-1 font-mono">Std Dev: ±0.0152</div>
               {/* END GENERATED */}
               <p className="text-xs text-[var(--text-muted)] mt-3">
@@ -823,7 +820,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <Link
               href="/dashboard"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all card-interactive"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold text-white shadow-sm transition-all card-interactive focus-ring"
             >
               <ShieldAlert className="w-4 h-4" />
               <span>Launch Investigator Console</span>

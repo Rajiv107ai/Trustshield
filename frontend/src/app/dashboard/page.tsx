@@ -286,7 +286,7 @@ export default function DashboardPage() {
 
           <Link
             href="/transactions"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-md shadow-blue-500/20 transition-all card-interactive"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-sm transition-all card-interactive focus-ring"
           >
             <Zap className="w-3.5 h-3.5" />
             <span>Open Risk Analyzer</span>

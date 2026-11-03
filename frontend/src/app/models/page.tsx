@@ -338,33 +338,30 @@ export default function ModelRegistryPage() {
             <button
               onClick={() => handleConfigureMode("SHADOW", 0.0)}
               disabled={isConfiguring}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                statusData?.deployment_mode === "SHADOW"
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${statusData?.deployment_mode === "SHADOW"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
+                }`}
             >
               100% Shadow
             </button>
             <button
               onClick={() => handleConfigureMode("CANARY", 10.0)}
               disabled={isConfiguring}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                statusData?.deployment_mode === "CANARY"
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${statusData?.deployment_mode === "CANARY"
                   ? "bg-amber-600 text-white shadow-sm"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
+                }`}
             >
               10% Canary
             </button>
             <button
               onClick={() => handleConfigureMode("AB_SPLIT", 50.0)}
               disabled={isConfiguring}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                statusData?.deployment_mode === "AB_SPLIT"
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${statusData?.deployment_mode === "AB_SPLIT"
                   ? "bg-blue-600 text-white shadow-sm"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
+                }`}
             >
               50/50 A/B Split
             </button>
@@ -461,11 +458,10 @@ export default function ModelRegistryPage() {
               <button
                 key={sc}
                 onClick={() => handleScenarioChange(sc)}
-                className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                  simScenario === sc
+                className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${simScenario === sc
                     ? "bg-indigo-600 text-white border-indigo-600 shadow-sm font-semibold"
                     : "bg-[var(--surface-elevated)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                }`}
+                  }`}
               >
                 {sc === "benign" ? "1. Benign High-Volume Buyer" : sc === "burst" ? "2. Burst Device Farm Ring" : "3. Boundary Ambiguity Case"}
               </button>
@@ -501,7 +497,7 @@ export default function ModelRegistryPage() {
               <button
                 onClick={handleRunDualScoring}
                 disabled={isScoringDual}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md shadow-indigo-500/20 disabled:opacity-50 cursor-pointer focus-ring"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm disabled:opacity-50 cursor-pointer focus-ring"
               >
                 {isScoringDual ? (
                   <>
@@ -531,11 +527,10 @@ export default function ModelRegistryPage() {
                 <div className="text-xs font-mono font-bold text-[var(--text-primary)] flex items-center gap-2">
                   <span>Order: {dualComparison.order_id}</span>
                   <span>·</span>
-                  <span className={`px-2 py-0.5 rounded border text-[10px] ${
-                    dualComparison.decision_matches
+                  <span className={`px-2 py-0.5 rounded border text-[10px] ${dualComparison.decision_matches
                       ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                       : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                  }`}>
+                    }`}>
                     {dualComparison.decision_matches ? "Decisions Concordant" : "Decisions Divergent"}
                   </span>
                 </div>
@@ -712,11 +707,10 @@ export default function ModelRegistryPage() {
               <div
                 key={m.id}
                 onClick={() => setSelectedModel(m.id)}
-                className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  isSelected
+                className={`p-4 rounded-xl border cursor-pointer transition-all ${isSelected
                     ? "bg-[var(--surface-elevated)] border-blue-500 shadow-md ring-1 ring-blue-500/30"
                     : "bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-elevated)]"
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-semibold ${m.badgeColor}`}>
