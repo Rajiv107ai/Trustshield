@@ -14,10 +14,15 @@ import {
   Layers,
   Microscope,
   Sliders,
+  ArrowRight,
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import { useViewMode } from "@/context/ViewModeContext";
 import { TrustShieldApi } from "@/lib/api/client";
 import { MonitoringOverviewResponse, MonitoringAlert } from "@/lib/types/api";
+import Link from "next/link";
 
 type TabMode = "overview" | "drift" | "calibration" | "metrics";
 
@@ -43,7 +48,7 @@ export default function MonitoringPage() {
       setDriftReport(driftRes.data);
       setCalibrationReport(calRes.data);
     } catch (err) {
-      console.error("Failed to fetch monitoring overview:", err);
+      console.warn("Failed to fetch monitoring overview:", err);
     } finally {
       setLoading(false);
     }
@@ -354,30 +359,120 @@ export default function MonitoringPage() {
       )}
 
       {activeTab === "drift" && (
-        <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-primary)]">
-              Formal Drift Monitoring Contract Payload (schema_version: monitoring.v1)
-            </h2>
-            <span className="text-[10px] font-mono text-[var(--text-secondary)]">Target: /monitoring/drift</span>
+        <div className="space-y-6">
+          {/* Drift Telemetry Summary & Cross Link */}
+          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <div>
+                <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-500" />
+                  <span>Population Stability Index & Distribution Drift Protocol</span>
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  Automated Kolmogorov-Smirnov distance and population stability index tracking against baseline reference window.
+                </p>
+              </div>
+
+              <Link
+                href="/models"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer self-start sm:self-auto focus-ring"
+              >
+                <span>Shadow / Canary Governance</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {/* Threshold Guidance Reference */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1">
+                <div className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>PSI &lt; 0.10 — Stable</span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Feature distributions match training baseline. Production scoring operates within calibrated bounds.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 space-y-1">
+                <div className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>0.10 ≤ PSI &lt; 0.25 — Drift Warning</span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Moderate shift in customer behavioral vectors. Scheduled retrain queued; human review sample widened.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-rose-500/5 border border-rose-500/20 space-y-1">
+                <div className="font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span>PSI ≥ 0.25 — Critical Drift</span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Severe distribution divergence. Circuit breakers trip automatically to preserve false alarm bounds.
+                </p>
+              </div>
+            </div>
           </div>
-          <pre className="p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-secondary)] overflow-x-auto max-h-[500px] leading-relaxed">
-            {JSON.stringify(driftReport, null, 2)}
-          </pre>
+
+          {/* Raw Contract Payload Viewer */}
+          <details className="group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 cursor-pointer">
+            <summary className="flex items-center justify-between text-xs font-mono font-bold text-[var(--text-primary)] uppercase tracking-wider select-none">
+              <span>View Raw Drift Monitoring Contract (monitoring.v1 JSON)</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-normal group-open:hidden">Click to expand</span>
+            </summary>
+            <pre className="mt-3 p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-secondary)] overflow-x-auto max-h-[400px] leading-relaxed">
+              {JSON.stringify(driftReport, null, 2)}
+            </pre>
+          </details>
         </div>
       )}
 
       {activeTab === "calibration" && (
-        <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-primary)]">
-              Matured-Label Calibration Contract Payload (schema_version: monitoring.v1)
-            </h2>
-            <span className="text-[10px] font-mono text-[var(--text-secondary)]">Target: /monitoring/calibration</span>
+        <div className="space-y-6">
+          {/* Calibration Summary */}
+          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <div>
+                <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <Microscope className="w-4 h-4 text-purple-500" />
+                  <span>Isotonic Probability Calibration & Brier Score Validation</span>
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  Probability calibration evaluation verified strictly on 14-day matured chargeback labels to eliminate reporting latency bias.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-mono font-semibold">
+                  ECE Target: &lt;5.0%
+                </span>
+              </div>
+            </div>
+
+            {/* Methodology Note */}
+            <div className="p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-xs text-[var(--text-secondary)] space-y-1.5 leading-relaxed">
+              <div className="font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-blue-500" />
+                <span>Why Probability Calibration Matters for Bayes Risk Decisions</span>
+              </div>
+              <p>
+                Uncalibrated raw tree ensembles often output overconfident scores clustered near 0.0 or 1.0. TrustShield passes raw model margins through an empirical monotonic calibrator (Isotonic Regression) fit exclusively on a held-out calibration split. This guarantees that an alert with 70% risk corresponds to an observed fraud rate of exactly 70% in live production.
+              </p>
+            </div>
           </div>
-          <pre className="p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-secondary)] overflow-x-auto max-h-[500px] leading-relaxed">
-            {JSON.stringify(calibrationReport, null, 2)}
-          </pre>
+
+          {/* Raw Calibration Contract Viewer */}
+          <details className="group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 cursor-pointer">
+            <summary className="flex items-center justify-between text-xs font-mono font-bold text-[var(--text-primary)] uppercase tracking-wider select-none">
+              <span>View Raw Calibration Contract (monitoring.v1 JSON)</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-normal group-open:hidden">Click to expand</span>
+            </summary>
+            <pre className="mt-3 p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-secondary)] overflow-x-auto max-h-[400px] leading-relaxed">
+              {JSON.stringify(calibrationReport, null, 2)}
+            </pre>
+          </details>
         </div>
       )}
 

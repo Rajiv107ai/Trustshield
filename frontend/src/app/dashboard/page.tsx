@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   HelpCircle,
   ArrowRight,
+  BarChart2,
 } from "lucide-react";
 import { useGuide } from "@/context/GuideContext";
 import {
@@ -76,6 +77,7 @@ const AI_BREAKDOWNS = [
 export default function DashboardPage() {
   const { viewMode, isLive, readyInfo } = useViewMode();
   const { openTour } = useGuide();
+  const [activeTab, setActiveTab] = useState<"triage" | "telemetry" | "methodology">("triage");
   const [streamStatus, setStreamStatus] = useState<"LIVE" | "SIMULATION" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "OFFLINE">("CONNECTING");
   const [showRiskGuide, setShowRiskGuide] = useState<boolean>(true);
   const [guideExpanded, setGuideExpanded] = useState<boolean>(true);
@@ -276,12 +278,12 @@ export default function DashboardPage() {
           </button>
 
           <button
-            onClick={handleToggleGuide}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring"
-            title="Toggle Risk Evaluation Principles Guide"
+            onClick={() => setActiveTab("methodology")}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring cursor-pointer"
+            title="View Risk Evaluation Principles & Methodology"
           >
             <Info className="w-3.5 h-3.5 text-blue-500" />
-            <span>How Risk is Scored</span>
+            <span>Scoring Principles</span>
           </button>
 
           <Link
@@ -295,246 +297,48 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Smart Risk Action Queue (Action-First Triage) */}
-      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
-              Smart Risk Action Queue · 3 Items Requiring Attention
-            </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
-              UNRESOLVED
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-[var(--text-muted)]">Source: In-flight decision queue</span>
-            <Link
-              href="/transactions"
-              className="text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
-            >
-              <span>Explore all in Analyzer</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {recentTransactions.slice(0, 3).map((item, i) => (
-            <div
-              key={i}
-              onClick={() => handleOpenDrawer(item)}
-              className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-blue-500/40 transition-all cursor-pointer card-interactive space-y-2.5"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{item.id}</span>
-                <DecisionBadge decision={item.decision} size="sm" />
-              </div>
-              <div className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">{item.reason}</div>
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] text-[11px]">
-                <span className="font-mono font-semibold text-[var(--text-primary)]">{item.amount}</span>
-                <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
-                  <span>Quick Inspect</span>
-                  <ArrowRight className="w-3 h-3" />
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Dashboard Top-Level Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-px select-none">
+        <button
+          onClick={() => setActiveTab("triage")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "triage"
+              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <ShieldAlert className="w-3.5 h-3.5" />
+          <span>Priority Triage &amp; Risk Queue</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
+            3 Actionable
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("telemetry")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "telemetry"
+              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>Platform Telemetry &amp; Routing</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("methodology")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "methodology"
+              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Risk Principles &amp; Governance</span>
+        </button>
       </div>
-
-      {/* Guided Orientation Banner: "How TrustShield Evaluates Risk" */}
-      {showRiskGuide && (
-        <div className="rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-500/5 via-[var(--surface)] to-[var(--surface)] p-5 relative transition-all">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-[var(--text-primary)]">
-                    Investigator Guide: How TrustShield Evaluates Marketplace Risk
-                  </h2>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium">
-                    Methodology
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-4xl">
-                  TrustShield separates continuous statistical likelihood P(fraud) from operational actions (ALLOW, REVIEW, HOLD, BLOCK).
-                  Decisions are calculated using merchant cost-loss matrices, calibrated isotonic curves, and finite-sample conformal prediction sets.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => setGuideExpanded(!guideExpanded)}
-                className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                title={guideExpanded ? "Collapse guide" : "Expand guide"}
-              >
-                {guideExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={handleDismissGuide}
-                className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                title="Dismiss guide"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* BEGIN GENERATED */}
-          {guideExpanded && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-[var(--border)] text-xs">
-              <div className="space-y-1">
-                <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                  1. Cost-Loss Bayes Matrix
-                </span>
-                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                  We balance chargeback cost ($100) against checkout friction ($5). Raw probabilities are mapped to governed operational thresholds: REVIEW ({RISK_THRESHOLDS.REVIEW.toFixed(2)}), HOLD ({RISK_THRESHOLDS.HOLD.toFixed(2)}), BLOCK ({RISK_THRESHOLDS.BLOCK.toFixed(2)}).
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                  2. Isotonic Calibration
-                </span>
-                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                  Raw classifier scores are non-parametrically fitted to holdout validation empirical rates. A score of {RISK_THRESHOLDS.BLOCK.toFixed(2)} represents the governed block boundary, not a universal fraud-rate guarantee.
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  3. Conformal Prediction Set
-                </span>
-                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                  Finite-sample split conformal guarantee. At 95% nominal coverage, high-confidence cases yield singleton sets {"{0}"} or {"{1}"}, while ambiguous cases yield {"{0, 1}"} for manual review.
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  4. Exact TreeSHAP
-                </span>
-                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                  Local exact additive feature attributions. Every decision has an explainability waterfall attributing the risk change to specific features (e.g., velocity, graph centrality, price anomaly).
-                </p>
-              </div>
-            </div>
-          )}
-          {/* END GENERATED */}
-        </div>
-      )}
-
-      {/* Perspective Banner: Executive Story vs Deep AI */}
-      <div
-        className={`p-5 rounded-xl border transition-all ${
-          viewMode === "executive"
-            ? "border-blue-500/30 bg-gradient-to-r from-blue-500/5 via-[var(--surface)] to-[var(--surface)]"
-            : "border-purple-500/30 bg-gradient-to-r from-purple-500/5 via-[var(--surface)] to-[var(--surface)]"
-        }`}
-      >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div
-              className={`w-10 h-10 rounded-lg border flex items-center justify-center shrink-0 ${
-                viewMode === "executive"
-                  ? "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
-                  : "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400"
-              }`}
-            >
-              {viewMode === "executive" ? <Sparkles className="w-5 h-5" /> : <Microscope className="w-5 h-5" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold border ${
-                    viewMode === "executive"
-                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
-                      : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
-                  }`}
-                >
-                  {viewMode === "executive" ? "Executive Story Perspective" : "Deep AI Inspector Perspective"}
-                </span>
-                <span className="text-[11px] text-[var(--text-muted)]">|</span>
-                <span className="text-xs font-semibold text-[var(--text-primary)]">
-                  {viewMode === "executive"
-                    ? "Financial Safeguards & Customer Experience Active"
-                    : "Calibrated Feature Space & Conformal Bounds Active"}
-                </span>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed max-w-3xl">
-                {viewMode === "executive"
-                  ? "Evaluating fraud loss prevention ROI, checkout conversion preservation, and merchant reputation across multi-channel traffic. ₹1.84M in fraudulent chargebacks averted this period."
-                  : "Calibrated XGBoost classifier orchestrated with in-memory NetworkX bipartite ring topology and split-conformal coverage sets with finite-sample statistical guarantees."}
-              </p>
-            </div>
-          </div>
-
-          {/* BEGIN GENERATED */}
-          <div className="flex items-center gap-4 text-xs font-mono shrink-0 self-start lg:self-center">
-            {viewMode === "executive" ? (
-              <>
-                <div className="text-right">
-                  <div className="text-[var(--text-muted)] text-[10px]">SAVINGS ROI</div>
-                  <div className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm">14.2x Protected</div>
-                </div>
-                <div className="h-8 w-px bg-[var(--border)]" />
-                <div className="text-right">
-                  <div className="text-[var(--text-muted)] text-[10px]">CHECKOUT FRICTION</div>
-                  <div className="text-blue-600 dark:text-blue-400 font-semibold text-sm">&lt; 0.8% Genuine</div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-right">
-                  <div className="text-[var(--text-muted)] text-[10px]">CONFORMAL GUARANTEE</div>
-                  <div className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm">&ge; 95.0% Nominal</div>
-                </div>
-                <div className="h-8 w-px bg-[var(--border)]" />
-                <div className="text-right">
-                  <div className="text-[var(--text-muted)] text-[10px]">CALIBRATION STATUS</div>
-                  <div className="text-indigo-600 dark:text-indigo-400 font-semibold text-sm">Isotonic Fit</div>
-                </div>
-              </>
-            )}
-          </div>
-          {/* END GENERATED */}
-        </div>
-      </div>
-
-      {/* Sub-System Health Telemetry (Lean Architecture Grounded) */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { name: "API Gateway", status: isLive ? "Operational" : "Offline Demo", active: isLive, icon: Server },
-          { name: "Behavioral Feature Store", status: "Point-in-Time Active", active: true, icon: Database },
-          { name: "NetworkX Graph Engine", status: "In-Memory Rings", active: true, icon: GitBranch },
-          { name: "Calibrated XGBoost", status: readyInfo?.components?.models === "ready" ? "Active (Isotonic)" : "Trained Engine", active: true, icon: Cpu },
-          { name: "Conformal Risk Filter", status: "Coverage Active", active: true, icon: Layers },
-        ].map((comp, idx) => {
-          const CompIcon = comp.icon;
-          return (
-            <div key={idx} className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-[var(--text-muted)] truncate flex items-center gap-1.5">
-                  <CompIcon className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-                  <span>{comp.name}</span>
-                </span>
-                <span className={`w-2 h-2 rounded-full ${comp.active ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-              </div>
-              <div className="text-xs font-semibold mt-1 font-mono text-[var(--text-primary)]">{comp.status}</div>
-            </div>
-          );
-        })}
-      </div>
-
+      {/* TAB 1: PRIORITY TRIAGE & RISK QUEUE */}
+      {activeTab === "triage" && (
+        <div className="space-y-6">
       {/* Core Key Metrics Row */}
       {/* BEGIN GENERATED */}
       {viewMode === "executive" ? (
@@ -618,103 +422,54 @@ export default function DashboardPage() {
       )}
       {/* END GENERATED */}
 
-      {/* Middle Intelligence Section */}
-      {viewMode === "executive" ? (
-        <div className="p-5 rounded-xl border border-blue-500/20 bg-[var(--surface)] space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
-            <div>
-              <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                <span>Executive Threat Intelligence &amp; Protected Value Breakdown</span>
-              </div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Financial losses averted by threat typology over the last 30 operational days.
-              </div>
-            </div>
-            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20 self-start md:self-auto">
-              Total Protected: ₹1,842,500
+      {/* Smart Risk Action Queue (Action-First Triage) */}
+      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+              Smart Risk Action Queue · 3 Items Requiring Attention
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
+              UNRESOLVED
             </span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {EXEC_BREAKDOWNS.map((item, idx) => (
-              <div key={idx} className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-                <div className="text-[11px] text-[var(--text-secondary)]">{item.title}</div>
-                <div className="text-lg font-bold font-mono text-[var(--text-primary)] mt-1">{item.val}</div>
-                <div className={`text-[10px] mt-1 ${item.color}`}>{item.sub}</div>
-              </div>
-            ))}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-[var(--text-muted)]">Source: In-flight decision queue</span>
+            <Link
+              href="/transactions"
+              className="text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
+            >
+              <span>Explore all in Analyzer</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
-      ) : (
-        <div className="p-5 rounded-xl border border-purple-500/20 bg-[var(--surface)] space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
-            <div>
-              <div className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-2">
-                <Microscope className="w-4 h-4" />
-                <span>Model Architecture &amp; Decision Attribution Pipeline</span>
-              </div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Point-in-time relational feature extraction with gradient boosted trees and conformal filters.
-              </div>
-            </div>
-            <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded border border-purple-500/20 self-start md:self-auto">
-              Audited Benchmark · results.json
-            </span>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 font-mono text-xs">
-            {AI_BREAKDOWNS.map((item, idx) => (
-              <div key={idx} className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-                <div className={`text-[10px] font-bold uppercase ${item.color}`}>{item.step}</div>
-                <div className="text-[var(--text-primary)] font-semibold mt-1">{item.title}</div>
-                <div className="text-[10px] text-[var(--text-muted)] mt-1">{item.sub}</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {recentTransactions.slice(0, 3).map((item, i) => (
+            <div
+              key={i}
+              onClick={() => handleOpenDrawer(item)}
+              className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-blue-500/40 transition-all cursor-pointer card-interactive space-y-2.5"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{item.id}</span>
+                <DecisionBadge decision={item.decision} size="sm" />
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Operational Decision Distribution */}
-      {/* BEGIN GENERATED */}
-      {(() => {
-        const ROUTING_ITEMS = [
-          { label: "ALLOW", width: "88.2%", bg: "bg-emerald-500", text: "88.2% (125,993)" },
-          { label: "REVIEW", width: "6.5%", bg: "bg-amber-500", text: "6.5% (9,285)" },
-          { label: "HOLD", width: "2.3%", bg: "bg-orange-500", text: "2.3% (3,285)" },
-          { label: "BLOCK", width: "3.0%", bg: "bg-rose-500", text: "3.0% (4,287)" },
-        ];
-        return (
-          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
-                <span>Operational Decision Routing Distribution</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                  DEMO DATA
+              <div className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">{item.reason}</div>
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] text-[11px]">
+                <span className="font-mono font-semibold text-[var(--text-primary)]">{item.amount}</span>
+                <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
+                  <span>Quick Inspect</span>
+                  <ArrowRight className="w-3 h-3" />
                 </span>
               </div>
-              <div className="text-[11px] text-[var(--text-muted)] font-mono">Last 24 Hours: 142,850 decisions</div>
             </div>
+          ))}
+        </div>
+      </div>
 
-            <div className="h-3 rounded-full bg-[var(--surface-elevated)] overflow-hidden flex border border-[var(--border)]">
-              {ROUTING_ITEMS.map((r, idx) => (
-                <div key={idx} style={{ width: r.width }} className={r.bg} title={`${r.label}: ${r.width}`} />
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
-              {ROUTING_ITEMS.map((r, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full ${r.bg}`} />
-                  <span className="text-xs text-[var(--text-secondary)]">{r.label}:</span>
-                  <span className="font-mono text-xs font-semibold text-[var(--text-primary)]">{r.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-      {/* END GENERATED */}
 
       {/* Flagged Transactions Queue */}
       <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
@@ -927,6 +682,363 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+        </div>
+      )}
+
+      {/* TAB 2: PLATFORM TELEMETRY & ROUTING */}
+      {activeTab === "telemetry" && (
+        <div className="space-y-6">
+      {/* Sub-System Health Telemetry (Lean Architecture Grounded) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          { name: "API Gateway", status: isLive ? "Operational" : "Offline Demo", active: isLive, icon: Server },
+          { name: "Behavioral Feature Store", status: "Point-in-Time Active", active: true, icon: Database },
+          { name: "NetworkX Graph Engine", status: "In-Memory Rings", active: true, icon: GitBranch },
+          { name: "Calibrated XGBoost", status: readyInfo?.components?.models === "ready" ? "Active (Isotonic)" : "Trained Engine", active: true, icon: Cpu },
+          { name: "Conformal Risk Filter", status: "Coverage Active", active: true, icon: Layers },
+        ].map((comp, idx) => {
+          const CompIcon = comp.icon;
+          return (
+            <div key={idx} className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-[var(--text-muted)] truncate flex items-center gap-1.5">
+                  <CompIcon className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                  <span>{comp.name}</span>
+                </span>
+                <span className={`w-2 h-2 rounded-full ${comp.active ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+              </div>
+              <div className="text-xs font-semibold mt-1 font-mono text-[var(--text-primary)]">{comp.status}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Operational Decision Distribution */}
+      {/* BEGIN GENERATED */}
+      {(() => {
+        const ROUTING_ITEMS = [
+          { label: "ALLOW", width: "88.2%", bg: "bg-emerald-500", text: "88.2% (125,993)" },
+          { label: "REVIEW", width: "6.5%", bg: "bg-amber-500", text: "6.5% (9,285)" },
+          { label: "HOLD", width: "2.3%", bg: "bg-orange-500", text: "2.3% (3,285)" },
+          { label: "BLOCK", width: "3.0%", bg: "bg-rose-500", text: "3.0% (4,287)" },
+        ];
+        return (
+          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                <span>Operational Decision Routing Distribution</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  DEMO DATA
+                </span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] font-mono">Last 24 Hours: 142,850 decisions</div>
+            </div>
+
+            <div className="h-3 rounded-full bg-[var(--surface-elevated)] overflow-hidden flex border border-[var(--border)]">
+              {ROUTING_ITEMS.map((r, idx) => (
+                <div key={idx} style={{ width: r.width }} className={r.bg} title={`${r.label}: ${r.width}`} />
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
+              {ROUTING_ITEMS.map((r, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${r.bg}`} />
+                  <span className="text-xs text-[var(--text-secondary)]">{r.label}:</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-primary)]">{r.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+      {/* END GENERATED */}
+
+
+      {/* Perspective Banner: Executive Story vs Deep AI */}
+      <div
+        className={`p-5 rounded-xl border transition-all ${
+          viewMode === "executive"
+            ? "border-blue-500/30 bg-gradient-to-r from-blue-500/5 via-[var(--surface)] to-[var(--surface)]"
+            : "border-purple-500/30 bg-gradient-to-r from-purple-500/5 via-[var(--surface)] to-[var(--surface)]"
+        }`}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div
+              className={`w-10 h-10 rounded-lg border flex items-center justify-center shrink-0 ${
+                viewMode === "executive"
+                  ? "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                  : "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400"
+              }`}
+            >
+              {viewMode === "executive" ? <Sparkles className="w-5 h-5" /> : <Microscope className="w-5 h-5" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold border ${
+                    viewMode === "executive"
+                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                      : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
+                  }`}
+                >
+                  {viewMode === "executive" ? "Executive Story Perspective" : "Deep AI Inspector Perspective"}
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)]">|</span>
+                <span className="text-xs font-semibold text-[var(--text-primary)]">
+                  {viewMode === "executive"
+                    ? "Financial Safeguards & Customer Experience Active"
+                    : "Calibrated Feature Space & Conformal Bounds Active"}
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed max-w-3xl">
+                {viewMode === "executive"
+                  ? "Evaluating fraud loss prevention ROI, checkout conversion preservation, and merchant reputation across multi-channel traffic. ₹1.84M in fraudulent chargebacks averted this period."
+                  : "Calibrated XGBoost classifier orchestrated with in-memory NetworkX bipartite ring topology and split-conformal coverage sets with finite-sample statistical guarantees."}
+              </p>
+            </div>
+          </div>
+
+          {/* BEGIN GENERATED */}
+          <div className="flex items-center gap-4 text-xs font-mono shrink-0 self-start lg:self-center">
+            {viewMode === "executive" ? (
+              <>
+                <div className="text-right">
+                  <div className="text-[var(--text-muted)] text-[10px]">SAVINGS ROI</div>
+                  <div className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm">14.2x Protected</div>
+                </div>
+                <div className="h-8 w-px bg-[var(--border)]" />
+                <div className="text-right">
+                  <div className="text-[var(--text-muted)] text-[10px]">CHECKOUT FRICTION</div>
+                  <div className="text-blue-600 dark:text-blue-400 font-semibold text-sm">&lt; 0.8% Genuine</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-right">
+                  <div className="text-[var(--text-muted)] text-[10px]">CONFORMAL GUARANTEE</div>
+                  <div className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm">&ge; 95.0% Nominal</div>
+                </div>
+                <div className="h-8 w-px bg-[var(--border)]" />
+                <div className="text-right">
+                  <div className="text-[var(--text-muted)] text-[10px]">CALIBRATION STATUS</div>
+                  <div className="text-indigo-600 dark:text-indigo-400 font-semibold text-sm">Isotonic Fit</div>
+                </div>
+              </>
+            )}
+          </div>
+          {/* END GENERATED */}
+        </div>
+      </div>
+
+      {/* Middle Intelligence Section */}
+      {viewMode === "executive" ? (
+        <div className="p-5 rounded-xl border border-blue-500/20 bg-[var(--surface)] space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+            <div>
+              <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                <span>Executive Threat Intelligence &amp; Protected Value Breakdown</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                Financial losses averted by threat typology over the last 30 operational days.
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20 self-start md:self-auto">
+              Total Protected: ₹1,842,500
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            {EXEC_BREAKDOWNS.map((item, idx) => (
+              <div key={idx} className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+                <div className="text-[11px] text-[var(--text-secondary)]">{item.title}</div>
+                <div className="text-lg font-bold font-mono text-[var(--text-primary)] mt-1">{item.val}</div>
+                <div className={`text-[10px] mt-1 ${item.color}`}>{item.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="p-5 rounded-xl border border-purple-500/20 bg-[var(--surface)] space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+            <div>
+              <div className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-2">
+                <Microscope className="w-4 h-4" />
+                <span>Model Architecture &amp; Decision Attribution Pipeline</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                Point-in-time relational feature extraction with gradient boosted trees and conformal filters.
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded border border-purple-500/20 self-start md:self-auto">
+              Audited Benchmark · results.json
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 font-mono text-xs">
+            {AI_BREAKDOWNS.map((item, idx) => (
+              <div key={idx} className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+                <div className={`text-[10px] font-bold uppercase ${item.color}`}>{item.step}</div>
+                <div className="text-[var(--text-primary)] font-semibold mt-1">{item.title}</div>
+                <div className="text-[10px] text-[var(--text-muted)] mt-1">{item.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+        </div>
+      )}
+
+      {/* TAB 3: RISK PRINCIPLES & GOVERNANCE */}
+      {activeTab === "methodology" && (
+        <div className="space-y-6">
+      {/* Guided Orientation Banner: "How TrustShield Evaluates Risk" */}
+      {showRiskGuide && (
+        <div className="rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-500/5 via-[var(--surface)] to-[var(--surface)] p-5 relative transition-all">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-[var(--text-primary)]">
+                    Investigator Guide: How TrustShield Evaluates Marketplace Risk
+                  </h2>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium">
+                    Methodology
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-4xl">
+                  TrustShield separates continuous statistical likelihood P(fraud) from operational actions (ALLOW, REVIEW, HOLD, BLOCK).
+                  Decisions are calculated using merchant cost-loss matrices, calibrated isotonic curves, and finite-sample conformal prediction sets.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setGuideExpanded(!guideExpanded)}
+                className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                title={guideExpanded ? "Collapse guide" : "Expand guide"}
+              >
+                {guideExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={handleDismissGuide}
+                className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                title="Dismiss guide"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* BEGIN GENERATED */}
+          {guideExpanded && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-[var(--border)] text-xs">
+              <div className="space-y-1">
+                <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  1. Cost-Loss Bayes Matrix
+                </span>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                  We balance chargeback cost ($100) against checkout friction ($5). Raw probabilities are mapped to governed operational thresholds: REVIEW ({RISK_THRESHOLDS.REVIEW.toFixed(2)}), HOLD ({RISK_THRESHOLDS.HOLD.toFixed(2)}), BLOCK ({RISK_THRESHOLDS.BLOCK.toFixed(2)}).
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                  2. Isotonic Calibration
+                </span>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                  Raw classifier scores are non-parametrically fitted to holdout validation empirical rates. A score of {RISK_THRESHOLDS.BLOCK.toFixed(2)} represents the governed block boundary, not a universal fraud-rate guarantee.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  3. Conformal Prediction Set
+                </span>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                  Finite-sample split conformal guarantee. At 95% nominal coverage, high-confidence cases yield singleton sets {"{0}"} or {"{1}"}, while ambiguous cases yield {"{0, 1}"} for manual review.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  4. Exact TreeSHAP
+                </span>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                  Local exact additive feature attributions. Every decision has an explainability waterfall attributing the risk change to specific features (e.g., velocity, graph centrality, price anomaly).
+                </p>
+              </div>
+            </div>
+          )}
+          {/* END GENERATED */}
+        </div>
+      )}
+
+          {/* Governance & Audit Quick Links */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <Link
+              href="/models"
+              className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-blue-500/40 transition-all card-interactive space-y-2 block"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Cpu className="w-4 h-4 text-blue-500" />
+                  <span>Model Registry & Canary</span>
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-blue-500" />
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Inspect registered model specs, champion vs challenger shadow routing, and traffic split ratios.
+              </p>
+            </Link>
+
+            <Link
+              href="/monitoring"
+              className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-blue-500/40 transition-all card-interactive space-y-2 block"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <span>Real-Time Model Monitoring</span>
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-emerald-500" />
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Track feature drift (PSI/KS), empirical calibration error (ECE), and population divergence.
+              </p>
+            </Link>
+
+            <Link
+              href="/evaluation"
+              className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-blue-500/40 transition-all card-interactive space-y-2 block"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                  <BarChart2 className="w-4 h-4 text-purple-500" />
+                  <span>Evaluation Studio Benchmarks</span>
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-purple-500" />
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Examine 20-seed ablation ladders, paired p-values, and lift over tabular baselines.
+              </p>
+            </Link>
+          </div>
+
+        </div>
+      )}
 
       {/* Transaction Detail Slide-Over Drawer */}
       <TransactionDetailDrawer

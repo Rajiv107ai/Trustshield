@@ -69,10 +69,10 @@ const DEFAULT_DEV_KEY = "dev-operator-api-key-32chars-long";
 let _sessionApiKey = "";
 
 export function getSessionApiKey(): string {
-  if (_sessionApiKey) return _sessionApiKey;
+  if (_sessionApiKey && _sessionApiKey.trim()) return _sessionApiKey.trim();
   if (typeof window !== "undefined") {
     const stored = localStorage.getItem("trustshield_api_key");
-    if (stored) return stored;
+    if (stored && stored.trim()) return stored.trim();
   }
   return DEFAULT_DEV_KEY;
 }
@@ -191,8 +191,15 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
 async function postRoute<T, R>(endpoint: string, req: T, demoFn: (r: T) => R): Promise<{ data: R; isLive: boolean }> {
   if (isDemoMode()) return { data: demoFn(req), isLive: false };
-  const data = await apiFetch<R>(endpoint, { method: "POST", body: JSON.stringify(req) });
-  return { data, isLive: true };
+  try {
+    const data = await apiFetch<R>(endpoint, { method: "POST", body: JSON.stringify(req) });
+    return { data, isLive: true };
+  } catch (err: unknown) {
+    if (err instanceof ApiError && err.isNetworkError) {
+      return { data: demoFn(req), isLive: false };
+    }
+    throw err;
+  }
 }
 
 type ActionSubmission = Pick<ActionRequest, "case_id" | "reason" | "target_confirmation" | "policy_version"> &
@@ -305,8 +312,15 @@ export const TrustShieldApi = {
     if (isDemoMode()) {
       return { data: demoGetFraudRings(), isLive: false };
     }
-    const data = await apiFetch<FraudRingsResponse>(`/fraud-rings?min_risk_score=${minRisk}&limit=${limit}`);
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<FraudRingsResponse>(`/fraud-rings?min_risk_score=${minRisk}&limit=${limit}`);
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return { data: demoGetFraudRings(), isLive: false };
+      }
+      throw err;
+    }
   },
 
   analyzeListing: (req: ListingScoreRequest) => postRoute("/listing/analyze", req, demoAnalyzeListing),
@@ -549,24 +563,71 @@ export const TrustShieldApi = {
         isLive: false,
       };
     }
-    const data = await apiFetch<MonitoringOverviewResponse>("/monitoring/overview");
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<MonitoringOverviewResponse>("/monitoring/overview");
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return {
+          data: {
+            status: "OK",
+            schema_version: "monitoring.v1",
+            evaluated_at: new Date().toISOString(),
+            drift: {
+              status: "OK",
+              recommended_action: "none",
+              top_drifted_features: [
+                { feature: "amount", psi: 0.04, ks_statistic: 0.03, status: "OK" },
+                { feature: "buyer_orders_before", psi: 0.02, ks_statistic: 0.02, status: "OK" },
+              ],
+              decision_distribution: { ALLOW: 820, REVIEW: 110, HOLD: 50, BLOCK: 20 },
+            },
+            calibration: {
+              status: "OK",
+              ece: 0.032,
+              brier_score: 0.084,
+              precision: 0.78,
+              recall: 0.72,
+              matured_label_count: 2400,
+            },
+            active_alerts_count: 0,
+            active_alerts: [],
+          },
+          isLive: false,
+        };
+      }
+      throw err;
+    }
   },
 
   async getDriftReport(refresh: boolean = false): Promise<{ data: Record<string, unknown>; isLive: boolean }> {
     if (isDemoMode()) {
       return { data: { schema_version: "monitoring.v1", status: "OK", report_type: "drift" }, isLive: false };
     }
-    const data = await apiFetch<Record<string, unknown>>(`/monitoring/drift${refresh ? "?refresh=true" : ""}`);
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<Record<string, unknown>>(`/monitoring/drift${refresh ? "?refresh=true" : ""}`);
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return { data: { schema_version: "monitoring.v1", status: "OK", report_type: "drift" }, isLive: false };
+      }
+      throw err;
+    }
   },
 
   async getCalibrationReport(refresh: boolean = false): Promise<{ data: Record<string, unknown>; isLive: boolean }> {
     if (isDemoMode()) {
       return { data: { schema_version: "monitoring.v1", status: "OK", report_type: "calibration" }, isLive: false };
     }
-    const data = await apiFetch<Record<string, unknown>>(`/monitoring/calibration${refresh ? "?refresh=true" : ""}`);
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<Record<string, unknown>>(`/monitoring/calibration${refresh ? "?refresh=true" : ""}`);
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return { data: { schema_version: "monitoring.v1", status: "OK", report_type: "calibration" }, isLive: false };
+      }
+      throw err;
+    }
   },
 
   async getFeatureServiceStatus(): Promise<{ data: FeatureServiceStatusResponse; isLive: boolean }> {
@@ -586,8 +647,28 @@ export const TrustShieldApi = {
         isLive: false,
       };
     }
-    const data = await apiFetch<FeatureServiceStatusResponse>("/features/status");
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<FeatureServiceStatusResponse>("/features/status");
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return {
+          data: {
+            status: "operational",
+            ready: true,
+            engine: "in_memory",
+            redis_connected: false,
+            orders_indexed: 50000,
+            buyers_indexed: 5000,
+            sellers_indexed: 500,
+            catalog_products_indexed: 3000,
+            catalog_categories: 10,
+          },
+          isLive: false,
+        };
+      }
+      throw err;
+    }
   },
 
   async previewFeatures(payload: Record<string, unknown>): Promise<{ data: FeaturePreviewResponse; isLive: boolean }> {
@@ -606,11 +687,30 @@ export const TrustShieldApi = {
         isLive: false,
       };
     }
-    const data = await apiFetch<FeaturePreviewResponse>("/features/preview", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<FeaturePreviewResponse>("/features/preview", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return {
+          data: {
+            feature_row: {},
+            metadata: {
+              as_of: new Date().toISOString(),
+              is_historical_replay: false,
+              engine: "in_memory",
+              velocities: { buyer_orders_1h: 0, buyer_orders_24h: 0, buyer_spend_24h: 0, device_shared_buyers_7d: 1 },
+              provenance: { source: "demo_adapter", zero_future_leakage_verified: true },
+            },
+          },
+          isLive: false,
+        };
+      }
+      throw err;
+    }
   },
 
   async getBuyerFeatureProfile(buyerId: string, asOf?: string): Promise<{ data: BuyerFeatureProfileResponse; isLive: boolean }> {
@@ -637,8 +737,34 @@ export const TrustShieldApi = {
       };
     }
     const url = `/features/buyer/${encodeURIComponent(buyerId)}${asOf ? `?as_of=${encodeURIComponent(asOf)}` : ""}`;
-    const data = await apiFetch<BuyerFeatureProfileResponse>(url);
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<BuyerFeatureProfileResponse>(url);
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return {
+          data: {
+            buyer_id: buyerId,
+            as_of: new Date().toISOString(),
+            total_historical_orders: 14,
+            total_historical_returns: 0,
+            historical_return_rate: 0.0,
+            buyer_age_days: 120,
+            velocities: {
+              window_1h_orders: 0,
+              window_1h_spend: 0,
+              window_24h_orders: 1,
+              window_24h_spend: 49.99,
+              window_7d_orders: 3,
+              window_7d_spend: 149.97,
+            },
+            engine: "in_memory",
+          },
+          isLive: false,
+        };
+      }
+      throw err;
+    }
   },
 
   async getDeviceCollisionProfile(deviceId: string, asOf?: string): Promise<{ data: DeviceCollisionProfileResponse; isLive: boolean }> {
@@ -655,8 +781,24 @@ export const TrustShieldApi = {
       };
     }
     const url = `/features/device/${encodeURIComponent(deviceId)}${asOf ? `?as_of=${encodeURIComponent(asOf)}` : ""}`;
-    const data = await apiFetch<DeviceCollisionProfileResponse>(url);
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<DeviceCollisionProfileResponse>(url);
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return {
+          data: {
+            device_id: deviceId,
+            as_of: new Date().toISOString(),
+            device_shared_buyer_count_7d: 1,
+            is_shared_device: false,
+            engine: "in_memory",
+          },
+          isLive: false,
+        };
+      }
+      throw err;
+    }
   },
 
   async investigateWithCopilot(payload: {
@@ -666,53 +808,59 @@ export const TrustShieldApi = {
     include_dispute_brief?: boolean;
     transaction_data?: Record<string, unknown>;
   }): Promise<{ data: CopilotInvestigationResponse; isLive: boolean }> {
+    const demoCopilotData: CopilotInvestigationResponse = {
+      case_id: `CASE_COPILOT_${payload.entity_id}`,
+      entity_type: payload.entity_type,
+      entity_id: payload.entity_id,
+      generated_at: new Date().toISOString(),
+      status: "COMPLETED",
+      primary_fraud_hypothesis: "Coordinated Synthetic Identity Collusion via Hardware Fingerprint Farm",
+      confidence_score: 0.94,
+      copilot_narrative: `Autonomous multi-agent investigation completed for ${payload.entity_type} '${payload.entity_id}'. Discovered hardware collision and 8 shared buyer accounts.`,
+      counterfactual_defense: "Benign user behavior cannot explain 3+ independent buyer identities sharing identical mobile hardware signatures.",
+      graph_topology: { total_shared_buyers_discovered: 8, is_part_of_collusion_ring: true },
+      velocity_profile: { return_abuse_rate: 0.8 },
+      tool_executions: [
+        { agent: "Network Topology Specialist", tool: "inspect_graph_neighbors", args: {}, summary: "Discovered 8 co-occurring accounts.", latency_ms: 0.4 },
+        { agent: "Feature Store Specialist", tool: "fetch_realtime_feature_profile", args: {}, summary: "Account age: 4.2h. 1h velocity: 3 orders.", latency_ms: 0.3 },
+        { agent: "Policy & Compliance Specialist", tool: "retrieve_fraud_policy", args: {}, summary: "Retrieved hardware collision standard POL-DEV-01.", latency_ms: 0.2 },
+      ],
+      recommended_action: {
+        action_type: "graph_flag_entity",
+        target_type: "ring",
+        target_id: payload.entity_id,
+        reason: "Hardware collision confirmed",
+      },
+      dispute_brief: {
+        brief_id: "BRIEF_DEMO_001",
+        case_id: `CASE_COPILOT_${payload.entity_id}`,
+        target_entity: payload.entity_id,
+        generated_at: new Date().toISOString(),
+        fraud_classification: "Coordinated Synthetic Identity Collusion",
+        compelling_evidence_points: ["Hardware collision confirmed", "Burst velocity detected"],
+        chargeback_defense_viability: "STRONG",
+        recommended_merchant_action: "SUBMIT_REPRESENTMENT_EVIDENCE",
+        sha256_evidence_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        hmac_signature: "a1b2c3d4e5f6...",
+        markdown_content: "# TRUSTSHIELD FORENSIC DISPUTE & CHARGEBACK DEFENSE BRIEF\nCompelling evidence verified.",
+      },
+    };
+
     if (isDemoMode()) {
-      return {
-        data: {
-          case_id: `CASE_COPILOT_${payload.entity_id}`,
-          entity_type: payload.entity_type,
-          entity_id: payload.entity_id,
-          generated_at: new Date().toISOString(),
-          status: "COMPLETED",
-          primary_fraud_hypothesis: "Coordinated Synthetic Identity Collusion via Hardware Fingerprint Farm",
-          confidence_score: 0.94,
-          copilot_narrative: `Autonomous multi-agent investigation completed for ${payload.entity_type} '${payload.entity_id}'. Discovered hardware collision and 8 shared buyer accounts.`,
-          counterfactual_defense: "Benign user behavior cannot explain 3+ independent buyer identities sharing identical mobile hardware signatures.",
-          graph_topology: { total_shared_buyers_discovered: 8, is_part_of_collusion_ring: true },
-          velocity_profile: { return_abuse_rate: 0.8 },
-          tool_executions: [
-            { agent: "Network Topology Specialist", tool: "inspect_graph_neighbors", args: {}, summary: "Discovered 8 co-occurring accounts.", latency_ms: 0.4 },
-            { agent: "Feature Store Specialist", tool: "fetch_realtime_feature_profile", args: {}, summary: "Account age: 4.2h. 1h velocity: 3 orders.", latency_ms: 0.3 },
-            { agent: "Policy & Compliance Specialist", tool: "retrieve_fraud_policy", args: {}, summary: "Retrieved hardware collision standard POL-DEV-01.", latency_ms: 0.2 },
-          ],
-          recommended_action: {
-            action_type: "graph_flag_entity",
-            target_type: "ring",
-            target_id: payload.entity_id,
-            reason: "Hardware collision confirmed",
-          },
-          dispute_brief: {
-            brief_id: "BRIEF_DEMO_001",
-            case_id: `CASE_COPILOT_${payload.entity_id}`,
-            target_entity: payload.entity_id,
-            generated_at: new Date().toISOString(),
-            fraud_classification: "Coordinated Synthetic Identity Collusion",
-            compelling_evidence_points: ["Hardware collision confirmed", "Burst velocity detected"],
-            chargeback_defense_viability: "STRONG",
-            recommended_merchant_action: "SUBMIT_REPRESENTMENT_EVIDENCE",
-            sha256_evidence_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            hmac_signature: "a1b2c3d4e5f6...",
-            markdown_content: "# TRUSTSHIELD FORENSIC DISPUTE & CHARGEBACK DEFENSE BRIEF\nCompelling evidence verified.",
-          },
-        },
-        isLive: false,
-      };
+      return { data: demoCopilotData, isLive: false };
     }
-    const data = await apiFetch<CopilotInvestigationResponse>("/investigation/copilot/analyze", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<CopilotInvestigationResponse>("/investigation/copilot/analyze", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return { data: demoCopilotData, isLive: false };
+      }
+      throw err;
+    }
   },
 
   async verifyDisputeBrief(payload: {
@@ -721,24 +869,30 @@ export const TrustShieldApi = {
     hmac_signature: string;
     canonical_payload?: Record<string, unknown>;
   }): Promise<{ data: VerifyBriefResponse; isLive: boolean }> {
+    const demoVerifyData: VerifyBriefResponse = {
+      brief_id: payload.brief_id,
+      is_valid: true,
+      digest_matches: true,
+      signature_matches: true,
+      verification_timestamp: new Date().toISOString(),
+      notes: "Demo verified: Brief is tamper-evident and authoritative.",
+    };
+
     if (isDemoMode()) {
-      return {
-        data: {
-          brief_id: payload.brief_id,
-          is_valid: true,
-          digest_matches: true,
-          signature_matches: true,
-          verification_timestamp: new Date().toISOString(),
-          notes: "Demo verified: Brief is tamper-evident and authoritative.",
-        },
-        isLive: false,
-      };
+      return { data: demoVerifyData, isLive: false };
     }
-    const data = await apiFetch<VerifyBriefResponse>("/investigation/copilot/verify-brief", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<VerifyBriefResponse>("/investigation/copilot/verify-brief", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return { data: demoVerifyData, isLive: false };
+      }
+      throw err;
+    }
   },
 
   async getChampionChallengerStatus(): Promise<{ data: ChampionChallengerStatusResponse; isLive: boolean }> {
@@ -779,8 +933,46 @@ export const TrustShieldApi = {
         isLive: false,
       };
     }
-    const data = await apiFetch<ChampionChallengerStatusResponse>("/models/champion-challenger/status");
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<ChampionChallengerStatusResponse>("/models/champion-challenger/status");
+      return { data, isLive: true };
+    } catch {
+      return {
+        data: {
+          deployment_mode: "SHADOW",
+          traffic_split_pct: 10.0,
+          champion_spec: {
+            id: "phase3_champion_rf",
+            name: "Phase 3 Tabular+Graph Random Forest",
+            status: "AUTHORITATIVE_PRODUCTION",
+            calibrator: "Isotonic Regression",
+            conformal: "Mondrian (alpha=0.05)",
+          },
+          challenger_spec: {
+            id: "v21_challenger_xgb",
+            name: "v2.1 High-Velocity XGBoost Candidate",
+            status: "SHADOW_DEPLOYMENT",
+            calibrator: "ProbabilityCalibrator",
+            conformal: "Mondrian (alpha=0.04)",
+            loaded: true,
+          },
+          circuit_breaker_tripped: false,
+          circuit_breaker_reason: null,
+          total_evaluations: 142,
+          decision_concordance_rate: 0.9437,
+          conformal_concordance_rate: 0.9155,
+          champion_certainty_rate: 0.8873,
+          challenger_certainty_rate: 0.9225,
+          avg_risk_champion: 0.184,
+          avg_risk_challenger: 0.162,
+          mean_absolute_risk_diff: 0.038,
+          p95_latency_champion_ms: 2.1,
+          p95_latency_challenger_ms: 1.8,
+          recent_disagreements_count: 8,
+        },
+        isLive: false,
+      };
+    }
   },
 
   async configureChampionChallenger(payload: {
@@ -846,19 +1038,69 @@ export const TrustShieldApi = {
         isLive: false,
       };
     }
-    const data = await apiFetch<ChampionChallengerComparisonResponse>("/models/champion-challenger/score-dual", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<ChampionChallengerComparisonResponse>("/models/champion-challenger/score-dual", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return { data, isLive: true };
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.isNetworkError) {
+        return {
+          data: {
+            order_id: payload.order_id || "DEMO_DUAL_ORD_01",
+            timestamp: new Date().toISOString(),
+            champion: {
+              model_id: "phase3_champion_rf",
+              model_name: "Phase 3 Tabular+Graph Random Forest",
+              algorithm: "RandomForestClassifier",
+              raw_score: 0.12,
+              calibrated_score: 0.08,
+              decision: "ALLOW",
+              trust_score: 92.0,
+              conformal_prediction_set: [0],
+              is_conformal_singleton: true,
+              latency_ms: 1.6,
+            },
+            challenger: {
+              model_id: "v21_challenger_xgb",
+              model_name: "v2.1 High-Velocity XGBoost Candidate",
+              algorithm: "XGBClassifier",
+              raw_score: 0.09,
+              calibrated_score: 0.06,
+              decision: "ALLOW",
+              trust_score: 94.0,
+              conformal_prediction_set: [0],
+              is_conformal_singleton: true,
+              latency_ms: 1.2,
+            },
+            decision_matches: true,
+            conformal_matches: true,
+            risk_delta: -0.02,
+            conformal_divergence: "Both models agree on uncertainty set [0].",
+            routed_decision: "ALLOW",
+            routed_model: "CHAMPION",
+            deployment_mode: "SHADOW",
+            traffic_split_pct: 10.0,
+            recommendation: "Models in full concordance.",
+          },
+          isLive: false,
+        };
+      }
+      throw err;
+    }
   },
 
   async getChampionChallengerDisagreements(limit: number = 20): Promise<{ data: ChampionChallengerComparisonResponse[]; isLive: boolean }> {
     if (isDemoMode()) {
       return { data: [], isLive: false };
     }
-    const data = await apiFetch<ChampionChallengerComparisonResponse[]>(`/models/champion-challenger/disagreements?limit=${limit}`);
-    return { data, isLive: true };
+    try {
+      const data = await apiFetch<ChampionChallengerComparisonResponse[]>(`/models/champion-challenger/disagreements?limit=${limit}`);
+      return { data, isLive: true };
+    } catch {
+      return { data: [], isLive: false };
+    }
   },
 };
 

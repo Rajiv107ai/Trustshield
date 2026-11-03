@@ -161,6 +161,13 @@ export default function SettingsPage() {
                 placeholder="Enter 16+ character API key..."
                 className="flex-1 py-2 px-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-primary)] text-xs font-mono focus-ring"
               />
+              <button
+                type="button"
+                onClick={() => setInputKey("dev-operator-api-key-32chars-long")}
+                className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-[var(--text-primary)] text-xs font-sans font-medium transition-colors cursor-pointer shrink-0"
+              >
+                Use Dev Key
+              </button>
             </div>
             <p className="text-[10px] text-[var(--text-muted)] font-sans mt-1">
               Required for write-enabled operations and live scoring. The key is never persisted to browser storage or exposed in URLs; closing or refreshing this tab clears it.

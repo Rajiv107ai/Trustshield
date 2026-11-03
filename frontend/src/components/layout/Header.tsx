@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useViewMode } from "@/context/ViewModeContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGuide } from "@/context/GuideContext";
-import { Sparkles, Microscope, RefreshCw, Sun, Moon, Search, HelpCircle } from "lucide-react";
+import { Sparkles, Microscope, RefreshCw, Sun, Moon, Search, HelpCircle, Settings as SettingsIcon } from "lucide-react";
 
 export function Header() {
   const { viewMode, setViewMode, isLive, isDemo, setDemo, apiUrl, refreshHealth } = useViewMode();
@@ -20,9 +21,10 @@ export function Header() {
           {isDemo ? (
             <>
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span className="text-amber-600 dark:text-amber-400 font-medium">Demo Mode (Simulation)</span>
+              <span className="text-amber-600 dark:text-amber-400 font-medium">Simulation Mode</span>
               <button
                 onClick={() => setDemo(false)}
+                title="Switch back to Live Gateway connection"
                 className="text-[10px] text-blue-600 dark:text-cyan-400 hover:underline ml-1 font-mono cursor-pointer"
               >
                 [Live]
@@ -39,18 +41,25 @@ export function Header() {
               <span className="text-rose-600 dark:text-rose-400 font-medium">Backend Offline</span>
               <button
                 onClick={() => setDemo(true)}
-                className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1 font-mono cursor-pointer"
+                title="Enable Simulation Mode to browse with demo data"
+                className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 font-mono font-semibold cursor-pointer"
               >
-                [Demo]
+                Enable Demo
               </button>
             </>
           )}
           <span className="text-[var(--text-muted)]">|</span>
-          <span className="font-mono text-[11px] text-[var(--text-secondary)] truncate max-w-[140px]">{apiUrl}</span>
+          <Link
+            href="/settings"
+            title="Configure Gateway & API Key in Settings"
+            className="font-mono text-[11px] text-[var(--text-secondary)] hover:text-blue-600 dark:hover:text-blue-400 truncate max-w-[130px] transition-colors"
+          >
+            {apiUrl}
+          </Link>
           <button
             onClick={() => refreshHealth()}
             title="Refresh API Connection"
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ml-1 cursor-pointer focus-ring"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ml-0.5 cursor-pointer focus-ring"
             aria-label="Refresh connection health"
           >
             <RefreshCw className="w-3 h-3" />
@@ -88,6 +97,15 @@ export function Header() {
           <HelpCircle className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Tour & Guide</span>
         </button>
+
+        {/* Settings Shortcut Button */}
+        <Link
+          href="/settings"
+          title="Settings & API Keys"
+          className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer focus-ring"
+        >
+          <SettingsIcon className="w-4 h-4" />
+        </Link>
 
         {/* Theme Toggle (Light/Dark) */}
         <button

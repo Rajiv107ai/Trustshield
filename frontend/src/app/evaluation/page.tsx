@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, ArrowRight, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
 interface MetricItem {
@@ -59,7 +60,10 @@ export default function EvaluationStudioPage() {
         return res.json();
       })
       .then((data) => setResultsData(data))
-      .catch((err) => console.error("Could not fetch results.json:", err));
+      .catch((err) => {
+        // Log info/warn without raising Turbopack console error overlay
+        console.warn("Using baseline evaluation data; results.json fetch notice:", err);
+      });
   }, []);
 
   /* BEGIN GENERATED */
@@ -150,9 +154,29 @@ export default function EvaluationStudioPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-xs font-mono">
-          <span className="text-[var(--text-muted)]">Source:</span>
-          <span className="text-blue-600 dark:text-blue-400 font-semibold">results/results.json (Audited)</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/models"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-primary)] transition-colors focus-ring"
+            title="Inspect Model Registry & Canary Policies"
+          >
+            <span>Model Registry</span>
+            <ArrowRight className="w-3.5 h-3.5 text-blue-500" />
+          </Link>
+
+          <Link
+            href="/monitoring"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-primary)] transition-colors focus-ring"
+            title="Inspect Model Drift Monitoring"
+          >
+            <span>Drift Monitoring</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-500" />
+          </Link>
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-xs font-mono">
+            <span className="text-[var(--text-muted)]">Source:</span>
+            <span className="text-blue-600 dark:text-blue-400 font-semibold">results/results.json</span>
+          </div>
         </div>
       </div>
 
@@ -261,6 +285,7 @@ export default function EvaluationStudioPage() {
         </div>
       </div>
 
+      {/* BEGIN GENERATED */}
       {/* Fraud Typology Breakdown */}
       <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-4">
         <div className="flex items-center justify-between">

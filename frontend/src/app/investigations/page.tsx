@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   FileSearch,
   CheckCircle2,
@@ -26,6 +27,9 @@ import {
   Cpu,
   Terminal,
   ArrowRight,
+  Search,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { TrustShieldApi, ApiError } from "@/lib/api/client";
 import {
@@ -135,6 +139,27 @@ function InvestigationsContent() {
   // Tab State: "copilot" | "timeline" | "notes"
   const [activeTab, setActiveTab] = useState<"copilot" | "timeline" | "notes">("copilot");
 
+  // Case Filtering State
+  const [searchFilter, setSearchFilter] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<"ALL" | "CRITICAL" | "HIGH" | "MEDIUM">("ALL");
+
+  const filteredCases = CASES_DATA.filter((c) => {
+    if (severityFilter !== "ALL" && c.severity !== severityFilter) return false;
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase().trim();
+      const matchId = c.id.toLowerCase().includes(q);
+      const matchTitle = c.title.toLowerCase().includes(q);
+      const matchEntity = c.primaryEntity.toLowerCase().includes(q);
+      const matchAssignee = c.assignedTo.toLowerCase().includes(q);
+      return matchId || matchTitle || matchEntity || matchAssignee;
+    }
+    return true;
+  });
+
+  const criticalCount = CASES_DATA.filter((c) => c.severity === "CRITICAL").length;
+  const highCount = CASES_DATA.filter((c) => c.severity === "HIGH").length;
+  const mediumCount = CASES_DATA.filter((c) => c.severity === "MEDIUM").length;
+
   // Autonomous Multi-Agent Copilot State
   const [targetEntityId, setTargetEntityId] = useState<string>(selectedCase.primaryEntity);
   const [targetEntityType, setTargetEntityType] = useState<string>("transaction");
@@ -225,7 +250,7 @@ function InvestigationsContent() {
       });
       setCopilotResponse(res.data);
     } catch (err: unknown) {
-      console.error("Copilot investigation failed:", err);
+      console.warn("Copilot investigation failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       setCopilotError(message);
     } finally {
@@ -245,7 +270,7 @@ function InvestigationsContent() {
       });
       setVerifyResult(res.data);
     } catch (err: unknown) {
-      console.error("Brief verification failed:", err);
+      console.warn("Brief verification failed:", err);
       const msg = err instanceof Error ? err.message : String(err);
       setVerifyError(msg);
     } finally {
@@ -300,7 +325,7 @@ function InvestigationsContent() {
       });
       setLiveDossier(res.data);
     } catch (err: unknown) {
-      console.error("Dossier generation error:", err);
+      console.warn("Dossier generation error:", err);
       setLiveDossier(null);
       const isAuth = err instanceof ApiError ? err.isAuthError : false;
       const status = err instanceof ApiError ? err.status : undefined;
@@ -388,51 +413,132 @@ function InvestigationsContent() {
         <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-              Active Incident Dossiers ({CASES_DATA.length})
+              Active Incident Dossiers ({filteredCases.length}/{CASES_DATA.length})
             </span>
             <span className="text-[10px] font-mono text-[var(--text-muted)]">Priority Sorted</span>
           </div>
 
-          <div className="space-y-2">
-            {CASES_DATA.map((c) => {
-              const isSelected = selectedCase.id === c.id;
-              return (
-                <div
-                  key={c.id}
-                  onClick={() => {
-                    setSelectedCaseId(c.id);
-                    setLiveDossier(null);
-                    setErrorState(null);
-                  }}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                    isSelected
-                      ? "bg-[var(--surface-elevated)] border-blue-500 shadow-sm ring-1 ring-blue-500/30"
-                      : "bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-elevated)]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-[var(--text-primary)]">{c.id}</span>
-                    <span
-                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase ${
-                        c.severity === "CRITICAL"
-                          ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                          : c.severity === "HIGH"
-                          ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
-                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                      }`}
-                    >
-                      {c.severity}
-                    </span>
-                  </div>
+          {/* Search Filter Input */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search ID, entity, keyword..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+            />
+            {searchFilter && (
+              <button
+                onClick={() => setSearchFilter("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-0.5"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
-                  <div className="text-xs font-semibold text-[var(--text-primary)] mt-1 line-clamp-1">{c.title}</div>
-                  <div className="text-[11px] text-[var(--text-secondary)] mt-1 flex items-center justify-between font-mono">
-                    <span>{c.primaryEntity}</span>
-                    <span>{c.date}</span>
+          {/* Severity Filter Pills */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] font-mono">
+            <button
+              onClick={() => setSeverityFilter("ALL")}
+              className={`px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                severityFilter === "ALL"
+                  ? "bg-blue-500/15 border-blue-500/40 text-blue-600 dark:text-blue-400 font-bold"
+                  : "bg-[var(--surface-elevated)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              ALL ({CASES_DATA.length})
+            </button>
+            <button
+              onClick={() => setSeverityFilter("CRITICAL")}
+              className={`px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                severityFilter === "CRITICAL"
+                  ? "bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400 font-bold"
+                  : "bg-[var(--surface-elevated)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              CRIT ({criticalCount})
+            </button>
+            <button
+              onClick={() => setSeverityFilter("HIGH")}
+              className={`px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                severityFilter === "HIGH"
+                  ? "bg-orange-500/15 border-orange-500/40 text-orange-600 dark:text-orange-400 font-bold"
+                  : "bg-[var(--surface-elevated)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              HIGH ({highCount})
+            </button>
+            <button
+              onClick={() => setSeverityFilter("MEDIUM")}
+              className={`px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                severityFilter === "MEDIUM"
+                  ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400 font-bold"
+                  : "bg-[var(--surface-elevated)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              MED ({mediumCount})
+            </button>
+          </div>
+
+          {/* Cases List */}
+          <div className="space-y-2">
+            {filteredCases.length === 0 ? (
+              <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] text-center space-y-2">
+                <p className="text-xs text-[var(--text-secondary)]">No cases match filters.</p>
+                <button
+                  onClick={() => {
+                    setSearchFilter("");
+                    setSeverityFilter("ALL");
+                  }}
+                  className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  Reset all filters
+                </button>
+              </div>
+            ) : (
+              filteredCases.map((c) => {
+                const isSelected = selectedCase.id === c.id;
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedCaseId(c.id);
+                      setLiveDossier(null);
+                      setErrorState(null);
+                    }}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                      isSelected
+                        ? "bg-[var(--surface-elevated)] border-blue-500 shadow-sm ring-1 ring-blue-500/30"
+                        : "bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-elevated)]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold text-[var(--text-primary)]">{c.id}</span>
+                      <span
+                        className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase ${
+                          c.severity === "CRITICAL"
+                            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                            : c.severity === "HIGH"
+                            ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        }`}
+                      >
+                        {c.severity}
+                      </span>
+                    </div>
+
+                    <div className="text-xs font-semibold text-[var(--text-primary)] mt-1 line-clamp-1">{c.title}</div>
+                    <div className="text-[11px] text-[var(--text-secondary)] mt-1 flex items-center justify-between font-mono">
+                      <span>{c.primaryEntity}</span>
+                      <span>{c.date}</span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           {/* Quick Info Box */}
@@ -519,6 +625,35 @@ function InvestigationsContent() {
             <p className="text-xs text-[var(--text-primary)] leading-relaxed bg-[var(--surface-elevated)] p-3 rounded-lg border border-[var(--border)]">
               {selectedCase.summary}
             </p>
+
+            {/* Cross-Workflow Deep Investigation Actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--border)]">
+              <span className="text-[10px] font-mono uppercase text-[var(--text-muted)] font-semibold">Cross-Investigate:</span>
+              <Link
+                href={`/transactions?order_id=${encodeURIComponent(selectedCase.primaryEntity)}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--surface-elevated)] hover:bg-[var(--surface)] border border-[var(--border)] text-[11px] font-mono text-blue-600 dark:text-blue-400 transition-colors focus-ring"
+                title={`Examine ${selectedCase.primaryEntity} in Risk Analyzer`}
+              >
+                <span>Scoring Matrix ({selectedCase.primaryEntity})</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+              <Link
+                href="/fraud-rings"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--surface-elevated)] hover:bg-[var(--surface)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring"
+                title="Inspect syndicate topologies"
+              >
+                <span>Fraud Rings Graph</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+              <Link
+                href="/listings"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--surface-elevated)] hover:bg-[var(--surface)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring"
+                title="Inspect image duplication vectors"
+              >
+                <span>Listing Intelligence</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+            </div>
           </div>
 
           {/* TAB 1: AUTONOMOUS MULTI-AGENT COPILOT VIEW */}

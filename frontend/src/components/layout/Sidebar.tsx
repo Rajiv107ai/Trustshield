@@ -16,6 +16,7 @@ import {
   BarChart3,
   CheckCircle2,
   ExternalLink,
+  Settings,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -46,6 +47,13 @@ const NAV_ITEMS = [
     items: [
       { name: "Model Registry", href: "/models", icon: Cpu, badge: "v2.1.0" },
       { name: "Evaluation Studio", href: "/evaluation", icon: BarChart3, badge: "20 Seeds" },
+      { name: "Model Monitoring", href: "/monitoring", icon: Activity, badge: "Drift" },
+    ],
+  },
+  {
+    category: "SYSTEM & GATEWAY",
+    items: [
+      { name: "Settings & API Keys", href: "/settings", icon: Settings },
     ],
   },
 ];

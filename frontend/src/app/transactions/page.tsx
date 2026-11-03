@@ -36,7 +36,7 @@ import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
 function TransactionAnalyzerContent() {
   const searchParams = useSearchParams();
-  const { viewMode, isDemo } = useViewMode();
+  const { viewMode, isDemo, setDemo, updateSessionApiKey } = useViewMode();
 
   const presetParam = searchParams.get("preset");
   const initialPreset = (presetParam && SCENARIO_PRESETS.find((p) => p.id === presetParam)) || SCENARIO_PRESETS[0];
@@ -63,7 +63,7 @@ function TransactionAnalyzerContent() {
       const res = await TrustShieldApi.scoreTransaction(payload);
       setResult(res.data);
     } catch (err: unknown) {
-      console.error("Scoring failed:", err);
+      console.warn("Scoring failed:", err);
       setResult(null);
       const isAuth = err instanceof ApiError ? err.isAuthError : false;
       const status = err instanceof ApiError ? err.status : undefined;
@@ -163,6 +163,8 @@ function TransactionAnalyzerContent() {
 
   return (
     <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* 1. SCENARIO PRESETS TOOLBAR */}
       <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-3 sticky top-16 z-20 backdrop-blur-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -201,6 +203,184 @@ function TransactionAnalyzerContent() {
         </div>
       </div>
 
+      {/* 2-COLUMN ANALYST WORKSPACE (SPLIT-SCREEN) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: PARAMETER INGESTION MATRIX */}
+        <div className="lg:col-span-5 space-y-4">
+      {/* 4. CUSTOM TRANSACTION INPUT FORM (STRUCTURED FIELDSETS) */}
+      <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+              Custom Parameter Ingestion Matrix
+            </h3>
+            <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+              Structured into Order Details, Identity Age, and Graph Topology vectors.
+            </p>
+          </div>
+          <button
+            onClick={handleCustomSubmit}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-xs font-bold text-white shadow-md transition-all flex items-center gap-2 self-start sm:self-auto focus-ring"
+          >
+            {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            <span>Re-score Transaction</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleCustomSubmit} className="space-y-6 text-xs font-mono">
+          {/* Group 1: Order & Pricing Details */}
+          <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
+              <ShoppingBag className="w-4 h-4 text-blue-500" />
+              <span>1. Order & Pricing Details</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Order ID</label>
+                <input
+                  type="text"
+                  value={formData.order_id ?? ""}
+                  onChange={(e) => handleInputChange("order_id", e.target.value)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Order Amount ($)</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.amount ?? ""}
+                  onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Base Price ($)</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.base_price ?? ""}
+                  onChange={(e) => handleInputChange("base_price", parseFloat(e.target.value) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Category Median Price ($)</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.category_median_price ?? ""}
+                  onChange={(e) => handleInputChange("category_median_price", parseFloat(e.target.value) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Group 2: Identity & Account History */}
+          <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
+              <User className="w-4 h-4 text-indigo-500" />
+              <span>2. Identity & Account History</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Buyer ID</label>
+                <input
+                  type="text"
+                  value={formData.buyer_id ?? ""}
+                  onChange={(e) => handleInputChange("buyer_id", e.target.value)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Seller ID</label>
+                <input
+                  type="text"
+                  value={formData.seller_id ?? ""}
+                  onChange={(e) => handleInputChange("seller_id", e.target.value)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Buyer Age (Days)</label>
+                <input
+                  type="number"
+                  value={formData.buyer_age_days ?? ""}
+                  onChange={(e) => handleInputChange("buyer_age_days", parseInt(e.target.value, 10) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Prior Orders Count</label>
+                <input
+                  type="number"
+                  value={formData.buyer_orders_before ?? ""}
+                  onChange={(e) => handleInputChange("buyer_orders_before", parseInt(e.target.value, 10) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Group 3: Graph Topology & Network Centrality */}
+          <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
+              <Network className="w-4 h-4 text-cyan-500" />
+              <span>3. Graph Topology & Network Centrality</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Shared Hardware Count</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.device_shared_buyer_count ?? ""}
+                  onChange={(e) => handleInputChange("device_shared_buyer_count", parseFloat(e.target.value) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Graph Share Degree</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.share_degree ?? ""}
+                  onChange={(e) => handleInputChange("share_degree", parseFloat(e.target.value) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Component Size</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.share_component_size ?? ""}
+                  onChange={(e) => handleInputChange("share_component_size", parseFloat(e.target.value) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Buyer PageRank</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.buyer_pagerank ?? ""}
+                  onChange={(e) => handleInputChange("buyer_pagerank", parseFloat(e.target.value) || 0)}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
+                />
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+        </div>
+
+        {/* RIGHT COLUMN: DECISION ANALYSIS & EXPLAINABILITY */}
+        <div className="lg:col-span-7 space-y-4">
       {errorState && (
         <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
           <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold">
@@ -217,8 +397,33 @@ function TransactionAnalyzerContent() {
           <p className="text-[11px] text-[var(--text-secondary)]">
             The scoring gateway is currently offline or unreachable. Check FastAPI server status on port 8000.
           </p>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            {errorState.isAuth && (
+              <button
+                type="button"
+                onClick={() => {
+                  updateSessionApiKey("dev-operator-api-key-32chars-long");
+                  executeScore(formData);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              >
+                Reset to Default Dev Key (Operator)
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setDemo(true);
+                executeScore(formData);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-medium transition-colors cursor-pointer"
+            >
+              Enable Offline Simulation Mode
+            </button>
+          </div>
         </div>
       )}
+
 
       {/* 2. HERO DECISION BANNER & TRUST SCORE GAUGE */}
       {/* BEGIN GENERATED */}
@@ -283,6 +488,7 @@ function TransactionAnalyzerContent() {
         </div>
       )}
       {/* END GENERATED */}
+
 
       {/* 3. DUAL VIEW: EXECUTIVE STORY VIEW vs DEEP AI INSPECTOR */}
       {result && (
@@ -650,173 +856,8 @@ function TransactionAnalyzerContent() {
         </>
       )}
 
-      {/* 4. CUSTOM TRANSACTION INPUT FORM (STRUCTURED FIELDSETS) */}
-      <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-              Custom Parameter Ingestion Matrix
-            </h3>
-            <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-              Structured into Order Details, Identity Age, and Graph Topology vectors.
-            </p>
-          </div>
-          <button
-            onClick={handleCustomSubmit}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-xs font-bold text-white shadow-md transition-all flex items-center gap-2 self-start sm:self-auto focus-ring"
-          >
-            {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-            <span>Re-score Transaction</span>
-          </button>
+
         </div>
-
-        <form onSubmit={handleCustomSubmit} className="space-y-6 text-xs font-mono">
-          {/* Group 1: Order & Pricing Details */}
-          <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
-              <ShoppingBag className="w-4 h-4 text-blue-500" />
-              <span>1. Order & Pricing Details</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Order ID</label>
-                <input
-                  type="text"
-                  value={formData.order_id ?? ""}
-                  onChange={(e) => handleInputChange("order_id", e.target.value)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Order Amount ($)</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.amount ?? ""}
-                  onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Base Price ($)</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.base_price ?? ""}
-                  onChange={(e) => handleInputChange("base_price", parseFloat(e.target.value) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Category Median Price ($)</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.category_median_price ?? ""}
-                  onChange={(e) => handleInputChange("category_median_price", parseFloat(e.target.value) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Group 2: Identity & Account History */}
-          <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
-              <User className="w-4 h-4 text-indigo-500" />
-              <span>2. Identity & Account History</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Buyer ID</label>
-                <input
-                  type="text"
-                  value={formData.buyer_id ?? ""}
-                  onChange={(e) => handleInputChange("buyer_id", e.target.value)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Seller ID</label>
-                <input
-                  type="text"
-                  value={formData.seller_id ?? ""}
-                  onChange={(e) => handleInputChange("seller_id", e.target.value)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Buyer Age (Days)</label>
-                <input
-                  type="number"
-                  value={formData.buyer_age_days ?? ""}
-                  onChange={(e) => handleInputChange("buyer_age_days", parseInt(e.target.value, 10) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Prior Orders Count</label>
-                <input
-                  type="number"
-                  value={formData.buyer_orders_before ?? ""}
-                  onChange={(e) => handleInputChange("buyer_orders_before", parseInt(e.target.value, 10) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Group 3: Graph Topology & Network Centrality */}
-          <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
-              <Network className="w-4 h-4 text-cyan-500" />
-              <span>3. Graph Topology & Network Centrality</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Shared Hardware Count</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.device_shared_buyer_count ?? ""}
-                  onChange={(e) => handleInputChange("device_shared_buyer_count", parseFloat(e.target.value) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Graph Share Degree</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.share_degree ?? ""}
-                  onChange={(e) => handleInputChange("share_degree", parseFloat(e.target.value) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Component Size</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.share_component_size ?? ""}
-                  onChange={(e) => handleInputChange("share_component_size", parseFloat(e.target.value) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Buyer PageRank</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.buyer_pagerank ?? ""}
-                  onChange={(e) => handleInputChange("buyer_pagerank", parseFloat(e.target.value) || 0)}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] focus-ring"
-                />
-              </div>
-            </div>
-          </div>
-        </form>
       </div>
     </div>
   );

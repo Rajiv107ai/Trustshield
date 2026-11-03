@@ -8,6 +8,9 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
+  Pause,
+  Play,
+  Download,
 } from "lucide-react";
 import { TrustShieldApi } from "@/lib/api/client";
 import { StreamTransactionEvent } from "@/lib/types/api";
@@ -69,6 +72,17 @@ export default function TransactionFeedPage() {
   const [streamStatus, setStreamStatus] = useState<"LIVE" | "SIMULATION" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING">("CONNECTING");
   const [selectedDrawerTx, setSelectedDrawerTx] = useState<DrawerTransactionData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+
+  const handleExportFeed = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filtered, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `trustshield_audit_feed_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
 
   const handleOpenDrawer = (tx: FeedItem) => {
     setSelectedDrawerTx({
@@ -110,7 +124,7 @@ export default function TransactionFeedPage() {
           isNew: true,
         };
 
-        setItems((prev) => [newItem, ...prev.slice(0, 49)]);
+        setItems((prev) => isPaused ? prev : [newItem, ...prev.slice(0, 49)]);
       },
       (status) => {
         if (status === "LIVE" || status === "SIMULATION" || status === "CONNECTING" || status === "DISCONNECTED" || status === "RECONNECTING") {
@@ -183,8 +197,34 @@ export default function TransactionFeedPage() {
           </p>
         </div>
 
-        {/* Filter Badges */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Stream Actions & Filter Badges */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsPaused(!isPaused)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                isPaused
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                  : "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]"
+              }`}
+            >
+              {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+              <span>{isPaused ? "Resume Stream" : "Pause Stream"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportFeed}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--surface-elevated)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Export filtered events as JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export JSON</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
           {["ALL", "ALLOW", "REVIEW", "HOLD", "BLOCK"].map((dec) => (
             <button
               key={dec}
@@ -198,6 +238,7 @@ export default function TransactionFeedPage() {
               {dec}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -243,7 +284,8 @@ export default function TransactionFeedPage() {
               {filtered.map((tx, idx) => (
                 <tr
                   key={`${tx.id}-${tx.timestamp}-${idx}`}
-                  className={`hover:bg-[var(--surface-elevated)]/60 transition-colors ${
+                  onClick={() => handleOpenDrawer(tx)}
+                  className={`hover:bg-[var(--surface-elevated)]/60 transition-colors cursor-pointer group ${
                     tx.isNew ? "bg-blue-500/5 animate-pulse" : ""
                   }`}
                 >

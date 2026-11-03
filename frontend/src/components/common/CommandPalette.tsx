@@ -19,6 +19,8 @@ import {
   Printer,
   X,
   Sparkles,
+  Activity,
+  Settings,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -143,6 +145,28 @@ export function CommandPalette({ isOpen, onClose, onOpenTour }: CommandPalettePr
         icon: <BarChart2 className="w-4 h-4 text-emerald-500" />,
         action: () => {
           router.push("/evaluation");
+          onClose();
+        },
+      },
+      {
+        id: "nav-monitoring",
+        category: "Navigation",
+        title: "Go to Real-Time Model Monitoring",
+        subtitle: "PSI/KS feature drift, calibration error (ECE) and live metrics",
+        icon: <Activity className="w-4 h-4 text-cyan-500" />,
+        action: () => {
+          router.push("/monitoring");
+          onClose();
+        },
+      },
+      {
+        id: "nav-settings",
+        category: "Navigation",
+        title: "Go to Settings & API Configuration",
+        subtitle: "Operator API keys, backend gateway URL, and feature store probes",
+        icon: <Settings className="w-4 h-4 text-blue-500" />,
+        action: () => {
+          router.push("/settings");
           onClose();
         },
       },

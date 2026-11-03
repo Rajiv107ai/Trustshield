@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   Zap,
   Scale,
+  Layers,
+  BarChart2,
 } from "lucide-react";
 import { TrustShieldApi } from "@/lib/api/client";
 import {
@@ -81,6 +83,7 @@ interface RegistryResultsData {
 
 export default function ModelRegistryPage() {
   const [selectedModel, setSelectedModel] = useState("tabular_graph");
+  const [activeTab, setActiveTab] = useState<"canary" | "simulator" | "registry" | "ablations">("canary");
   const [resultsData, setResultsData] = useState<RegistryResultsData | null>(null);
 
   // Champion-Challenger State
@@ -106,7 +109,7 @@ export default function ModelRegistryPage() {
       const res = await TrustShieldApi.getChampionChallengerStatus();
       setStatusData(res.data);
     } catch (err) {
-      console.error("Failed to load champion-challenger status:", err);
+      console.warn("Failed to load champion-challenger status:", err);
     } finally {
       setIsLoadingStatus(false);
     }
@@ -118,7 +121,7 @@ export default function ModelRegistryPage() {
       const res = await TrustShieldApi.getChampionChallengerDisagreements(10);
       setDisagreements(res.data);
     } catch (err) {
-      console.error("Failed to load disagreements:", err);
+      console.warn("Failed to load disagreements:", err);
     } finally {
       setIsLoadingDisagreements(false);
     }
@@ -131,7 +134,7 @@ export default function ModelRegistryPage() {
         return res.json();
       })
       .then((data) => setResultsData(data))
-      .catch((err) => console.error("Could not fetch results.json:", err));
+      .catch((err) => console.warn("Could not fetch results.json:", err));
 
     queueMicrotask(() => {
       fetchStatus();
@@ -151,7 +154,7 @@ export default function ModelRegistryPage() {
       setConfigSuccessMsg(`Switched deployment mode to ${mode} (${splitPct}% traffic)`);
       setTimeout(() => setConfigSuccessMsg(null), 3000);
     } catch (err) {
-      console.error("Configuration failed:", err);
+      console.warn("Configuration failed:", err);
     } finally {
       setIsConfiguring(false);
     }
@@ -234,7 +237,7 @@ export default function ModelRegistryPage() {
       fetchStatus();
       fetchDisagreements();
     } catch (err: unknown) {
-      console.error("Dual scoring failed:", err);
+      console.warn("Dual scoring failed:", err);
       const msg = err instanceof Error ? err.message : String(err);
       setDualError(msg);
     } finally {
@@ -315,8 +318,67 @@ export default function ModelRegistryPage() {
         </div>
       </div>
 
-      {/* SECTION 1: CHAMPION-CHALLENGER SHADOW SCORING & CONFORMAL A/B CONSOLE */}
-      <div className="p-6 rounded-xl border border-indigo-500/30 bg-gradient-to-br from-[var(--surface)] via-[var(--surface)] to-indigo-500/5 shadow-md space-y-6">
+
+      {/* Sub-Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-px select-none">
+        <button
+          onClick={() => setActiveTab("canary")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "canary"
+              ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>Canary & Deployment Split</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-500/20">
+            {statusData ? statusData.deployment_mode : "SHADOW"}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("simulator")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "simulator"
+              ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <GitCompare className="w-3.5 h-3.5" />
+          <span>Dual Model Simulator</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
+            A/B Audit
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("registry")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "registry"
+              ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Model Architecture Specs</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("ablations")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "ablations"
+              ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <BarChart2 className="w-3.5 h-3.5" />
+          <span>20-Seed Ablation Benchmarks</span>
+        </button>
+      </div>
+
+      {/* TAB 1: CANARY & DEPLOYMENT ROUTING */}
+      {activeTab === "canary" && (
+        <div className="p-6 rounded-xl border border-indigo-500/30 bg-gradient-to-br from-[var(--surface)] via-[var(--surface)] to-indigo-500/5 shadow-md space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
@@ -438,6 +500,12 @@ export default function ModelRegistryPage() {
           </div>
         )}
 
+        </div>
+      )}
+
+      {/* TAB 2: DUAL MODEL SIMULATOR & DISAGREEMENTS */}
+      {activeTab === "simulator" && (
+        <div className="space-y-6">
         {/* Dual Scoring Simulator */}
         <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
@@ -692,9 +760,13 @@ export default function ModelRegistryPage() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* SECTION 2: MODEL REGISTRY & BENCHMARK ABLATIONS */}
+        </div>
+      )}
+
+      {/* TAB 3: REGISTERED MODEL SPECS */}
+      {activeTab === "registry" && (
+        <div className="space-y-6">
       <div className="space-y-4">
         <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
           Audited Production Artifact Registry
@@ -745,6 +817,12 @@ export default function ModelRegistryPage() {
         </div>
       </div>
 
+        </div>
+      )}
+
+      {/* TAB 4: ABLATION BENCHMARKS */}
+      {activeTab === "ablations" && (
+        <div className="space-y-6">
       {/* Design-Rule Ablation Summary Cards */}
       {ablations && ablations.return_fraud_ablations && ablations.fake_listing_price_anomaly_subgroups && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -808,6 +886,10 @@ export default function ModelRegistryPage() {
           </div>
         </div>
       )}
+
+        </div>
+      )}
+
       {/* END GENERATED */}
     </div>
   );

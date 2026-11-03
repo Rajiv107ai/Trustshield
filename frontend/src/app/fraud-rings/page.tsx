@@ -7,6 +7,7 @@ import { ActionReceipt, FraudRingItem } from "@/lib/types/api";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useViewMode } from "@/context/ViewModeContext";
+import { Search } from "lucide-react";
 import {
   Network,
   ShieldAlert,
@@ -19,7 +20,7 @@ import {
 } from "lucide-react";
 
 export default function FraudRingsPage() {
-  const { isDemo } = useViewMode();
+  const { isDemo, setDemo, updateSessionApiKey } = useViewMode();
   const [rings, setRings] = useState<FraudRingItem[]>([]);
   const [selectedRing, setSelectedRing] = useState<FraudRingItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,8 @@ export default function FraudRingsPage() {
   >(null);
   const [freezeLoading, setFreezeLoading] = useState(false);
   const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [memberTypeFilter, setMemberTypeFilter] = useState<"ALL" | "DEV" | "BUYER" | "SELLER" | "ADDR">("ALL");
 
   useEffect(() => {
     async function loadRings() {
@@ -46,7 +49,7 @@ export default function FraudRingsPage() {
           setSelectedRing(null);
         }
       } catch (err: unknown) {
-        console.error("Failed to load fraud rings:", err);
+        console.warn("Notice: Failed to load fraud rings:", err);
         setRings([]);
         setSelectedRing(null);
         const isAuth = err instanceof ApiError ? err.isAuthError : false;
@@ -149,8 +152,32 @@ export default function FraudRingsPage() {
           </div>
           <p className="text-xs text-[var(--text-primary)] font-mono leading-relaxed">{errorState.message}</p>
           <p className="text-[11px] text-[var(--text-secondary)]">
-            Ensure backend server is running with loaded graph artifacts.
+            The graph scoring service is offline or unreachable. You can continue inspecting graph rings in offline simulation mode.
           </p>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            {errorState.isAuth && (
+              <button
+                type="button"
+                onClick={() => {
+                  updateSessionApiKey("dev-operator-api-key-32chars-long");
+                  setMinRiskThreshold((prev) => prev);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              >
+                Reset to Default Dev Key (Operator)
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setDemo(true);
+                setMinRiskThreshold((prev) => prev);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-medium transition-colors cursor-pointer"
+            >
+              Enable Offline Simulation Mode
+            </button>
+          </div>
         </div>
       )}
 
@@ -158,24 +185,37 @@ export default function FraudRingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Col: Candidate Rings List */}
         <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-              Candidate Rings ({rings.length})
-            </span>
-            <div className="flex items-center gap-1.5 text-xs">
-              <Filter className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-              {/* BEGIN GENERATED */}
-              <select
-                value={minRiskThreshold}
-                onChange={(e) => setMinRiskThreshold(parseFloat(e.target.value))}
-                className="bg-[var(--surface-elevated)] border border-[var(--border)] rounded px-2 py-0.5 text-[11px] font-mono text-[var(--text-primary)] focus-ring"
-              >
-                <option value={0.0}>All Risks (&gt; 0)</option>
-                <option value={0.4}>Medium+ (&gt; 0.4)</option>
-                <option value={0.7}>High+ (&gt; 0.7)</option>
-                <option value={RISK_THRESHOLDS.BLOCK}>Critical (&gt; {RISK_THRESHOLDS.BLOCK.toFixed(2)})</option>
-              </select>
-              {/* END GENERATED */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                Candidate Rings ({rings.length})
+              </span>
+              <div className="flex items-center gap-1.5 text-xs">
+                <Filter className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                {/* BEGIN GENERATED */}
+                <select
+                  value={minRiskThreshold}
+                  onChange={(e) => setMinRiskThreshold(parseFloat(e.target.value))}
+                  className="bg-[var(--surface-elevated)] border border-[var(--border)] rounded px-2 py-0.5 text-[11px] font-mono text-[var(--text-primary)] focus-ring"
+                >
+                  <option value={0.0}>All Risks (&gt; 0)</option>
+                  <option value={0.4}>Medium+ (&gt; 0.4)</option>
+                  <option value={0.7}>High+ (&gt; 0.7)</option>
+                  <option value={RISK_THRESHOLDS.BLOCK}>Critical (&gt; {RISK_THRESHOLDS.BLOCK.toFixed(2)})</option>
+                </select>
+                {/* END GENERATED */}
+              </div>
+            </div>
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-[var(--text-muted)]" />
+              <input
+                type="text"
+                placeholder="Search ring ID or member..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs font-mono rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-primary)] focus-ring"
+              />
             </div>
           </div>
 
@@ -193,7 +233,16 @@ export default function FraudRingsPage() {
             />
           ) : (
             <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
-              {rings.map((ring) => {
+              {rings
+                .filter((r) => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    r.ring_id.toLowerCase().includes(q) ||
+                    r.members.some((m) => m.toLowerCase().includes(q))
+                  );
+                })
+                .map((ring) => {
                 const isSelected = selectedRing?.ring_id === ring.ring_id;
                 return (
                   <div
@@ -376,15 +425,49 @@ export default function FraudRingsPage() {
 
             {/* Member Entity Manifest */}
             <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                  Member Entity Manifest ({selectedRing.members.length} Nodes)
-                </h3>
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">Graph Traversal Depth: 2-Hop</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                    Member Entity Manifest ({selectedRing.members.length} Nodes)
+                  </h3>
+                  <span className="text-[10px] font-mono text-[var(--text-muted)]">Graph Traversal Depth: 2-Hop</span>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] font-mono">
+                  {(["ALL", "DEV", "BUYER", "SELLER", "ADDR"] as const).map((filterType) => (
+                    <button
+                      key={filterType}
+                      type="button"
+                      onClick={() => setMemberTypeFilter(filterType)}
+                      className={`px-2 py-1 rounded transition-colors cursor-pointer ${
+                        memberTypeFilter === filterType
+                          ? "bg-purple-600 text-white font-bold"
+                          : "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)]"
+                      }`}
+                    >
+                      {filterType === "ALL"
+                        ? "All"
+                        : filterType === "DEV"
+                        ? "Hardware"
+                        : filterType === "BUYER"
+                        ? "Buyers"
+                        : filterType === "SELLER"
+                        ? "Merchants"
+                        : "Addresses"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {selectedRing.members.map((member, i) => {
+                {selectedRing.members
+                  .filter((member) => {
+                    if (memberTypeFilter === "ALL") return true;
+                    if (memberTypeFilter === "DEV") return member.startsWith("DEV_");
+                    if (memberTypeFilter === "ADDR") return member.startsWith("ADDR_");
+                    if (memberTypeFilter === "SELLER") return member.startsWith("SELLER_");
+                    return !member.startsWith("DEV_") && !member.startsWith("ADDR_") && !member.startsWith("SELLER_");
+                  })
+                  .map((member, i) => {
                   const isDevice = member.startsWith("DEV_");
                   const isAddress = member.startsWith("ADDR_");
                   const isSeller = member.startsWith("SELLER_");

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { TrustShieldApi, ApiError, generateIdempotencyKey } from "@/lib/api/client";
 import { ActionReceipt, ListingScoreRequest, ListingScoreResponse } from "@/lib/types/api";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
@@ -14,6 +15,8 @@ import {
   Zap,
   Check,
   ShieldAlert,
+  FileSearch,
+  ArrowRight,
 } from "lucide-react";
 
 interface ListingScenarioPreset {
@@ -61,7 +64,7 @@ const LISTING_PRESETS: ListingScenarioPreset[] = [
 /* END GENERATED */
 
 export default function ListingIntelligencePage() {
-  const { viewMode, isLive, isDemo } = useViewMode();
+  const { viewMode, isLive, isDemo, setDemo, updateSessionApiKey } = useViewMode();
   const [activePreset, setActivePreset] = useState<ListingScenarioPreset>(LISTING_PRESETS[0]);
   const [formData, setFormData] = useState<ListingScoreRequest>(LISTING_PRESETS[0].payload);
   const [loading, setLoading] = useState(true);
@@ -83,7 +86,7 @@ export default function ListingIntelligencePage() {
       const res = await TrustShieldApi.analyzeListing(payload);
       setResult(res.data);
     } catch (err: unknown) {
-      console.error("Listing analysis failed:", err);
+      console.warn("Notice: Listing analysis notice:", err);
       setResult(null);
       const isAuth = err instanceof ApiError ? err.isAuthError : false;
       const status = err instanceof ApiError ? err.status : undefined;
@@ -206,8 +209,8 @@ export default function ListingIntelligencePage() {
                 onClick={() => selectPreset(p)}
                 className={`p-3.5 rounded-xl border text-left transition-all ${
                   isSelected
-                    ? "bg-[#151D27] border-cyan-500/50 ring-1 ring-cyan-500/30 shadow-md shadow-cyan-500/10"
-                    : "bg-[var(--surface)] border-[var(--border)] hover:border-[#2E3C4D] hover:bg-[#131B24]"
+                    ? "bg-[var(--surface-elevated)] border-cyan-500 ring-1 ring-cyan-500/30 shadow-md shadow-cyan-500/10"
+                    : "bg-[var(--surface)] border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -307,16 +310,40 @@ export default function ListingIntelligencePage() {
             {errorState.isAuth ? (
               <p className="text-[11px] text-[var(--text-secondary)]">
                 Authentication credentials were not provided or were rejected. Please configure your API key in{" "}
-                <a href="/settings" className="text-cyan-400 underline font-semibold">
+                <Link href="/settings" className="text-cyan-600 dark:text-cyan-400 underline font-semibold">
                   Settings
-                </a>{" "}
-                or switch to Demo Mode.
+                </Link>{" "}
+                or switch to offline simulation mode.
               </p>
             ) : (
               <p className="text-[11px] text-[var(--text-secondary)]">
-                The multimodal analysis endpoint is unreachable or experienced a server error. No fabricated scores will be displayed.
+                The multimodal analysis endpoint is unreachable or experienced a server error. You can run offline simulation below.
               </p>
             )}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              {errorState.isAuth && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateSessionApiKey("dev-operator-api-key-32chars-long");
+                    executeAudit(formData);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                >
+                  Reset to Default Dev Key (Operator)
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setDemo(true);
+                  executeAudit(formData);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-medium transition-colors cursor-pointer"
+              >
+                Enable Offline Simulation Mode
+              </button>
+            </div>
           </div>
         )}
 
@@ -518,6 +545,26 @@ export default function ListingIntelligencePage() {
                       : "Approve listing with regular monitoring."}
                   </span>
                 </div>
+              </div>
+
+              {/* Cross-Workflow Escalation Link */}
+              <div className="p-3.5 rounded-xl border border-blue-500/30 bg-blue-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                    <FileSearch className="w-4 h-4 text-blue-500" />
+                    <span>Dossier Case Escalation</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                    Link this catalog theft incident to CASE-002 in Case Dossier Studio for seller tenure audit.
+                  </p>
+                </div>
+                <Link
+                  href="/investigations?case_id=CASE-002"
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-sm flex items-center gap-1.5 shrink-0 self-start sm:self-auto transition-colors cursor-pointer"
+                >
+                  <span>Open in Investigations</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
 
               {/* Action Buttons */}
