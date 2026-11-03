@@ -65,19 +65,34 @@ export class ApiError extends Error {
 }
 
 // In-memory session API key management (with local development fallback)
+const DEFAULT_DEV_KEY = "dev-operator-api-key-32chars-long";
 let _sessionApiKey = "";
 
 export function getSessionApiKey(): string {
   if (_sessionApiKey) return _sessionApiKey;
-  return "";
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("trustshield_api_key");
+    if (stored) return stored;
+  }
+  return DEFAULT_DEV_KEY;
 }
 
 export function setSessionApiKey(key: string): void {
   _sessionApiKey = key.trim();
+  if (typeof window !== "undefined") {
+    if (_sessionApiKey) {
+      localStorage.setItem("trustshield_api_key", _sessionApiKey);
+    } else {
+      localStorage.removeItem("trustshield_api_key");
+    }
+  }
 }
 
 export function clearSessionApiKey(): void {
   _sessionApiKey = "";
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("trustshield_api_key");
+  }
 }
 
 // Explicit demo mode state

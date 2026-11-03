@@ -6,6 +6,7 @@ ENV/
 node_modules/
 .next/
 .agent/
+frontend/AGENTS.md
 
 # Python
 __pycache__/
