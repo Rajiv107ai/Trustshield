@@ -5,6 +5,7 @@ env/
 ENV/
 node_modules/
 .next/
+.agent/
 
 # Python
 __pycache__/
@@ -31,8 +32,6 @@ dist/
 
 # Project specific: large data archives & unpacked image directory
 trustshield_project/data/external/
-trustshield_project/synthetic_data_export/*.csv
-trustshield_project/synthetic_data_export/*.gz
 core/data/
 core/synthetic_data_export/
 **/data/external/

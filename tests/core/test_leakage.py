@@ -336,10 +336,16 @@ class TestPointInTimeGraphAndReturnLeakagePrevention:
 class TestShuffledLabelCanary:
     def test_shuffled_train_labels_yield_chance_test_auc(self):
         import numpy as np
+        from pathlib import Path
         from xgboost import XGBClassifier
         from sklearn.metrics import roc_auc_score
         from baseline_model import build_features, TRAIN_END, VAL_END
-        p = "trustshield_project/synthetic_data_export"
+
+        root = Path(__file__).resolve().parents[2]
+        p_path = root / "trustshield_project" / "synthetic_data_export"
+        if not (p_path / "orders.csv").is_file():
+            p_path = root / "data" / "synthetic_v2"
+        p = str(p_path)
         orders = pd.read_csv(f"{p}/orders.csv").assign(order_date=lambda d: pd.to_datetime(d["order_date"]))
         listings = pd.read_csv(f"{p}/listings.csv").assign(listing_date=lambda d: pd.to_datetime(d["listing_date"]))
         returns = pd.read_csv(f"{p}/returns.csv").assign(return_date=lambda d: pd.to_datetime(d["return_date"]))
