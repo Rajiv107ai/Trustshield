@@ -446,10 +446,10 @@ function InvestigationsContent() {
         {/* Left Column: Case Selector */}
         <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-              Active Incident Dossiers ({filteredCases.length}/{CASES_DATA.length})
-            </span>
-            <span className="text-[10px] font-mono text-[var(--text-muted)]">Priority Sorted</span>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+              Active Incident Dossiers <span className="text-xs font-normal text-[var(--text-muted)]">({filteredCases.length}/{CASES_DATA.length})</span>
+            </h2>
+            <span className="text-xs text-[var(--text-muted)]">Priority Sorted</span>
           </div>
 
           {/* Search Filter Input */}
@@ -714,9 +714,9 @@ function InvestigationsContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                      Autonomous Fraud Copilot Multi-Agent Orchestrator
-                    </span>
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                      Fraud Copilot Multi-Agent Orchestrator
+                    </h3>
                   </div>
                   <div className="flex items-center gap-2 text-[10px] font-mono">
                     <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
@@ -731,7 +731,7 @@ function InvestigationsContent() {
                 {/* Form Controls */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-[var(--text-secondary)] font-semibold">
+                    <label className="text-xs font-medium text-[var(--text-secondary)]">
                       Target Entity Type
                     </label>
                     <select
@@ -747,7 +747,7 @@ function InvestigationsContent() {
                   </div>
 
                   <div className="sm:col-span-3 space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-[var(--text-secondary)] font-semibold">
+                    <label className="text-xs font-medium text-[var(--text-secondary)]">
                       Target ID (Case Primary Entity)
                     </label>
                     <input
@@ -761,7 +761,7 @@ function InvestigationsContent() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase text-[var(--text-secondary)] font-semibold flex items-center justify-between">
+                  <label className="text-xs font-medium text-[var(--text-secondary)] flex items-center justify-between">
                     <span>Investigator Directive / Optional Prompt</span>
                     <span className="text-[10px] text-[var(--text-muted)] font-normal">Leave blank for full autonomous multi-channel analysis</span>
                   </label>
@@ -819,21 +819,21 @@ function InvestigationsContent() {
                       Executing specialized forensic tools across graph topology, point-in-time velocity feature service, outbox records, policy guidelines, and legal cryptographic synthesizers...
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-w-2xl mx-auto pt-2 text-[10px] font-mono">
-                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-blue-500 animate-pulse">
-                      1. GraphForensics
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-w-2xl mx-auto pt-2 text-xs font-medium">
+                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-blue-500 text-center animate-pulse">
+                      GraphForensics
                     </span>
-                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-indigo-500 animate-pulse">
-                      2. FeatureVelocity
+                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-indigo-500 text-center animate-pulse">
+                      FeatureVelocity
                     </span>
-                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-amber-500 animate-pulse">
-                      3. OutboxAuditor
+                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-amber-500 text-center animate-pulse">
+                      OutboxAuditor
                     </span>
-                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-purple-500 animate-pulse">
-                      4. PolicyRAG
+                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-purple-500 text-center animate-pulse">
+                      PolicyRAG
                     </span>
-                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-emerald-500 animate-pulse">
-                      5. DisputeSigner
+                    <span className="p-1.5 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-emerald-500 text-center animate-pulse">
+                      DisputeSigner
                     </span>
                   </div>
                 </div>
@@ -942,9 +942,9 @@ function InvestigationsContent() {
                     <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
                       <div className="flex items-center gap-2">
                         <Terminal className="w-4 h-4 text-indigo-500" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                          Specialist Tool Execution Trace ({copilotResponse.tool_executions.length} Invocations)
-                        </span>
+                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                          Specialist Tool Execution Trace <span className="text-xs font-normal text-[var(--text-muted)]">({copilotResponse.tool_executions.length} Invocations)</span>
+                        </h4>
                       </div>
                       <span className="text-[10px] font-mono text-[var(--text-muted)]">
                         Real-Time Causal Data Boundary
@@ -1055,7 +1055,7 @@ function InvestigationsContent() {
 
                       {/* Compelling Evidence Points List */}
                       <div className="space-y-2">
-                        <div className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                        <div className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                           <span>Compelling Evidence Points (Visa CE 3.0 / Mastercard Defense)</span>
                         </div>
@@ -1196,9 +1196,9 @@ function InvestigationsContent() {
             <div className="space-y-6">
               {/* Chronological Evidence Sequence */}
               <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   Chronological Evidence Sequence
-                </div>
+                </h3>
 
                 <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--border)]">
                   {selectedCase.timeline.map((step, idx) => (
@@ -1220,16 +1220,16 @@ function InvestigationsContent() {
             <div className="space-y-6">
               {/* Evidence Channel Breakdown Cards */}
               <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   Channel-Specific Evidence Dossier
-                </div>
+                </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                   {[
-                    { title: "1. Transaction Evidence", color: "text-blue-600 dark:text-blue-400", text: selectedCase.evidence.transaction },
-                    { title: "2. Graph Topology Evidence", color: "text-purple-600 dark:text-purple-400", text: selectedCase.evidence.graph },
-                    { title: "3. Behavioral Velocity", color: "text-amber-600 dark:text-amber-400", text: selectedCase.evidence.behavioral },
-                    { title: "4. Multimodal / CLIP Evidence", color: "text-cyan-600 dark:text-cyan-400", text: selectedCase.evidence.multimodal },
+                    { title: "Transaction Channel Evidence", color: "text-blue-600 dark:text-blue-400", text: selectedCase.evidence.transaction },
+                    { title: "Graph Relational Topology", color: "text-purple-600 dark:text-purple-400", text: selectedCase.evidence.graph },
+                    { title: "Behavioral Velocity & Return Patterns", color: "text-amber-600 dark:text-amber-400", text: selectedCase.evidence.behavioral },
+                    { title: "Multimodal Catalog Consistency", color: "text-cyan-600 dark:text-cyan-400", text: selectedCase.evidence.multimodal },
                   ].map((ch) => (
                     <div key={ch.title} className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
                       <div className={`text-[10px] font-mono font-bold uppercase ${ch.color}`}>{ch.title}</div>
@@ -1247,7 +1247,7 @@ function InvestigationsContent() {
               {/* Telemetry Synthesis Header */}
               <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-0.5">
-                  <div className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                  <div className="text-sm font-semibold text-[var(--text-primary)]">
                     Deterministic Audit Dossier
                   </div>
                   <p className="text-xs text-[var(--text-secondary)]">
@@ -1307,9 +1307,9 @@ function InvestigationsContent() {
                   <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-blue-500" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                         Live Telemetry Synthesis (Deterministic Audit Pack)
-                      </span>
+                      </h3>
                     </div>
                     <div className="flex items-center gap-2">
                       {/* BEGIN GENERATED */}
@@ -1362,8 +1362,8 @@ function InvestigationsContent() {
                     )}
 
                     <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-                      <span className="text-[11px] font-mono font-bold uppercase text-blue-600 dark:text-blue-400">
-                        1. Observed Facts
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                        Observed Facts
                       </span>
                       <ul className="text-xs text-[var(--text-primary)] space-y-1 list-disc pl-4 pt-1">
                         {liveDossier.observed_evidence.verified_facts.map((fact: string, idx: number) => (
@@ -1373,8 +1373,8 @@ function InvestigationsContent() {
                     </div>
 
                     <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-                      <span className="text-[11px] font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
-                        2. Triggered Reason Codes
+                      <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                        Triggered Reason Codes
                       </span>
                       <ul className="text-xs text-[var(--text-primary)] space-y-1 list-disc pl-4 pt-1">
                         {liveDossier.model_inference.triggered_reason_codes.map((rf: string, idx: number) => (
@@ -1384,8 +1384,8 @@ function InvestigationsContent() {
                     </div>
 
                     <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-                      <span className="text-[11px] font-mono font-bold uppercase text-cyan-600 dark:text-cyan-400">
-                        3. Network Topology Findings
+                      <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+                        Network Topology Findings
                       </span>
                       <div className="text-xs text-[var(--text-primary)] font-mono pt-1">
                         Risk Category: <strong className="text-[var(--text-primary)]">{liveDossier.risk_level}</strong>
@@ -1396,9 +1396,9 @@ function InvestigationsContent() {
                     </div>
 
                     <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-                      <span className="text-[11px] font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        4. Recommended Action Protocol
+                        Recommended Action Protocol
                       </span>
                       <div className="text-xs font-semibold text-[var(--text-primary)]">
                         {liveDossier.recommendation.action}
@@ -1411,7 +1411,7 @@ function InvestigationsContent() {
 
                   {liveDossier.retrieved_policy_guidelines.length > 0 && (
                     <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1.5">
-                      <span className="text-[10px] font-mono font-bold uppercase text-[var(--text-secondary)] flex items-center gap-1">
+                      <span className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
                         <BookOpen className="w-3 h-3 text-blue-500" />
                         Retrieved Forensic RAG Policy Guidelines
                       </span>
@@ -1435,7 +1435,7 @@ function InvestigationsContent() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">
                     Investigator Case Notes &amp; Audit Conclusions
                   </span>
                 </div>

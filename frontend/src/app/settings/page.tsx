@@ -290,7 +290,7 @@ export default function SettingsPage() {
         {/* Feature Store Metric Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
-            <div className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-wider">Orders Indexed</div>
+            <div className="text-[11px] font-medium text-[var(--text-muted)]">Orders Indexed</div>
             <div className="text-base font-bold text-[var(--text-primary)] font-mono mt-1">
               {featureStatus?.orders_indexed ? featureStatus.orders_indexed.toLocaleString() : "50,000"}
             </div>
@@ -298,7 +298,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
-            <div className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-wider">Buyers Profiled</div>
+            <div className="text-[11px] font-medium text-[var(--text-muted)]">Buyers Profiled</div>
             <div className="text-base font-bold text-[var(--text-primary)] font-mono mt-1">
               {featureStatus?.buyers_indexed ? featureStatus.buyers_indexed.toLocaleString() : "5,000"}
             </div>
@@ -306,7 +306,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
-            <div className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-wider">Sellers Profiled</div>
+            <div className="text-[11px] font-medium text-[var(--text-muted)]">Sellers Profiled</div>
             <div className="text-base font-bold text-[var(--text-primary)] font-mono mt-1">
               {featureStatus?.sellers_indexed ? featureStatus.sellers_indexed.toLocaleString() : "500"}
             </div>
@@ -314,7 +314,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
-            <div className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-wider">Product Catalog</div>
+            <div className="text-[11px] font-medium text-[var(--text-muted)]">Product Catalog</div>
             <div className="text-base font-bold text-[var(--text-primary)] font-mono mt-1">
               {featureStatus?.catalog_products_indexed ? featureStatus.catalog_products_indexed.toLocaleString() : "3,000"}
             </div>

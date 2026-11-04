@@ -150,17 +150,17 @@ function FraudRingsContent() {
           </Link>
 
           {/* Terminology Banner */}
-          <div className="hidden sm:flex items-center gap-2 text-[10px] font-mono">
-            <span className="px-2.5 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-secondary)]">
-              1. Connected Component
+          <div className="hidden sm:flex items-center gap-2 text-xs">
+            <span className="px-2.5 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-secondary)] font-medium">
+              Connected Component
             </span>
             <span className="text-[var(--text-muted)]">&rarr;</span>
             <span className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">
-              2. Candidate Cluster
+              Candidate Cluster
             </span>
             <span className="text-[var(--text-muted)]">&rarr;</span>
-            <span className="px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold">
-              3. Confirmed Collusion Ring
+            <span className="px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-medium">
+              Confirmed Collusion Ring
             </span>
           </div>
         </div>
@@ -215,9 +215,9 @@ function FraudRingsContent() {
         <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                Candidate Rings ({rings.length})
-              </span>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                Candidate Rings <span className="text-xs font-normal text-[var(--text-muted)]">({rings.length})</span>
+              </h2>
               <div className="flex items-center gap-1.5 text-xs">
                 <Filter className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 {/* BEGIN GENERATED */}
@@ -413,7 +413,7 @@ function FraudRingsContent() {
                       disabled={freezeLoading}
                       className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
                     >
-                      <span>{freezeLoading ? "Refreshing…" : "Refresh status"}</span>
+                      <span>{freezeLoading ? "Refreshing...…" : "Refresh status"}</span>
                     </button>
                   </div>
                 </div>
@@ -423,25 +423,25 @@ function FraudRingsContent() {
               {/* BEGIN GENERATED */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                 <div className="p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase font-mono">Topological Density</div>
+                  <div className="text-[11px] text-[var(--text-muted)] font-medium">Topological Density</div>
                   <div className="text-base font-bold font-mono text-purple-600 dark:text-purple-400 mt-1">0.842</div>
                   <div className="text-[10px] text-[var(--text-secondary)]">Dense Bipartite Ties</div>
                 </div>
 
                 <div className="p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase font-mono">Merchant Concentration</div>
+                  <div className="text-[11px] text-[var(--text-muted)] font-medium">Merchant Concentration</div>
                   <div className="text-base font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">0.885</div>
                   <div className="text-[10px] text-[var(--text-secondary)]">Captive Purchasing HHI</div>
                 </div>
 
                 <div className="p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase font-mono">Arrival Burstiness</div>
+                  <div className="text-[11px] text-[var(--text-muted)] font-medium">Arrival Burstiness</div>
                   <div className="text-base font-bold font-mono text-rose-600 dark:text-rose-400 mt-1">2.41 CV</div>
                   <div className="text-[10px] text-[var(--text-secondary)]">High Temporal Burst</div>
                 </div>
 
                 <div className="p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase font-mono">High-Risk Orders</div>
+                  <div className="text-[11px] text-[var(--text-muted)] font-medium">High-Risk Orders</div>
                   <div className="text-base font-bold font-mono text-[var(--text-primary)] mt-1">
                     {selectedRing.n_high_risk_orders} / {selectedRing.n_orders}
                   </div>
@@ -455,12 +455,12 @@ function FraudRingsContent() {
             <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                    Member Entity Manifest ({selectedRing.members.length} Nodes)
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    Member Entity Manifest <span className="text-xs font-normal text-[var(--text-muted)]">({selectedRing.members.length} Nodes)</span>
                   </h3>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">Graph Traversal Depth: 2-Hop</span>
+                  <span className="text-xs text-[var(--text-muted)]">Graph Traversal Depth: 2-Hop</span>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] font-mono">
+                <div className="flex items-center gap-1 text-xs">
                   {(["ALL", "DEV", "BUYER", "SELLER", "ADDR"] as const).map((filterType) => (
                     <button
                       key={filterType}

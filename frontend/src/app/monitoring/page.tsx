@@ -269,11 +269,11 @@ export default function MonitoringPage() {
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-blue-500" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   Feature Distribution Drift (PSI &amp; KS)
                 </h3>
               </div>
-              <span className="text-[11px] text-[var(--text-secondary)] font-mono">Baseline vs. Current Window</span>
+              <span className="text-xs text-[var(--text-muted)]">Baseline vs. Current Window</span>
             </div>
 
             <div className="space-y-3 font-mono text-xs">
@@ -310,11 +310,11 @@ export default function MonitoringPage() {
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-purple-500" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   Policy Decision Volume Shift
                 </h3>
               </div>
-              <span className="text-[11px] text-[var(--text-secondary)] font-mono">Operational Outcomes</span>
+              <span className="text-xs text-[var(--text-muted)]">Operational Outcomes</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 font-mono text-xs">
@@ -418,7 +418,7 @@ export default function MonitoringPage() {
 
           {/* Raw Contract Payload Viewer */}
           <details className="group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 cursor-pointer">
-            <summary className="flex items-center justify-between text-xs font-mono font-bold text-[var(--text-primary)] uppercase tracking-wider select-none">
+            <summary className="flex items-center justify-between text-xs font-semibold text-[var(--text-primary)] select-none">
               <span>View Raw Drift Monitoring Contract (monitoring.v1 JSON)</span>
               <span className="text-[10px] text-[var(--text-muted)] font-normal group-open:hidden">Click to expand</span>
             </summary>
@@ -465,7 +465,7 @@ export default function MonitoringPage() {
 
           {/* Raw Calibration Contract Viewer */}
           <details className="group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 cursor-pointer">
-            <summary className="flex items-center justify-between text-xs font-mono font-bold text-[var(--text-primary)] uppercase tracking-wider select-none">
+            <summary className="flex items-center justify-between text-xs font-semibold text-[var(--text-primary)] select-none">
               <span>View Raw Calibration Contract (monitoring.v1 JSON)</span>
               <span className="text-[10px] text-[var(--text-muted)] font-normal group-open:hidden">Click to expand</span>
             </summary>
@@ -479,7 +479,7 @@ export default function MonitoringPage() {
       {activeTab === "metrics" && (
         <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-primary)]">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               Live Prometheus Scrape Stream (/metrics)
             </h2>
             <span className="text-[10px] font-mono text-[var(--text-secondary)]">Target: {apiUrl}/metrics</span>

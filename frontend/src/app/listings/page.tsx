@@ -197,7 +197,7 @@ export default function ListingIntelligencePage() {
 
       {/* Preset Scenario Selector */}
       <div className="space-y-2">
-        <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center justify-between">
+        <div className="text-xs font-medium text-[var(--text-secondary)] flex items-center justify-between">
           <span>Test Scenarios (Pre-configured Multimodal Audits)</span>
           <span className="text-[10px] font-mono text-[#596574]">Click to execute instant audit</span>
         </div>
@@ -242,9 +242,9 @@ export default function ListingIntelligencePage() {
         {/* Left Col: Listing Ingestion Form */}
         <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               Listing Inspector Inputs
-            </span>
+            </h2>
             <span className="text-[10px] font-mono text-cyan-400">POST /listing/analyze</span>
           </div>
 
@@ -404,7 +404,7 @@ export default function ListingIntelligencePage() {
                 </div>
 
                 <div className="text-left sm:text-right">
-                  <div className="text-[10px] text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+                  <div className="text-[11px] font-medium text-[var(--text-secondary)]">
                     FAISS Cosine Similarity
                   </div>
                   <div
@@ -432,11 +432,11 @@ export default function ListingIntelligencePage() {
             {/* Side-by-Side Visual Comparison Cards with Real Images */}
             <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                <div className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                   <Layers className="w-4 h-4 text-cyan-400" />
                   <span>Visual Similarity &amp; Catalog Evidence</span>
                 </div>
-                <div className="text-[11px] font-mono text-[var(--text-secondary)]">
+                <div className="text-xs text-[var(--text-muted)]">
                   512-Dimensional CLIP Embedding Projection
                 </div>
               </div>

@@ -163,9 +163,9 @@ export default function ReturnAbusePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-orange-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               Return Risk Scenarios
-            </span>
+            </h2>
           </div>
           <span className="text-[11px] text-[var(--text-secondary)]">Select a scenario to evaluate model decisions</span>
         </div>
@@ -201,13 +201,13 @@ export default function ReturnAbusePage() {
         {/* Form Inputs */}
         <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               Claim Parameters
-            </span>
+            </h2>
             <span className="text-[10px] font-mono text-orange-500">POST /return/analyze</span>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3 text-xs font-mono">
+          <form onSubmit={handleSubmit} className="space-y-3 text-xs">
             <div>
               <label className="text-[11px] text-[var(--text-secondary)] block mb-1">Return Claim ID</label>
               <input
@@ -399,9 +399,9 @@ export default function ReturnAbusePage() {
 
               {/* Warning Codes Breakdown */}
               <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-3">
-                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   Behavioral Reason Codes &amp; Evidence Flags
-                </div>
+                </h3>
 
                 {result.reason_codes.map((code) => (
                   <div

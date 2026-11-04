@@ -457,7 +457,7 @@ export default function ModelRegistryPage() {
         {statusData && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-              <span className="text-[10px] font-mono uppercase text-[var(--text-muted)] font-bold block">
+              <span className="text-xs font-medium text-[var(--text-muted)] block">
                 Decision Concordance
               </span>
               <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
@@ -469,7 +469,7 @@ export default function ModelRegistryPage() {
             </div>
 
             <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-              <span className="text-[10px] font-mono uppercase text-[var(--text-muted)] font-bold block">
+              <span className="text-xs font-medium text-[var(--text-muted)] block">
                 Conformal Concordance
               </span>
               <div className="text-xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
@@ -481,7 +481,7 @@ export default function ModelRegistryPage() {
             </div>
 
             <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-              <span className="text-[10px] font-mono uppercase text-[var(--text-muted)] font-bold block">
+              <span className="text-xs font-medium text-[var(--text-muted)] block">
                 Mean Risk Delta
               </span>
               <div className="text-xl font-bold font-mono text-blue-600 dark:text-blue-400">
@@ -493,7 +493,7 @@ export default function ModelRegistryPage() {
             </div>
 
             <div className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] space-y-1">
-              <span className="text-[10px] font-mono uppercase text-[var(--text-muted)] font-bold block">
+              <span className="text-xs font-medium text-[var(--text-muted)] block">
                 Circuit Breaker Status
               </span>
               <div className="flex items-center gap-1.5 pt-0.5">
@@ -527,11 +527,11 @@ export default function ModelRegistryPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-500" />
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
                 Dual-Model Inference &amp; Conformal Uncertainty Simulator
-              </span>
+              </h2>
             </div>
-            <span className="text-[10px] font-mono text-[var(--text-muted)]">
+            <span className="text-xs text-[var(--text-muted)]">
               Evaluates identical feature vectors on both models
             </span>
           </div>
@@ -554,7 +554,7 @@ export default function ModelRegistryPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase text-[var(--text-muted)] font-semibold">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">
                 Simulated Order ID
               </label>
               <input
@@ -566,7 +566,7 @@ export default function ModelRegistryPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase text-[var(--text-muted)] font-semibold">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">
                 Order Amount (₹)
               </label>
               <input
@@ -632,7 +632,7 @@ export default function ModelRegistryPage() {
                 {/* Champion Column */}
                 <div className="p-4 rounded-xl border border-emerald-500/30 bg-[var(--surface)] space-y-3 font-mono text-xs">
                   <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       Champion: {dualComparison.champion.model_name}
                     </span>
@@ -675,7 +675,7 @@ export default function ModelRegistryPage() {
                 {/* Challenger Column */}
                 <div className="p-4 rounded-xl border border-blue-500/30 bg-[var(--surface)] space-y-3 font-mono text-xs">
                   <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-                    <span className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <span className="font-semibold text-blue-600 dark:text-blue-400 text-xs flex items-center gap-1.5">
                       <GitCompare className="w-3.5 h-3.5" />
                       Challenger: {dualComparison.challenger.model_name}
                     </span>
@@ -753,9 +753,9 @@ export default function ModelRegistryPage() {
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span className="font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                  Live Edge-Case Disagreement Stream ({disagreements.length} Detected)
-                </span>
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                  Live Edge-Case Disagreement Stream <span className="text-xs font-normal text-[var(--text-muted)]">({disagreements.length} Detected)</span>
+                </h3>
               </div>
               <span className="text-[10px] text-[var(--text-muted)]">Divergent Decisions or Conformal Sets</span>
             </div>
@@ -863,7 +863,7 @@ export default function ModelRegistryPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-3 font-mono text-xs">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-[var(--text-primary)] uppercase tracking-wider text-[11px]">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                 Return Fraud Detector Ablations (Uncensored Test N=1,100)
               </h3>
               <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Rule Recovery</span>
@@ -890,7 +890,7 @@ export default function ModelRegistryPage() {
 
           <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-3 font-mono text-xs">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-[var(--text-primary)] uppercase tracking-wider text-[11px]">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                 Fake Listing Subgroup Recall (Price Anomaly Split)
               </h3>
               <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Rule Recovery</span>

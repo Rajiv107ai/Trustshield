@@ -106,6 +106,20 @@ body {
   background: var(--intelligence-blue);
 }
 
+/* Browser surface craftsmanship: selection, caret, underline offset */
+::selection {
+  background-color: rgba(59, 130, 246, 0.28);
+  color: var(--foreground);
+}
+
+input, textarea, select {
+  caret-color: var(--intelligence-blue);
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }

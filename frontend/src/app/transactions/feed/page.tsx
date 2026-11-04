@@ -192,9 +192,7 @@ export default function TransactionFeedPage() {
           <p className="text-xs text-[var(--text-secondary)] mt-1">
             Real-time SSE event stream scoring incoming orders dynamically via Canonical Trust Engine.
           </p>
-          <p className="text-[10px] text-[var(--text-muted)] italic mt-0.5">
-            Note: SSE connection uses URL parameter for compatibility. Use a reverse-proxy with header injection in production.
-          </p>
+
         </div>
 
         {/* Stream Actions & Filter Badges */}
@@ -267,7 +265,7 @@ export default function TransactionFeedPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-[var(--border)] text-[10px] uppercase font-mono text-[var(--text-muted)]">
+              <tr className="border-b border-[var(--border)] text-[11px] font-medium text-[var(--text-muted)]">
                 <th className="py-2.5 px-3">Timestamp</th>
                 <th className="py-2.5 px-3">Order ID</th>
                 <th className="py-2.5 px-3">Buyer Account</th>

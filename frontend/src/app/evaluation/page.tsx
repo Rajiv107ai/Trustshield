@@ -185,10 +185,10 @@ export default function EvaluationStudioPage() {
         {/* Left: Ablation Study Ladder */}
         <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-              Canonical Benchmark &amp; Ablation Ladder (N=20 Seeds)
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+              Canonical Benchmark &amp; Ablation Ladder <span className="text-xs font-normal text-[var(--text-muted)]">(N=20 Seeds)</span>
             </h3>
-            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
               Strict Temporal Safety
             </span>
           </div>
@@ -219,7 +219,7 @@ export default function EvaluationStudioPage() {
         {/* BEGIN GENERATED */}
         <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-4 font-mono">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
               Dynamic Decision Threshold Simulator
             </h3>
             <span className="text-xs text-blue-600 dark:text-blue-400 font-bold">&tau; = {threshold.toFixed(2)}</span>
@@ -251,7 +251,7 @@ export default function EvaluationStudioPage() {
           {/* 2x2 Matrix Grid */}
           <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
             <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-center">
-              <div className="text-[10px] uppercase text-[var(--text-muted)]">True Positives (Blocked Fraud)</div>
+              <div className="text-[11px] font-medium text-[var(--text-secondary)]">True Positives (Blocked Fraud)</div>
               <div suppressHydrationWarning className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                 {tp.toLocaleString("en-US")}
               </div>
@@ -259,7 +259,7 @@ export default function EvaluationStudioPage() {
             </div>
 
             <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/30 text-center">
-              <div className="text-[10px] uppercase text-[var(--text-muted)]">False Positives (User Friction)</div>
+              <div className="text-[11px] font-medium text-[var(--text-secondary)]">False Positives (User Friction)</div>
               <div suppressHydrationWarning className="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">
                 {fp.toLocaleString("en-US")}
               </div>
@@ -267,7 +267,7 @@ export default function EvaluationStudioPage() {
             </div>
 
             <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
-              <div className="text-[10px] uppercase text-[var(--text-muted)]">False Negatives (Missed Fraud)</div>
+              <div className="text-[11px] font-medium text-[var(--text-secondary)]">False Negatives (Missed Fraud)</div>
               <div suppressHydrationWarning className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
                 {fn.toLocaleString("en-US")}
               </div>
@@ -275,7 +275,7 @@ export default function EvaluationStudioPage() {
             </div>
 
             <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-center">
-              <div className="text-[10px] uppercase text-[var(--text-muted)]">True Negatives (Clean Allows)</div>
+              <div className="text-[11px] font-medium text-[var(--text-secondary)]">True Negatives (Clean Allows)</div>
               <div suppressHydrationWarning className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
                 {tn.toLocaleString("en-US")}
               </div>
@@ -289,10 +289,10 @@ export default function EvaluationStudioPage() {
       {/* Fraud Typology Breakdown */}
       <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-            Per-Typology Performance Breakdown (Standard Dataset, N=20 Seeds)
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+            Per-Typology Performance Breakdown <span className="text-xs font-normal text-[var(--text-muted)]">(Standard Dataset, N=20 Seeds)</span>
           </h3>
-          <span className="text-[10px] font-mono text-[var(--text-muted)]">Isolated ROC-AUC vs Legit &amp; Recall@Budgets</span>
+          <span className="text-xs text-[var(--text-muted)]">Isolated ROC-AUC vs Legit &amp; Recall@Budgets</span>
         </div>
 
         <div className="overflow-x-auto">

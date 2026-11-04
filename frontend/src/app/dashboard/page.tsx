@@ -69,10 +69,10 @@ const EXEC_BREAKDOWNS = [
 ];
 
 const AI_BREAKDOWNS = [
-  { step: "1. NetworkX Graph", title: "Temporal Graph Topology", sub: "Microsecond connected ring analysis", color: "text-purple-500" },
-  { step: "2. Tabular XGBoost", title: "Behavioral Feature Engine", sub: "Point-in-time state without lookahead", color: "text-blue-500" },
-  { step: "3. Isotonic Calibrator", title: "Monotonic Probability Fit", sub: "P(Y=1|S) empirical probability", color: "text-emerald-500" },
-  { step: "4. Conformal Risk Filter", title: "Coverage Set C(X)", sub: "Finite-sample statistical bounds", color: "text-cyan-500" },
+  { step: "Graph Topology", title: "Temporal Graph Topology", sub: "Microsecond connected ring analysis", color: "text-purple-500" },
+  { step: "Feature Engine", title: "Behavioral Feature Engine", sub: "Point-in-time state without lookahead", color: "text-blue-500" },
+  { step: "Probability Calibration", title: "Monotonic Probability Fit", sub: "P(Y=1|S) empirical probability", color: "text-emerald-500" },
+  { step: "Conformal Bounds", title: "Coverage Set C(X)", sub: "Finite-sample statistical bounds", color: "text-cyan-500" },
 ];
 
 export default function DashboardPage() {
@@ -396,8 +396,11 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
-              Smart Risk Action Queue · 3 Items Requiring Attention
+            <span className="text-sm font-semibold text-[var(--text-primary)]">
+              Smart Risk Action Queue
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-semibold">
+              3 Items Pending
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
               UNRESOLVED
@@ -483,8 +486,8 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div>
-              <div className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
-                <span>Priority Risk Queue &amp; Incident Triage</span>
+              <div className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <span>Recent Transactions &amp; Incident Triage</span>
                 <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                   DEMO DATA
                 </span>
@@ -842,7 +845,7 @@ export default function DashboardPage() {
                 </span>
                 <span className={`w-2 h-2 rounded-full ${comp.active ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
               </div>
-              <div className="text-xs font-semibold mt-1 font-mono text-[var(--text-primary)]">{comp.status}</div>
+              <div className="text-xs font-semibold mt-1 text-[var(--text-primary)]">{comp.status}</div>
             </div>
           );
         })}
@@ -1078,7 +1081,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                  1. Cost-Loss Bayes Matrix
+                  Cost-Loss Bayes Matrix
                 </span>
                 <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                   We balance chargeback cost ($100) against checkout friction ($5). Raw probabilities are mapped to governed operational thresholds: REVIEW ({RISK_THRESHOLDS.REVIEW.toFixed(2)}), HOLD ({RISK_THRESHOLDS.HOLD.toFixed(2)}), BLOCK ({RISK_THRESHOLDS.BLOCK.toFixed(2)}).
@@ -1088,7 +1091,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                  2. Isotonic Calibration
+                  Isotonic Calibration
                 </span>
                 <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                   Raw classifier scores are non-parametrically fitted to holdout validation empirical rates. A score of {RISK_THRESHOLDS.BLOCK.toFixed(2)} represents the governed block boundary, not a universal fraud-rate guarantee.
@@ -1098,7 +1101,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  3. Conformal Prediction Set
+                  Conformal Prediction Set
                 </span>
                 <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                   Finite-sample split conformal guarantee. At 95% nominal coverage, high-confidence cases yield singleton sets {"{0}"} or {"{1}"}, while ambiguous cases yield {"{0, 1}"} for manual review.
@@ -1108,7 +1111,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  4. Exact TreeSHAP
+                  Exact TreeSHAP
                 </span>
                 <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                   Local exact additive feature attributions. Every decision has an explainability waterfall attributing the risk change to specific features (e.g., velocity, graph centrality, price anomaly).

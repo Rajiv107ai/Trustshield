@@ -93,10 +93,6 @@ export default function PlatformOverviewPage() {
       <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono font-medium">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              <span>TrustShield AI · Single-Container Enterprise Serving</span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">
               Platform Architecture &amp; Engine Overview
             </h1>
@@ -126,21 +122,21 @@ export default function PlatformOverviewPage() {
         </div>
 
         {/* 4 Quick Stat Badges */}
-        <div className="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono border-t border-[var(--border)]">
+        <div className="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs border-t border-[var(--border)]">
           <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-            <span className="text-[10px] text-[var(--text-muted)] block uppercase">Inference Speed</span>
+            <span className="text-[11px] text-[var(--text-muted)] font-medium block">Inference Speed</span>
             <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{"< 15ms P95"}</span>
           </div>
           <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-            <span className="text-[10px] text-[var(--text-muted)] block uppercase">Decision Rigor</span>
+            <span className="text-[11px] text-[var(--text-muted)] font-medium block">Decision Rigor</span>
             <span className="text-sm font-bold text-blue-600 dark:text-blue-400">Cost-Loss Bayes</span>
           </div>
           <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-            <span className="text-[10px] text-[var(--text-muted)] block uppercase">Certainty Bound</span>
+            <span className="text-[11px] text-[var(--text-muted)] font-medium block">Certainty Bound</span>
             <span className="text-sm font-bold text-purple-600 dark:text-purple-400">{/* BEGIN GENERATED */} 95.0% Guaranteed {/* END GENERATED */}</span>
           </div>
           <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-            <span className="text-[10px] text-[var(--text-muted)] block uppercase">Deployment</span>
+            <span className="text-[11px] text-[var(--text-muted)] font-medium block">Deployment</span>
             <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">Single Container</span>
           </div>
         </div>
@@ -170,7 +166,7 @@ export default function PlatformOverviewPage() {
                 </span>
               </div>
               <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                1. Calibrated Cost-Loss Decision Engine
+                Calibrated Cost-Loss Decision Engine
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 Raw probabilities from XGBoost are calibrated using Isotonic Regression to eliminate overconfidence.
@@ -203,7 +199,7 @@ export default function PlatformOverviewPage() {
                 </span>
               </div>
               <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                2. Temporal Graph Topology &amp; Collusion Rings
+                Temporal Graph Topology &amp; Collusion Rings
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 Detects multi-entity fraud rings, synthetic identity farms, and seller collusion clusters using in-memory
@@ -236,7 +232,7 @@ export default function PlatformOverviewPage() {
                 </span>
               </div>
               <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                3. Multimodal Catalog &amp; Return Abuse Defense
+                Multimodal Catalog &amp; Return Abuse Defense
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 Identifies deceptive marketplace listings through image-text embedding cosine discrepancies (CLIP embeddings). Analyzes
@@ -275,7 +271,7 @@ export default function PlatformOverviewPage() {
                 </span>
               </div>
               <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                4. Autonomous Multi-Agent Case Dossiers
+                Autonomous Multi-Agent Case Dossiers
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 Investigators never receive black-box predictions. Every decision includes an exact TreeSHAP attribution
@@ -340,7 +336,7 @@ export default function PlatformOverviewPage() {
         <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
             <div>
-              <div className="text-[10px] font-mono uppercase text-[var(--text-muted)]">Profile Details</div>
+              <div className="text-[11px] font-medium text-[var(--text-muted)]">Profile Details</div>
               <div className="text-sm font-bold text-[var(--text-primary)]">{activeScenario.name}</div>
               <div className="text-xs text-[var(--text-secondary)] mt-0.5">{activeScenario.customerSummary}</div>
             </div>

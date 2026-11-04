@@ -292,7 +292,7 @@ function TransactionAnalyzerContent() {
             <div className="flex items-center gap-6 self-start lg:self-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-4 lg:pt-0 lg:pl-6">
               {/* Trust Score (0-100) */}
               <div className="text-center">
-                <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] tracking-wider">Trust Score</div>
+                <div className="text-[11px] font-medium text-[var(--text-muted)]">Trust Score</div>
                 <div className="text-3xl font-extrabold font-mono mt-1 text-[var(--text-primary)]">
                   {result.trust_score.toFixed(1)}
                   <span className="text-xs font-normal text-[var(--text-muted)]"> / 100</span>
@@ -365,9 +365,9 @@ function TransactionAnalyzerContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-              1-Click Interactive Evaluation Presets
-            </span>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+              Interactive Evaluation Presets
+            </h2>
           </div>
           <span className="text-[11px] text-[var(--text-secondary)]">Click any verified scenario to test model response</span>
         </div>
@@ -426,7 +426,7 @@ function TransactionAnalyzerContent() {
           <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
               <ShoppingBag className="w-4 h-4 text-blue-500" />
-              <span>1. Order & Pricing Details</span>
+              <span>Order & Pricing Details</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
@@ -475,7 +475,7 @@ function TransactionAnalyzerContent() {
           <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
               <User className="w-4 h-4 text-indigo-500" />
-              <span>2. Identity & Account History</span>
+              <span>Identity & Account History</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
@@ -521,7 +521,7 @@ function TransactionAnalyzerContent() {
           <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
               <Network className="w-4 h-4 text-cyan-500" />
-              <span>3. Graph Topology & Network Centrality</span>
+              <span>Graph Topology & Network Centrality</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
@@ -575,7 +575,7 @@ function TransactionAnalyzerContent() {
               {/* Right Col: Operator Action Bar */}
               <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex flex-col justify-between space-y-4">
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                     Fraud Ops Decision Control
                   </h3>
                   <p className="text-[11px] text-[var(--text-secondary)] mt-1">
@@ -673,8 +673,8 @@ function TransactionAnalyzerContent() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-blue-500" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                      Why The AI Flagged This (Plain-English Threat Story)
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                      Forensic Threat Story &amp; AI Attribution
                     </h3>
                   </div>
                   <span className="text-[11px] text-[var(--text-secondary)] font-mono">
@@ -745,7 +745,7 @@ function TransactionAnalyzerContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
                   <div className="flex items-center gap-2">
                     <BarChart2 className="w-4 h-4 text-indigo-500" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                       Exact TreeSHAP Local Feature Attribution Waterfall
                     </h3>
                   </div>
@@ -824,8 +824,8 @@ function TransactionAnalyzerContent() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Col 1: Mathematical Risk Decomposition */}
                 <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3 font-mono">
-                  <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                    <Microscope className="w-4 h-4" />
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                    <Microscope className="w-4 h-4 text-purple-500" />
                     <span>Probability Calibration</span>
                   </div>
                   {/* BEGIN GENERATED */}
@@ -902,7 +902,7 @@ function TransactionAnalyzerContent() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
                     <div className="flex items-center gap-2">
                       <Zap className="w-4 h-4 text-purple-500" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                         Multi-Domain Bayesian Risk Fusion Breakdown
                       </h3>
                     </div>

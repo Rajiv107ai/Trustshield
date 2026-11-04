@@ -97,7 +97,7 @@ export function Sidebar() {
       <nav aria-label="Main Navigation" className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
         {NAV_ITEMS.map((section) => (
           <div key={section.category} className="space-y-1">
-            <div className="px-3 text-[10px] font-semibold tracking-wider text-[var(--text-muted)] uppercase font-mono">
+            <div className="px-3 text-[10px] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
               {section.category}
             </div>
             {section.items.map((item) => {
@@ -114,9 +114,9 @@ export function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors focus-ring ${
                     isActive || isHeroActive
-                      ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] border-l-2 border-blue-500 font-semibold shadow-sm"
+                      ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border)] font-semibold shadow-xs"
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]"
                   }`}
                 >
