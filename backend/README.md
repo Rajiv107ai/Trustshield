@@ -153,7 +153,7 @@ curl -X POST http://localhost:8000/transaction/explain \
 
 ### 4. Forensic Investigation Dossier API
 - **`POST /investigation/generate-dossier`**  
-  **Purpose:** Generates comprehensive, evidence-grounded forensic investigation packages combining entity facts, model inference, graph topology, TreeSHAP attributions, and policy RAG guidelines.  
+  **Purpose:** Generates complete, evidence-grounded forensic investigation packages combining entity facts, model inference, graph topology, TreeSHAP attributions, and policy RAG guidelines.  
   **Key Features:**
   - Automated evidence-grounding verification cross-checking generated assertions against recorded telemetry.
   - Reconstructed graph topology context (shared device collisions, multi-account clusters).

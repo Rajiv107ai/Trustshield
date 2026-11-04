@@ -155,7 +155,7 @@ In operational trust & safety operations, manual review capacity is constrained 
 
 > **Operational Conclusion on Review Budgets**: At tight operational review budgets (2% and 5%), graph features provide **no statistically significant lift** in either fraud recall (2%: p = 0.3648; 5%: p = 0.4688) or fraud monetary value caught (2%: p = 0.9305; 5%: p = 0.2529). Only at a relaxed 10% review budget does recall lift reach marginal significance (+0.81%, p = 0.0424).
 
-## 7. Comprehensive Per-Type Fraud Breakdown & Formal Retraction
+## 7. Per-Type Fraud Breakdown & Formal Retraction
 
 > **Formal Retraction of Earlier Per-Type Table**:
 > The earlier per-type table reporting coordinated fraud ROC ~0.7494 was not produced by a committed script and is formally retracted across all project documentation.

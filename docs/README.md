@@ -48,7 +48,7 @@ This directory serves as the centralized repository for all engineering audits, 
 - [**Forensic Investigation API Specification (`INVESTIGATION_API.md`)**](INVESTIGATION_API.md)  
   API contract for `/investigation/generate-dossier`, combining entity telemetry, 2-hop graph topology, policy RAG guidelines, and automated evidence grounding verification.
 - [**Phase 2: Final Advanced Research Report (`PHASE2_FINAL_REPORT.md`)**](PHASE2_FINAL_REPORT.md)  
-  Comprehensive mathematical synthesis of Heterogeneous GNNs (`HeteroData`), $Time2Vec$ continuous-time edge learning, multimodal CLIP/FAISS vector retrieval, and Conformal Prediction uncertainty quantification.
+  Mathematical synthesis of Heterogeneous GNNs (`HeteroData`), $Time2Vec$ continuous-time edge learning, multimodal CLIP/FAISS vector retrieval, and Conformal Prediction uncertainty quantification.
 - [**Phase 2: Pre-Implementation Baseline (`PHASE2_BASELINE.md`)**](PHASE2_BASELINE.md)  
   Baseline state before deploying Phase 2 advanced research algorithms.
 - [**Phase 2: Production Roadmap (`PHASE2_ROADMAP.md`)**](PHASE2_ROADMAP.md)  

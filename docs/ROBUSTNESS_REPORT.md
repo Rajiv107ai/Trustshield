@@ -62,7 +62,7 @@ This report presents **non-parametric bootstrap confidence intervals (1,000 resa
 
 ## 5. Verification Conclusion
 
-- **Zero Overfitting to Random Seed:** The narrow standard deviation ($\sigma \approx 0.0037$) proves results are robust and not an artifact of random data splits.
+- **Zero Overfitting to Random Seed:** The narrow standard deviation ($\sigma \approx 0.0037$) proves results are consistent across random data splits.
 - **Auditable Evidence:** All experiments were generated deterministically and without synthetic data fabrication.
 
 <!-- END GENERATED -->

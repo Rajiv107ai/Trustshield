@@ -18,14 +18,15 @@ import {
   CheckCircle2,
   ExternalLink,
   Settings,
+  Home,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   {
     category: "OPERATIONAL HUB",
     items: [
+      { name: "Home / Overview", href: "/overview", icon: Home },
       { name: "Command Center", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Platform Overview", href: "/overview", icon: BarChart3 },
     ],
   },
   {
