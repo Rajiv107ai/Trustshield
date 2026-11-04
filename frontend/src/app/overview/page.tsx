@@ -44,7 +44,7 @@ const DEMO_SCENARIOS: InteractiveScenario[] = [
       "Clean residential IP with no past disputes",
     ],
     actionLabel: "Friction-Free Approval",
-    targetUrl: "/transactions",
+    targetUrl: "/transactions?preset=preset_normal_buyer",
   },
   {
     id: "scen-carding",
@@ -60,7 +60,7 @@ const DEMO_SCENARIOS: InteractiveScenario[] = [
       "Shipping address does not match card issuing country",
     ],
     actionLabel: "Immediate Auto-Block",
-    targetUrl: "/transactions",
+    targetUrl: "/transactions?preset=preset_device_farm",
   },
   {
     id: "scen-ring",

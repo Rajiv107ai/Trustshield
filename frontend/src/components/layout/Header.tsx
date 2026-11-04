@@ -5,19 +5,33 @@ import Link from "next/link";
 import { useViewMode } from "@/context/ViewModeContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGuide } from "@/context/GuideContext";
-import { Sparkles, Microscope, RefreshCw, Sun, Moon, Search, HelpCircle, Settings as SettingsIcon } from "lucide-react";
+import { Sparkles, Microscope, RefreshCw, Sun, Moon, Search, HelpCircle, Settings as SettingsIcon, Menu } from "lucide-react";
 
-export function Header() {
+export interface HeaderProps {
+  onOpenMobileNav?: () => void;
+}
+
+export function Header({ onOpenMobileNav }: HeaderProps = {}) {
   const { viewMode, setViewMode, isLive, isDemo, setDemo, apiUrl, refreshHealth } = useViewMode();
   const { theme, toggleTheme } = useTheme();
   const { openTour, openPalette } = useGuide();
 
   return (
-    <header className="h-16 border-b border-[var(--border)] bg-[var(--surface)] px-6 flex items-center justify-between sticky top-0 z-30 select-none transition-colors">
+    <header className="h-16 border-b border-[var(--border)] bg-[var(--surface)] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none transition-colors">
       {/* Left Status Indicators */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
+        {onOpenMobileNav && (
+          <button
+            onClick={onOpenMobileNav}
+            aria-label="Open navigation sidebar"
+            className="lg:hidden p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring cursor-pointer"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        )}
+
         {/* Backend Connectivity Status */}
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-elevated)] border border-[var(--border)] text-xs">
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-md bg-[var(--surface-elevated)] border border-[var(--border)] text-xs">
           {isDemo ? (
             <>
               <span className="w-2 h-2 rounded-full bg-amber-500" />
@@ -48,11 +62,11 @@ export function Header() {
               </button>
             </>
           )}
-          <span className="text-[var(--text-muted)]">|</span>
+          <span className="text-[var(--text-muted)] hidden sm:inline">|</span>
           <Link
             href="/settings"
             title="Configure Gateway & API Key in Settings"
-            className="font-mono text-[11px] text-[var(--text-secondary)] hover:text-blue-600 dark:hover:text-blue-400 truncate max-w-[130px] transition-colors"
+            className="hidden sm:inline font-mono text-[11px] text-[var(--text-secondary)] hover:text-blue-600 dark:hover:text-blue-400 truncate max-w-[130px] transition-colors"
           >
             {apiUrl}
           </Link>

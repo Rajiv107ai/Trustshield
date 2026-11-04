@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Activity,
   Search,
@@ -73,6 +73,11 @@ export default function TransactionFeedPage() {
   const [selectedDrawerTx, setSelectedDrawerTx] = useState<DrawerTransactionData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const isPausedRef = useRef(isPaused);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   const handleExportFeed = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filtered, null, 2));
@@ -124,7 +129,7 @@ export default function TransactionFeedPage() {
           isNew: true,
         };
 
-        setItems((prev) => isPaused ? prev : [newItem, ...prev.slice(0, 49)]);
+        setItems((prev) => isPausedRef.current ? prev : [newItem, ...prev.slice(0, 49)]);
       },
       (status) => {
         if (status === "LIVE" || status === "SIMULATION" || status === "CONNECTING" || status === "DISCONNECTED" || status === "RECONNECTING") {

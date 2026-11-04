@@ -151,15 +151,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleToggleGuide = () => {
-    if (!showRiskGuide) {
-      setShowRiskGuide(true);
-      setGuideExpanded(true);
-    } else {
-      setGuideExpanded(!guideExpanded);
-    }
-  };
-
   /* BEGIN GENERATED */
   const [metrics, setMetrics] = useState({
     totalAnalyzed: 142850,
@@ -453,7 +444,7 @@ export default function DashboardPage() {
                   )}
                   {item.decision === "REVIEW" && (
                     <Link
-                      href="/transactions?preset=anomaly"
+                      href="/transactions?preset=preset_price_arbitrage"
                       onClick={(e) => e.stopPropagation()}
                       className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-semibold hover:bg-amber-500/20 transition-colors"
                     >
@@ -462,7 +453,7 @@ export default function DashboardPage() {
                   )}
                   {item.decision === "ALLOW" && (
                     <Link
-                      href="/transactions?preset=verified"
+                      href="/transactions?preset=preset_normal_buyer"
                       onClick={(e) => e.stopPropagation()}
                       className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold hover:bg-emerald-500/20 transition-colors"
                     >

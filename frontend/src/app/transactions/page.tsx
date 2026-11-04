@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useViewMode } from "@/context/ViewModeContext";
@@ -38,16 +38,52 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
+const PRESET_ALIASES: Record<string, string> = {
+  verified: "preset_normal_buyer",
+  safe: "preset_normal_buyer",
+  normal: "preset_normal_buyer",
+  anomaly: "preset_price_arbitrage",
+  arbitrage: "preset_price_arbitrage",
+  farm: "preset_device_farm",
+  device_farm: "preset_device_farm",
+  ring: "preset_device_farm",
+  return: "preset_serial_returner",
+  serial_returner: "preset_serial_returner",
+  returns: "preset_serial_returner",
+};
+
 function TransactionAnalyzerContent() {
   const searchParams = useSearchParams();
-  const { viewMode, isDemo, setDemo, updateSessionApiKey } = useViewMode();
+  const { isDemo, setDemo, updateSessionApiKey } = useViewMode();
 
   const presetParam = searchParams.get("preset");
-  const initialPreset = (presetParam && SCENARIO_PRESETS.find((p) => p.id === presetParam)) || SCENARIO_PRESETS[0];
+  const orderIdParam = searchParams.get("order_id");
+  const buyerIdParam = searchParams.get("buyer_id");
+  const sellerIdParam = searchParams.get("seller_id");
+
+  const resolvedPresetId = useMemo(() => {
+    if (!presetParam) return SCENARIO_PRESETS[0].id;
+    const lower = presetParam.toLowerCase();
+    return PRESET_ALIASES[lower] || presetParam;
+  }, [presetParam]);
+
+  const activePreset = useMemo(() => {
+    return SCENARIO_PRESETS.find((p) => p.id === resolvedPresetId) || SCENARIO_PRESETS[0];
+  }, [resolvedPresetId]);
+
+  const initialPayload = useMemo<TransactionScoreRequest>(() => {
+    const base = { ...activePreset.payload };
+    if (orderIdParam) base.order_id = orderIdParam;
+    if (buyerIdParam) base.buyer_id = buyerIdParam;
+    if (sellerIdParam) base.seller_id = sellerIdParam;
+    return base;
+  }, [activePreset, orderIdParam, buyerIdParam, sellerIdParam]);
+
+  const isCustomEntity = Boolean(orderIdParam || buyerIdParam || sellerIdParam);
 
   // Active form state
-  const [formData, setFormData] = useState<TransactionScoreRequest>(initialPreset.payload);
-  const [activePresetId, setActivePresetId] = useState<string>(initialPreset.id);
+  const [formData, setFormData] = useState<TransactionScoreRequest>(initialPayload);
+  const [activePresetId, setActivePresetId] = useState<string>(isCustomEntity ? "custom" : activePreset.id);
   const [activeTab, setActiveTab] = useState<"score" | "explain" | "calibration">("score");
   const [loading, setLoading] = useState<boolean>(true);
   const [result, setResult] = useState<TransactionScoreResponse | null>(null);
@@ -81,10 +117,12 @@ function TransactionAnalyzerContent() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      executeScore(initialPreset.payload);
+      setFormData(initialPayload);
+      setActivePresetId(isCustomEntity ? "custom" : activePreset.id);
+      executeScore(initialPayload);
     }, 0);
     return () => clearTimeout(timer);
-  }, [initialPreset]);
+  }, [initialPayload, isCustomEntity, activePreset.id]);
 
   const handleSelectPreset = (preset: ScenarioPreset) => {
     setActivePresetId(preset.id);
@@ -962,7 +1000,7 @@ function TransactionAnalyzerContent() {
 
 export default function TransactionAnalyzerPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-xs font-mono text-[var(--text-muted)]">Loading Risk Analyzer...</div>}>
+    <Suspense fallback={<LoadingSkeleton rows={6} />}>
       <TransactionAnalyzerContent />
     </Suspense>
   );

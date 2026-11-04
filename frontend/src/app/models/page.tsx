@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   Zap,
   Scale,
-  Layers,
   BarChart2,
 } from "lucide-react";
 import { TrustShieldApi } from "@/lib/api/client";

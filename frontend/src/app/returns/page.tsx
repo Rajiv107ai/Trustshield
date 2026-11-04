@@ -14,7 +14,6 @@ import {
   ShieldAlert,
   FileSearch,
   ArrowRight,
-  CheckCircle2,
 } from "lucide-react";
 
 interface ReturnPreset {

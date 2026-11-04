@@ -15,8 +15,6 @@ import {
   Microscope,
   Sliders,
   ArrowRight,
-  ExternalLink,
-  ChevronRight,
   ShieldCheck,
 } from "lucide-react";
 import { useViewMode } from "@/context/ViewModeContext";

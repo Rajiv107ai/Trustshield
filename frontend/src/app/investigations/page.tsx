@@ -27,7 +27,6 @@ import {
   Cpu,
   Layers,
   Terminal,
-  GitBranch,
   ArrowRight,
   Search,
   X,

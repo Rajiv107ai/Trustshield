@@ -41,6 +41,18 @@ export default function SettingsPage() {
   const [inputKey, setInputKey] = useState(sessionApiKey);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    queueMicrotask(() => {
+      setInputUrl(apiUrl);
+    });
+  }, [apiUrl]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setInputKey(sessionApiKey);
+    });
+  }, [sessionApiKey]);
+
   const [featureStatus, setFeatureStatus] = useState<FeatureServiceStatusResponse | null>(null);
   const [loadingFeatures, setLoadingFeatures] = useState(false);
   const [buyerProbeId, setBuyerProbeId] = useState("BUYER_00000");

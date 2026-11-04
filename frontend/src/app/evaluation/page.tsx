@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { BarChart3, ArrowRight, ExternalLink } from "lucide-react";
+import { BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 

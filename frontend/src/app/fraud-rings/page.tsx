@@ -78,7 +78,7 @@ function FraudRingsContent() {
       }
     }
     loadRings();
-  }, [minRiskThreshold]);
+  }, [minRiskThreshold, searchParams]);
 
   const handleFreezeAccounts = async () => {
     if (!selectedRing) return;

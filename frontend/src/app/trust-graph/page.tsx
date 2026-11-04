@@ -7,25 +7,21 @@ import {
   GitBranch,
   Network,
   Search,
-  Filter,
   ShieldAlert,
   ArrowRight,
   ExternalLink,
   RefreshCw,
-  Layers,
   ZoomIn,
   ZoomOut,
   Maximize2,
   Info,
-  CheckCircle2,
-  AlertTriangle,
   User,
   ShoppingBag,
   Smartphone,
   CreditCard,
   MapPin,
 } from "lucide-react";
-import { TrustShieldApi, ApiError } from "@/lib/api/client";
+import { TrustShieldApi } from "@/lib/api/client";
 import { FraudRingItem } from "@/lib/types/api";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -211,26 +207,35 @@ function TrustGraphContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Load rings data from backend
-  const fetchGraphRings = async () => {
-    setLoading(true);
-    setErrorState(null);
-    try {
-      const res = await TrustShieldApi.getFraudRings(0.0, 50);
-      setRings(res.data.rings);
-    } catch (err: unknown) {
-      console.warn("Failed to load fraud rings for graph:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorState(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchGraphRings();
-  }, []);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await TrustShieldApi.getFraudRings(0.0, 50);
+        if (!ignore) {
+          setRings(res.data.rings);
+          setErrorState(null);
+        }
+      } catch (err: unknown) {
+        if (!ignore) {
+          console.warn("Failed to load fraud rings for graph:", err);
+          const msg = err instanceof Error ? err.message : String(err);
+          setErrorState(msg);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      ignore = true;
+    };
+  }, [retryCount]);
 
   // Build topology
   const fullGraph = useMemo(() => buildGraphData(rings), [rings]);
@@ -241,7 +246,7 @@ function TrustGraphContent() {
     const ringParam = searchParams?.get("ring_id");
 
     if (ringParam) {
-      setSelectedRingId(ringParam);
+      queueMicrotask(() => setSelectedRingId(ringParam));
     }
 
     if (entityParam && fullGraph.nodes.length > 0) {
@@ -249,10 +254,12 @@ function TrustGraphContent() {
         (n) => n.id.toLowerCase() === entityParam.toLowerCase() || n.label.toLowerCase().includes(entityParam.toLowerCase())
       );
       if (match) {
-        setSelectedNode(match);
-        setSelectedRingId(match.ringId);
+        queueMicrotask(() => {
+          setSelectedNode(match);
+          setSelectedRingId(match.ringId);
+        });
       } else {
-        setSearchQuery(entityParam);
+        queueMicrotask(() => setSearchQuery(entityParam));
       }
     }
   }, [searchParams, fullGraph]);
@@ -276,12 +283,13 @@ function TrustGraphContent() {
     return fullGraph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target));
   }, [fullGraph.edges, visibleNodeIds]);
 
-  // Set default selected node
-  useEffect(() => {
-    if (!selectedNode && filteredNodes.length > 0) {
-      setSelectedNode(filteredNodes[0]);
+  // Derived active node: fallback to first filtered node if none or invalid
+  const activeNode = useMemo(() => {
+    if (selectedNode && filteredNodes.some((n) => n.id === selectedNode.id)) {
+      return selectedNode;
     }
-  }, [filteredNodes, selectedNode]);
+    return filteredNodes[0] || null;
+  }, [selectedNode, filteredNodes]);
 
   const nodeColor = (type: NodeType) => {
     switch (type) {
@@ -343,7 +351,10 @@ function TrustGraphContent() {
           <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-md mx-auto">{errorState}</p>
         </div>
         <button
-          onClick={fetchGraphRings}
+          onClick={() => {
+            setLoading(true);
+            setRetryCount((c) => c + 1);
+          }}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-sm transition-all cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
@@ -487,14 +498,17 @@ function TrustGraphContent() {
           {/* BEGIN GENERATED */}
 <div className="absolute top-6 right-6 z-10 flex items-center gap-1 p-1 bg-[var(--surface-elevated)]/90 backdrop-blur border border-[var(--border)] rounded-lg shadow-sm">
             <button
-              onClick={() => setZoomLevel((z) => Math.min(2.0, z + 0.15))}
+              onClick={() => setZoomLevel((z) => Math.min(2.0, Number((z + 0.15).toFixed(2))))}
               className="p-1.5 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-colors cursor-pointer"
               title="Zoom In"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
+            <span className="px-1.5 text-[10px] font-mono font-medium text-[var(--text-muted)] select-none">
+              {Math.round(zoomLevel * 100)}%
+            </span>
             <button
-              onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.15))}
+              onClick={() => setZoomLevel((z) => Math.max(0.6, Number((z - 0.15).toFixed(2))))}
               className="p-1.5 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-colors cursor-pointer"
               title="Zoom Out"
             >
@@ -524,7 +538,10 @@ function TrustGraphContent() {
               />
             </div>
           ) : (
-            <div className="h-[540px] w-full overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing bg-radial from-[var(--surface-elevated)]/30 to-[var(--surface)]">
+            <div
+              onClick={() => setSelectedNode(null)}
+              className="h-[540px] w-full overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing bg-radial from-[var(--surface-elevated)]/30 to-[var(--surface)]"
+            >
               <svg
                 viewBox="0 0 900 640"
                 className="w-full h-full transition-transform duration-200"
@@ -543,7 +560,7 @@ function TrustGraphContent() {
                     const s = filteredNodes.find((n) => n.id === e.source);
                     const t = filteredNodes.find((n) => n.id === e.target);
                     if (!s || !t) return null;
-                    const isHighlighted = selectedNode && (selectedNode.id === s.id || selectedNode.id === t.id);
+                    const isHighlighted = activeNode && (activeNode.id === s.id || activeNode.id === t.id);
 
                     return (
                       <line
@@ -564,7 +581,7 @@ function TrustGraphContent() {
                 {/* Nodes */}
                 <g className="nodes">
                   {filteredNodes.map((n) => {
-                    const isSelected = selectedNode?.id === n.id;
+                    const isSelected = activeNode?.id === n.id;
                     const color = nodeColor(n.type);
                     const r = n.type === "DEVICE" || n.type === "SELLER" ? 18 : 14;
 
@@ -572,7 +589,10 @@ function TrustGraphContent() {
                       <g
                         key={n.id}
                         transform={`translate(${n.x}, ${n.y})`}
-                        onClick={() => setSelectedNode(n)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedNode(n);
+                        }}
                         className="cursor-pointer group"
                       >
                         {/* Glow halo when selected */}
@@ -641,21 +661,21 @@ function TrustGraphContent() {
 
         {/* Right Column: Node Inspector & Forensic Actions */}
         <div className="lg:col-span-4 space-y-4">
-          {selectedNode ? (
+          {activeNode ? (
             <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm space-y-4 font-mono text-xs">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
                 <div className="flex items-center gap-2">
                   <div
                     className="w-7 h-7 rounded-lg flex items-center justify-center text-white"
-                    style={{ backgroundColor: nodeColor(selectedNode.type) }}
+                    style={{ backgroundColor: nodeColor(activeNode.type) }}
                   >
-                    {nodeIcon(selectedNode.type)}
+                    {nodeIcon(activeNode.type)}
                   </div>
                   <div>
                     <span className="text-[10px] uppercase text-[var(--text-muted)] font-bold">Node Inspector</span>
                     <h3 className="text-sm font-bold text-[var(--text-primary)] truncate max-w-[180px]">
-                      {selectedNode.id}
+                      {activeNode.id}
                     </h3>
                   </div>
                 </div>
@@ -663,14 +683,14 @@ function TrustGraphContent() {
                 {/* BEGIN GENERATED */}
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
-                    selectedNode.riskScore >= 0.7
+                    activeNode.riskScore >= 0.7
                       ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                      : selectedNode.riskScore >= 0.4
+                      : activeNode.riskScore >= 0.4
                       ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                       : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                   }`}
                 >
-                  {(selectedNode.riskScore * 100).toFixed(0)}% Risk
+                  {(activeNode.riskScore * 100).toFixed(0)}% Risk
                 </span>
                 {/* END GENERATED */}
               </div>
@@ -679,21 +699,21 @@ function TrustGraphContent() {
               <div className="space-y-2 p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-[11px]">
                 <div className="flex justify-between">
                   <span className="text-[var(--text-muted)]">Entity Class:</span>
-                  <span className="font-bold text-[var(--text-primary)]">{selectedNode.type}</span>
+                  <span className="font-bold text-[var(--text-primary)]">{activeNode.type}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text-muted)]">Collusion Cluster:</span>
-                  <span className="font-bold text-purple-600 dark:text-purple-400">{selectedNode.ringId}</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-400">{activeNode.ringId}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text-muted)]">Degree Connectivity:</span>
-                  <span className="font-bold text-[var(--text-primary)]">{selectedNode.degree} links</span>
+                  <span className="font-bold text-[var(--text-primary)]">{activeNode.degree} links</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text-muted)]">Topology Centrality:</span>
                   {/* BEGIN GENERATED */}
                   <span className="font-bold text-cyan-600 dark:text-cyan-400">
-                    {(0.68 + (selectedNode.degree * 0.04)).toFixed(3)} Eigenvector
+                    {(0.68 + (activeNode.degree * 0.04)).toFixed(3)} Eigenvector
                   </span>
                   {/* END GENERATED */}
                 </div>
@@ -702,25 +722,25 @@ function TrustGraphContent() {
               {/* Cross-Workflow Direct Actions (Phase 8 Task 4 & Phase 6) */}
               <div className="space-y-2 pt-1">
                 <Link
-                  href={`/investigations?entity_id=${encodeURIComponent(selectedNode.id)}`}
+                  href={`/investigations?entity_id=${encodeURIComponent(activeNode.id)}`}
                   className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-all focus-ring"
-                  title={`Launch forensic investigation for ${selectedNode.id}`}
+                  title={`Launch forensic investigation for ${activeNode.id}`}
                 >
                   <span>Investigate in Dossier Studio</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
 
                 <Link
-                  href={`/fraud-rings?entity=${encodeURIComponent(selectedNode.id)}&ring_id=${encodeURIComponent(selectedNode.ringId)}`}
+                  href={`/fraud-rings?entity=${encodeURIComponent(activeNode.id)}&ring_id=${encodeURIComponent(activeNode.ringId)}`}
                   className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-[var(--text-primary)] text-xs font-medium transition-colors focus-ring"
-                  title={`View ${selectedNode.ringId} in Collusion Canvas`}
+                  title={`View ${activeNode.ringId} in Collusion Canvas`}
                 >
                   <Network className="w-3.5 h-3.5 text-purple-500" />
                   <span>Inspect Collusion Ring</span>
                 </Link>
 
                 <Link
-                  href={`/transactions?order_id=ORD_${encodeURIComponent(selectedNode.id)}`}
+                  href={`/transactions?order_id=ORD_${encodeURIComponent(activeNode.id)}`}
                   className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium transition-colors focus-ring"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -735,7 +755,7 @@ function TrustGraphContent() {
                   <span>Topology Insight</span>
                 </div>
                 <p className="leading-relaxed">
-                  Node <code>{selectedNode.id}</code> is structurally tied to {selectedNode.ringId}.
+                  Node <code>{activeNode.id}</code> is structurally tied to {activeNode.ringId}.
                   Traversing edges exposes high-density hardware sharing and recurring address collusion.
                 </p>
               </div>
