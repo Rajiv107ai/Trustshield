@@ -15,7 +15,6 @@ import {
   FileSearch,
   Cpu,
   BarChart3,
-  CheckCircle2,
   ExternalLink,
   Settings,
   Home,
@@ -92,30 +91,30 @@ function NavItemsList({
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors focus-ring ${
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all focus-ring ${
                   isActive || isHeroActive
-                    ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border)] font-semibold shadow-xs"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]"
+                    ? "bg-gradient-to-r from-blue-500/15 via-blue-500/5 to-transparent text-[var(--text-primary)] border-l-2 border-blue-500 font-semibold shadow-xs"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]/60 hover:translate-x-0.5"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
                   <Icon
-                    className={`w-4 h-4 ${
-                      isActive || isHeroActive ? "text-blue-600 dark:text-blue-400" : "text-[var(--text-muted)]"
+                    className={`w-4 h-4 transition-colors ${
+                      isActive || isHeroActive ? "text-blue-500 dark:text-blue-400" : "text-[var(--text-muted)]"
                     }`}
                   />
                   <span>{item.name}</span>
                 </div>
                 {item.badge && (
                   <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-semibold border ${
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-mono uppercase font-semibold border ${
                       item.badge === "Live"
-                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                        ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/20"
                         : item.badge === "Phase 3"
-                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                        ? "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/20"
                         : item.badge === "Graph"
-                        ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
-                        : "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20"
+                        ? "bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/20"
+                        : "bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border-cyan-500/20"
                     }`}
                   >
                     {item.badge}
@@ -132,13 +131,16 @@ function NavItemsList({
 
 function SidebarFooter() {
   return (
-    <div className="p-3 border-t border-[var(--border)] bg-[var(--surface-elevated)] text-[11px] text-[var(--text-muted)] flex items-center justify-between shrink-0">
-      <div className="flex items-center gap-1.5">
-        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-        <span className="font-mono text-[10px] text-[var(--text-secondary)]">v2.1.0-lean</span>
+    <div className="p-3.5 border-t border-[var(--border)] bg-[var(--surface-elevated)]/40 text-[11px] text-[var(--text-muted)] flex items-center justify-between shrink-0">
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+        </span>
+        <span className="font-mono text-[10px] text-[var(--text-secondary)]">Engine Active</span>
       </div>
-      <div className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-        328 Tests Passed
+      <div className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-elevated)] border border-[var(--border)] text-emerald-600 dark:text-emerald-400 font-medium">
+        P95 &lt;15ms
       </div>
     </div>
   );
@@ -188,25 +190,25 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps = {}
       <aside className="hidden lg:flex w-64 border-r border-[var(--border)] bg-[var(--surface)] flex-col shrink-0 select-none transition-colors h-screen sticky top-0">
         {/* Brand Header */}
         <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--border)] shrink-0">
-          <Link href="/dashboard" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-500 transition-colors">
+          <Link href="/dashboard" className="flex items-center gap-3 group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-all duration-300">
               <ShieldAlert className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="font-bold tracking-tight text-sm text-[var(--text-primary)] flex items-center gap-1.5">
                 <span>TrustShield</span>
-                <span className="text-[10px] uppercase font-mono px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
                   AI
                 </span>
               </div>
-              <div className="text-[11px] text-[var(--text-secondary)]">Enterprise Console</div>
+              <div className="text-[11px] text-[var(--text-secondary)]">Risk &amp; Trust Platform</div>
             </div>
           </Link>
 
           <Link
             href="/overview"
             title="View Public Overview Landing Page"
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-md hover:bg-[var(--surface-elevated)] transition-colors focus-ring"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-elevated)] transition-colors focus-ring"
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </Link>
@@ -232,26 +234,26 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps = {}
           {/* Off-canvas drawer panel */}
           <aside
             aria-label="Mobile Navigation"
-            className="relative w-72 max-w-[85vw] bg-[var(--surface)] border-r border-[var(--border)] flex flex-col h-full shadow-2xl z-10 select-none"
+            className="relative w-72 max-w-[85vw] bg-[var(--surface)] border-r border-[var(--border)] flex flex-col h-full shadow-2xl z-10 select-none animate-in slide-in-from-left duration-200"
           >
             {/* Mobile Header with Close Button */}
             <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--border)] shrink-0">
               <Link
                 href="/dashboard"
                 onClick={onCloseMobile}
-                className="flex items-center gap-2.5 group"
+                className="flex items-center gap-3 group"
               >
-                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-500 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
                   <ShieldAlert className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <div className="font-bold tracking-tight text-sm text-[var(--text-primary)] flex items-center gap-1.5">
                     <span>TrustShield</span>
-                    <span className="text-[10px] uppercase font-mono px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
                       AI
                     </span>
                   </div>
-                  <div className="text-[11px] text-[var(--text-secondary)]">Enterprise Console</div>
+                  <div className="text-[11px] text-[var(--text-secondary)]">Risk &amp; Trust Platform</div>
                 </div>
               </Link>
 

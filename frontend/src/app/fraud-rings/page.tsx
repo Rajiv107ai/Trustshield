@@ -11,7 +11,6 @@ import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useViewMode } from "@/context/ViewModeContext";
 import { Search } from "lucide-react";
 import {
-  Network,
   GitBranch,
   ShieldAlert,
   Lock,
@@ -128,40 +127,51 @@ function FraudRingsContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
-            <Network className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            <span>Collusion Ring Investigation Canvas</span>
-          </h1>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Multi-relational graph clusters detected via shared hardware, address collusions, and bursty transactions.
-          </p>
-        </div>
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--surface-elevated)]/90 via-[var(--surface)] to-[var(--surface-elevated)]/90 p-6 shadow-sm">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-600 dark:text-purple-400 text-xs font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500" />
+                </span>
+                <span>NetworkX In-Memory Topology · Phase 3 Active</span>
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+              Collusion Ring Investigation Canvas
+            </h1>
+            <p className="text-xs text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+              Multi-relational graph clusters detected via shared hardware, address collusions, and bursty transactions.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/trust-graph"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-semibold text-purple-600 dark:text-purple-400 transition-colors shadow-sm focus-ring"
-            title="Open Multi-Relational Trust Graph Canvas"
-          >
-            <GitBranch className="w-3.5 h-3.5" />
-            <span>View Trust Graph</span>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link
+              href="/trust-graph"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-purple-500/25 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-bold text-purple-600 dark:text-purple-400 transition-all shadow-xs"
+              title="Open Multi-Relational Trust Graph Canvas"
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              <span>View Trust Graph</span>
+            </Link>
 
-          {/* Terminology Banner */}
-          <div className="hidden sm:flex items-center gap-2 text-xs">
-            <span className="px-2.5 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-secondary)] font-medium">
-              Connected Component
-            </span>
-            <span className="text-[var(--text-muted)]">&rarr;</span>
-            <span className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">
-              Candidate Cluster
-            </span>
-            <span className="text-[var(--text-muted)]">&rarr;</span>
-            <span className="px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-medium">
-              Confirmed Collusion Ring
-            </span>
+            {/* Pipeline Stage Badges */}
+            <div className="hidden sm:flex items-center gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-secondary)] font-medium">
+                Connected Component
+              </span>
+              <span className="text-[var(--text-muted)]">&rarr;</span>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold">
+                Candidate Cluster
+              </span>
+              <span className="text-[var(--text-muted)]">&rarr;</span>
+              <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold">
+                Confirmed Collusion Ring
+              </span>
+            </div>
           </div>
         </div>
       </div>

@@ -248,52 +248,72 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
-            <span>Enterprise Command Center</span>
-            {viewMode === "executive" ? (
-              <span suppressHydrationWarning className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium">
-                Executive Story Mode
+      {/* Enterprise Command Center Hero Card */}
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--surface-elevated)]/90 via-[var(--surface)] to-[var(--surface-elevated)]/90 p-6 shadow-sm">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500" />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span>Phase 3 Real-Time Shield Active</span>
               </span>
-            ) : (
-              <span suppressHydrationWarning className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 font-medium">
-                Deep AI Inspector Mode
+
+              {viewMode === "executive" ? (
+                <span suppressHydrationWarning className="text-xs px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/25 font-semibold">
+                  Executive Story Mode
+                </span>
+              ) : (
+                <span suppressHydrationWarning className="text-xs px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/25 font-semibold">
+                  Deep AI Inspector Mode
+                </span>
+              )}
+
+              <span className="text-[11px] font-mono text-[var(--text-muted)] hidden sm:inline-block">
+                SLA: &lt;15ms P95 · {/* BEGIN GENERATED */}Nominal 95% Bound{/* END GENERATED */}
               </span>
-            )}
-          </h1>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Real-time fraud posture, sub-system health telemetry, and algorithmic decision distribution.
-          </p>
-        </div>
+            </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={openTour}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-500/20 transition-colors cursor-pointer"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>Product Tour</span>
-          </button>
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+                Enterprise Command Center
+              </h1>
+              <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-2xl leading-relaxed">
+                Autonomous marketplace fraud intelligence, sub-system health telemetry, and calibrated cost-loss risk distribution.
+              </p>
+            </div>
+          </div>
 
-          <button
-            onClick={() => setSecondaryTab("methodology")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring cursor-pointer"
-            title="View Risk Evaluation Principles & Methodology"
-          >
-            <Info className="w-3.5 h-3.5 text-blue-500" />
-            <span>Scoring Principles</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={openTour}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-blue-500/25 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold transition-all cursor-pointer shadow-xs"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Product Tour</span>
+            </button>
 
-          <Link
-            href="/transactions"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-sm transition-all card-interactive focus-ring"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Open Risk Analyzer</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </Link>
+            <button
+              onClick={() => setSecondaryTab("methodology")}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all focus-ring cursor-pointer shadow-xs"
+              title="View Risk Evaluation Principles & Methodology"
+            >
+              <Info className="w-3.5 h-3.5 text-blue-500" />
+              <span>Scoring Principles</span>
+            </button>
+
+            <Link
+              href="/transactions"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-all card-interactive focus-ring"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Open Risk Analyzer</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -306,7 +326,8 @@ export default function DashboardPage() {
           <StatCard
             title="Fraud Loss Prevented"
             value="₹1,842,500"
-            subtitle="+18.4% YoY saved vs legacy rules"
+            subtitle="Saved vs legacy rules"
+            trend={{ value: "+18.4% YoY saved", positive: true }}
             icon={Sparkles}
             badge="DEMO DATA"
             badgeColor="amber"
@@ -316,6 +337,7 @@ export default function DashboardPage() {
             title="Clean Buyer Experience"
             value="99.2%"
             subtitle="Frictionless instant checkout rate"
+            trend={{ value: "99.2% frictionless", positive: true }}
             icon={CheckCircle2}
             badge="DEMO DATA"
             badgeColor="emerald"
@@ -325,6 +347,7 @@ export default function DashboardPage() {
             title="Chargeback Dispute Rate"
             value="0.04%"
             subtitle="Well below Visa 0.65% excessive limit"
+            trend={{ value: "-82% vs limit", positive: true }}
             icon={ShieldAlert}
             badge="DEMO DATA"
             badgeColor="blue"
@@ -334,6 +357,7 @@ export default function DashboardPage() {
             title="Autonomous Action Rate"
             value="93.5%"
             subtitle="Instant automated machine decisions"
+            trend={{ value: "93.5% auto-decided", positive: true }}
             icon={Zap}
             badge="DEMO DATA"
             badgeColor="cyan"
@@ -345,7 +369,8 @@ export default function DashboardPage() {
           <StatCard
             title="Inferences Evaluated"
             value={metrics.totalAnalyzed.toLocaleString("en-US")}
-            subtitle="+12.4% vs last baseline"
+            subtitle="Streaming telemetry volume"
+            trend={{ value: "+12.4% vs baseline", positive: true }}
             icon={Activity}
             badge="DEMO DATA"
             badgeColor="amber"
@@ -355,6 +380,7 @@ export default function DashboardPage() {
             title="Conformal Guarantee C(X)"
             value="≥ 95.0%"
             subtitle="Nominal coverage bound (α = 0.05)"
+            trend={{ value: "Finite-sample bound", positive: true }}
             icon={Layers}
             badge="BOUNDED"
             badgeColor="blue"
@@ -364,6 +390,7 @@ export default function DashboardPage() {
             title="Expected Calibration Error"
             value="0.0195"
             subtitle="Isotonic calibrated holdout ECE"
+            trend={{ value: "ECE < 0.02 (Optimal)", positive: true }}
             icon={Microscope}
             badge="OFFLINE"
             badgeColor="purple"
@@ -373,6 +400,7 @@ export default function DashboardPage() {
             title="Hardware Latency (P95)"
             value={metrics.p95Latency}
             subtitle="Sub-15ms SLA strictly verified"
+            trend={{ value: "14.8ms < 15ms SLA", positive: true }}
             icon={Clock}
             badge="VERIFIED"
             badgeColor="emerald"
@@ -383,25 +411,33 @@ export default function DashboardPage() {
       {/* END GENERATED */}
 
       {/* Smart Risk Action Queue (Action-First Triage) */}
-      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">
-              Smart Risk Action Queue
-            </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-semibold">
-              3 Items Pending
-            </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
-              UNRESOLVED
-            </span>
+      <div className="rounded-2xl border border-amber-500/30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.1),transparent_50%)] bg-[var(--surface)] p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/25">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-[var(--text-primary)]">
+                  Smart Risk Action Queue
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold">
+                  3 Pending
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-700 dark:text-amber-300 font-extrabold uppercase">
+                  Action Required
+                </span>
+              </div>
+              <span className="text-[11px] text-[var(--text-secondary)] mt-0.5 block">
+                High-priority queue requiring immediate operational intervention or workflow authorization.
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-[var(--text-muted)]">Source: In-flight decision queue</span>
             <Link
               href="/transactions"
-              className="text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-500/25 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold transition-colors"
             >
               <span>Explore all in Analyzer</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -409,26 +445,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {recentTransactions.slice(0, 3).map((item, i) => (
             <div
               key={i}
               onClick={() => handleOpenDrawer(item)}
-              className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-blue-500/40 transition-all cursor-pointer card-interactive space-y-2.5"
+              className="p-4 rounded-xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-elevated)]/60 to-[var(--surface)] hover:border-amber-500/40 hover:shadow-md transition-all cursor-pointer card-interactive space-y-3"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{item.id}</span>
+                <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">
+                  {item.id}
+                </span>
                 <DecisionBadge decision={item.decision} size="sm" />
               </div>
-              <div className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">{item.reason}</div>
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] text-[11px] gap-2">
-                <span className="font-mono font-semibold text-[var(--text-primary)]">{item.amount}</span>
+              <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
+                {item.reason}
+              </p>
+              <div className="flex items-center justify-between pt-2.5 border-t border-[var(--border)] text-[11px] gap-2">
+                <span className="font-mono font-bold text-sm text-[var(--text-primary)]">{item.amount}</span>
                 <div className="flex items-center gap-2">
                   {item.decision === "BLOCK" && (
                     <Link
                       href="/fraud-rings"
                       onClick={(e) => e.stopPropagation()}
-                      className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] font-semibold hover:bg-rose-500/20 transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] font-semibold hover:bg-rose-500/20 transition-colors"
                     >
                       Explore Ring →
                     </Link>
@@ -437,7 +477,7 @@ export default function DashboardPage() {
                     <Link
                       href="/returns"
                       onClick={(e) => e.stopPropagation()}
-                      className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-[10px] font-semibold hover:bg-orange-500/20 transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-[10px] font-semibold hover:bg-orange-500/20 transition-colors"
                     >
                       Inspect Return →
                     </Link>
@@ -446,7 +486,7 @@ export default function DashboardPage() {
                     <Link
                       href="/transactions?preset=preset_price_arbitrage"
                       onClick={(e) => e.stopPropagation()}
-                      className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-semibold hover:bg-amber-500/20 transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-semibold hover:bg-amber-500/20 transition-colors"
                     >
                       Score in Analyzer →
                     </Link>
@@ -455,12 +495,12 @@ export default function DashboardPage() {
                     <Link
                       href="/transactions?preset=preset_normal_buyer"
                       onClick={(e) => e.stopPropagation()}
-                      className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold hover:bg-emerald-500/20 transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold hover:bg-emerald-500/20 transition-colors"
                     >
                       Verify Profile →
                     </Link>
                   )}
-                  <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-0.5">
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-0.5 hover:underline">
                     <span>Inspect</span>
                     <ArrowRight className="w-3 h-3" />
                   </span>
@@ -472,8 +512,8 @@ export default function DashboardPage() {
       </div>
 
 
-      {/* Flagged Transactions Queue */}
-      <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
+      {/* Flagged Transactions Queue & Incident Triage Deck */}
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div>

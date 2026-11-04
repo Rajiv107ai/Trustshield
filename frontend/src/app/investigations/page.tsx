@@ -402,40 +402,52 @@ function InvestigationsContent() {
   return (
     <div className="space-y-6">
       {/* Top Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
-            <FileSearch className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Autonomous Fraud Investigation &amp; Case Forensics</span>
-          </h1>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Autonomous multi-agent fraud investigation with real-time graph neighbor traversal, sliding-window velocity profiling, and cryptographically signed dispute briefs.
-          </p>
-        </div>
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--surface-elevated)]/90 via-[var(--surface)] to-[var(--surface-elevated)]/90 p-6 shadow-sm">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-600 dark:text-blue-400 text-xs font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                </span>
+                <span>Autonomous Investigation Agents · Phase 3 Active</span>
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text-primary)] flex items-center gap-2.5">
+              <FileSearch className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <span>Autonomous Fraud Investigation &amp; Case Forensics</span>
+            </h1>
+            <p className="text-xs text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+              Autonomous multi-agent fraud investigation with real-time graph neighbor traversal, sliding-window velocity profiling, and cryptographically signed dispute briefs.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportJson}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-primary)] transition-colors focus-ring cursor-pointer"
-            title="Download full JSON evidence report"
-          >
-            <Download className="w-3.5 h-3.5 text-blue-500" />
-            <span>Export Case JSON</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={handleExportJson}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-xs font-semibold text-[var(--text-primary)] transition-all focus-ring cursor-pointer shadow-xs"
+              title="Download full JSON evidence report"
+            >
+              <Download className="w-3.5 h-3.5 text-blue-500" />
+              <span>Export Case JSON</span>
+            </button>
 
-          <button
-            onClick={handlePrintDossier}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-primary)] transition-colors focus-ring cursor-pointer"
-            title="Print printable evidence dossier"
-          >
-            <Printer className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-            <span>Print Report</span>
-          </button>
+            <button
+              onClick={handlePrintDossier}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-xs font-semibold text-[var(--text-primary)] transition-all focus-ring cursor-pointer shadow-xs"
+              title="Print printable evidence dossier"
+            >
+              <Printer className="w-3.5 h-3.5 text-blue-500" />
+              <span>Print Dossier</span>
+            </button>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-xs font-mono">
-            <Bot className="w-3.5 h-3.5 text-indigo-500" />
-            <span className="text-[var(--text-muted)]">Copilot:</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Autonomous v2.4</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-xs font-mono shadow-xs">
+              <Bot className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="text-[var(--text-muted)]">Copilot:</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Autonomous v2.4</span>
+            </div>
           </div>
         </div>
       </div>

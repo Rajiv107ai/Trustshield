@@ -367,35 +367,47 @@ function TrustGraphContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
-            <GitBranch className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            <span>Multi-Relational Trust Graph Canvas</span>
-          </h1>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Interactive multi-entity relational canvas mapping Buyers, Merchants, Hardware Devices, Cards, and Shipping Addresses.
-          </p>
-        </div>
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--surface-elevated)]/90 via-[var(--surface)] to-[var(--surface-elevated)]/90 p-6 shadow-sm">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-600 dark:text-purple-400 text-xs font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500" />
+                </span>
+                <span>Relational Knowledge Graph · Phase 3 Active</span>
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text-primary)] flex items-center gap-2.5">
+              <GitBranch className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <span>Multi-Relational Trust Graph Canvas</span>
+            </h1>
+            <p className="text-xs text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+              Interactive multi-entity relational canvas mapping Buyers, Merchants, Hardware Devices, Cards, and Shipping Addresses.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/fraud-rings"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-primary)] transition-colors shadow-sm focus-ring"
-            title="Inspect Bipartite Collusion Clusters"
-          >
-            <Network className="w-3.5 h-3.5 text-purple-500" />
-            <span>Collusion Rings</span>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link
+              href="/fraud-rings"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-purple-500/25 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-bold text-purple-600 dark:text-purple-400 transition-all shadow-xs"
+              title="Inspect Bipartite Collusion Clusters"
+            >
+              <Network className="w-3.5 h-3.5" />
+              <span>Collusion Rings</span>
+            </Link>
 
-          <Link
-            href="/investigations"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-colors shadow-sm focus-ring"
-            title="Open Case Dossier Studio"
-          >
-            <span>Dossier Studio</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+            <Link
+              href="/investigations"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs font-bold text-white transition-all shadow-md shadow-blue-500/20 focus-ring"
+              title="Open Case Dossier Studio"
+            >
+              <span>Dossier Studio</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
 

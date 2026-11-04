@@ -207,46 +207,53 @@ function TransactionAnalyzerContent() {
   return (
     <div className="space-y-6">
       {/* Page Header with Cross-Workflow Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--surface-elevated)]/90 via-[var(--surface)] to-[var(--surface-elevated)]/90 p-6 shadow-sm">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-600 dark:text-blue-400 text-xs font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                </span>
+                <span>Production Scoring Engine · Phase 3 Active</span>
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
               Risk Analyzer &amp; Inference Studio
             </h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
-              PHASE 3 ACTIVE
-            </span>
+            <p className="text-xs text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+              Real-time multi-signal scoring combining tabular attributes, NetworkX graph centrality, and conformal risk bounds.
+            </p>
           </div>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Real-time multi-signal scoring combining tabular attributes, NetworkX graph centrality, and conformal risk bounds.
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/investigations?order_id=${formData.order_id || 'ORD_SIM_SAFE_01'}`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors"
-            title="Create or view investigation case dossier"
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Open in Dossier Studio</span>
-          </Link>
-          <Link
-            href="/fraud-rings"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] text-xs font-medium transition-colors"
-            title="Analyze graph collusion topology"
-          >
-            <Network className="w-3.5 h-3.5" />
-            <span>Inspect Graph Rings</span>
-          </Link>
-          <Link
-            href="/transactions/feed"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] text-xs font-medium transition-colors"
-            title="Live audit stream"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span>Live Feed</span>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link
+              href={`/investigations?order_id=${formData.order_id || 'ORD_SIM_SAFE_01'}`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-purple-500/25 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-all shadow-xs"
+              title="Create or view investigation case dossier"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Open in Dossier Studio</span>
+            </Link>
+            <Link
+              href="/fraud-rings"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] text-xs font-semibold transition-all shadow-xs"
+              title="Analyze graph collusion topology"
+            >
+              <Network className="w-3.5 h-3.5" />
+              <span>Inspect Graph Rings</span>
+            </Link>
+            <Link
+              href="/transactions/feed"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] text-xs font-semibold transition-all shadow-xs"
+              title="Live audit stream"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Live Feed</span>
+            </Link>
+          </div>
         </div>
       </div>
       
@@ -295,52 +302,83 @@ function TransactionAnalyzerContent() {
       {/* 2. HERO DECISION BANNER & TRUST SCORE GAUGE */}
       {/* BEGIN GENERATED */}
       {result && (
-        <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md transition-all">
+        <div
+          className={`p-6 rounded-2xl border shadow-lg transition-all relative overflow-hidden ${
+            result.decision === "BLOCK"
+              ? "border-rose-500/40 bg-gradient-to-r from-rose-500/10 via-[var(--surface)] to-[var(--surface)]"
+              : result.decision === "HOLD"
+              ? "border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-[var(--surface)] to-[var(--surface)]"
+              : result.decision === "REVIEW"
+              ? "border-blue-500/40 bg-gradient-to-r from-blue-500/10 via-[var(--surface)] to-[var(--surface)]"
+              : "border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-[var(--surface)] to-[var(--surface)]"
+          }`}
+        >
+          <div
+            className={`absolute top-0 left-0 right-0 h-[2px] ${
+              result.decision === "BLOCK"
+                ? "bg-rose-500"
+                : result.decision === "HOLD"
+                ? "bg-amber-500"
+                : result.decision === "REVIEW"
+                ? "bg-blue-500"
+                : "bg-emerald-500"
+            }`}
+          />
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             {/* Left: Decision Badge & Summary */}
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] shrink-0">
-                <ShieldAlert className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div
+                className={`p-3.5 rounded-2xl border shrink-0 shadow-sm ${
+                  result.decision === "BLOCK"
+                    ? "bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                    : result.decision === "HOLD"
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                    : result.decision === "REVIEW"
+                    ? "bg-blue-500/15 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                    : "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
+                <ShieldAlert className="w-8 h-8" />
               </div>
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <DecisionBadge decision={result.decision} size="lg" />
-                  <span className="text-xs px-2.5 py-1 rounded-md bg-[var(--surface-elevated)] text-[var(--text-primary)] font-mono font-medium border border-[var(--border)]">
+                  <span className="text-xs px-3 py-1 rounded-full bg-[var(--surface-elevated)] text-[var(--text-primary)] font-mono font-bold border border-[var(--border)]">
                     Calibrated Risk: {(result.overall_fraud_probability * 100).toFixed(1)}%
                   </span>
                   {result.risk_interval && (
-                    <span className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 font-mono font-semibold border border-blue-500/20" title="95% Conformal Prediction Bounded Interval">
+                    <span className="text-xs px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 font-mono font-semibold border border-blue-500/25" title="95% Conformal Prediction Bounded Interval">
                       95% Interval: [{(result.risk_interval[0] * 100).toFixed(1)}%, {(result.risk_interval[1] * 100).toFixed(1)}%]
                     </span>
                   )}
                   {result.cold_start && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono font-medium">
                       Cold Start Account
                     </span>
                   )}
                 </div>
                 <div className="text-xs text-[var(--text-secondary)] font-mono pt-1">
-                  Order ID: <span className="text-[var(--text-primary)] font-semibold">{result.order_id}</span> · Model:{" "}
-                  <span className="text-blue-600 dark:text-blue-400">{result.model_used}</span>
+                  Order ID: <span className="text-[var(--text-primary)] font-bold">{result.order_id}</span> · Model:{" "}
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold">{result.model_used}</span>
                 </div>
               </div>
             </div>
 
             {/* Right: Dual Risk Metric Gauges */}
-            <div className="flex items-center gap-6 self-start lg:self-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-4 lg:pt-0 lg:pl-6">
+            <div className="flex items-center gap-8 self-start lg:self-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-4 lg:pt-0 lg:pl-8">
               {/* Trust Score (0-100) */}
               <div className="text-center">
-                <div className="text-[11px] font-medium text-[var(--text-muted)]">Trust Score</div>
+                <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Trust Score</div>
                 <div className="text-3xl font-extrabold font-mono mt-1 text-[var(--text-primary)]">
                   {result.trust_score.toFixed(1)}
                   <span className="text-xs font-normal text-[var(--text-muted)]"> / 100</span>
                 </div>
-                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">Calibrated Fidelity</div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-bold">Calibrated Fidelity</div>
               </div>
 
               {/* Epistemic Confidence */}
               <div className="text-center">
-                <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] tracking-wider">
+                <div className="text-[11px] font-semibold uppercase font-mono text-[var(--text-muted)] tracking-wider">
                   AI Confidence
                 </div>
                 <div className="text-3xl font-extrabold font-mono mt-1 text-blue-600 dark:text-blue-400">
@@ -399,35 +437,35 @@ function TransactionAnalyzerContent() {
       {activeTab === "score" && (
         <div className="space-y-6">
           {/* 1. SCENARIO PRESETS TOOLBAR */}
-      <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-3 sticky top-16 z-20 backdrop-blur-md">
+      <div className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/90 shadow-md space-y-3 sticky top-16 z-20 backdrop-blur-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-500" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+            <h2 className="text-sm font-bold text-[var(--text-primary)]">
               Interactive Evaluation Presets
             </h2>
           </div>
-          <span className="text-[11px] text-[var(--text-secondary)]">Click any verified scenario to test model response</span>
+          <span className="text-[11px] text-[var(--text-secondary)] font-medium">Click any verified scenario to test model response</span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {SCENARIO_PRESETS.map((preset) => {
             const isSelected = activePresetId === preset.id;
             return (
               <button
                 key={preset.id}
                 onClick={() => handleSelectPreset(preset)}
-                className={`p-3 rounded-lg border text-left transition-all ${
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   isSelected
-                    ? "bg-[var(--surface-elevated)] border-blue-500 shadow-sm ring-1 ring-blue-500/30"
-                    : "bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-elevated)]"
+                    ? "bg-[var(--surface-elevated)] border-blue-500 shadow-md ring-2 ring-blue-500/25"
+                    : "bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-elevated)] hover:border-blue-500/30"
                 }`}
               >
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-semibold text-[var(--text-primary)] truncate">{preset.label}</span>
+                  <span className="text-xs font-bold text-[var(--text-primary)] truncate">{preset.label}</span>
                   <DecisionBadge decision={preset.decision} size="sm" showIcon={false} />
                 </div>
-                <p className="text-[11px] text-[var(--text-secondary)] mt-1.5 line-clamp-2 leading-tight">
+                <p className="text-[11px] text-[var(--text-secondary)] mt-1.5 line-clamp-2 leading-relaxed">
                   {preset.description}
                 </p>
               </button>

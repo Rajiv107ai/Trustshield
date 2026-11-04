@@ -89,22 +89,32 @@ export default function PlatformOverviewPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header Banner */}
-      <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
+      {/* Platform Architecture Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--surface-elevated)]/90 via-[var(--surface)] to-[var(--surface-elevated)]/90 p-8 shadow-sm space-y-6">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-600 dark:text-blue-400 text-xs font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                </span>
+                <span>Production Architecture · Phase 3 Active</span>
+              </span>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">
               Platform Architecture &amp; Engine Overview
             </h1>
-            <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-2xl">
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-2xl leading-relaxed">
               Sub-15ms calibrated inference, temporal bipartite graph topology, multimodal catalog integrity, and finite-sample conformal prediction sets.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow-sm focus-ring"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all card-interactive focus-ring"
             >
               <ShieldAlert className="w-4 h-4" />
               <span>Open Command Center</span>
@@ -113,7 +123,7 @@ export default function PlatformOverviewPage() {
 
             <button
               onClick={openTour}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-xs font-medium text-[var(--text-primary)] transition-colors focus-ring cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-xs font-semibold text-[var(--text-primary)] transition-all focus-ring cursor-pointer shadow-xs"
             >
               <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
               <span>Interactive Tour</span>
@@ -123,21 +133,21 @@ export default function PlatformOverviewPage() {
 
         {/* 4 Quick Stat Badges */}
         <div className="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs border-t border-[var(--border)]">
-          <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+          <div className="p-3.5 rounded-xl bg-[var(--surface-elevated)]/70 border border-[var(--border)] hover:border-emerald-500/30 transition-all">
             <span className="text-[11px] text-[var(--text-muted)] font-medium block">Inference Speed</span>
-            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{"< 15ms P95"}</span>
+            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 block">{"< 15ms P95"}</span>
           </div>
-          <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+          <div className="p-3.5 rounded-xl bg-[var(--surface-elevated)]/70 border border-[var(--border)] hover:border-blue-500/30 transition-all">
             <span className="text-[11px] text-[var(--text-muted)] font-medium block">Decision Rigor</span>
-            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">Cost-Loss Bayes</span>
+            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 mt-0.5 block">Cost-Loss Bayes</span>
           </div>
-          <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+          <div className="p-3.5 rounded-xl bg-[var(--surface-elevated)]/70 border border-[var(--border)] hover:border-purple-500/30 transition-all">
             <span className="text-[11px] text-[var(--text-muted)] font-medium block">Certainty Bound</span>
-            <span className="text-sm font-bold text-purple-600 dark:text-purple-400">{/* BEGIN GENERATED */} 95.0% Guaranteed {/* END GENERATED */}</span>
+            <span className="text-sm font-bold text-purple-600 dark:text-purple-400 mt-0.5 block">{/* BEGIN GENERATED */} 95.0% Guaranteed {/* END GENERATED */}</span>
           </div>
-          <div className="p-2.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+          <div className="p-3.5 rounded-xl bg-[var(--surface-elevated)]/70 border border-[var(--border)] hover:border-cyan-500/30 transition-all">
             <span className="text-[11px] text-[var(--text-muted)] font-medium block">Deployment</span>
-            <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">Single Container</span>
+            <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400 mt-0.5 block">Single Container</span>
           </div>
         </div>
       </div>
@@ -153,19 +163,19 @@ export default function PlatformOverviewPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Module 1: Calibrated Cost-Loss Decision Engine */}
-          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-blue-500/40 transition-all space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
+          <div className="p-6 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-elevated)]/60 to-[var(--surface)] hover:border-blue-500/40 hover:shadow-lg transition-all space-y-4 flex flex-col justify-between card-interactive">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-xs">
                   <Scale className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/25 font-semibold">
                   Risk Operations
                 </span>
               </div>
-              <h3 className="text-sm font-bold text-[var(--text-primary)]">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">
                 Calibrated Cost-Loss Decision Engine
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -175,11 +185,11 @@ export default function PlatformOverviewPage() {
               </p>
             </div>
 
-            <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between">
-              <span className="text-[11px] font-mono text-[var(--text-muted)]">Sub-15ms Scoring</span>
+            <div className="pt-3 border-t border-[var(--border)] flex items-center justify-between">
+              <span className="text-[11px] font-mono text-[var(--text-muted)]">Sub-15ms Real-Time SLA</span>
               <Link
                 href="/transactions"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
               >
                 <span>Open Risk Analyzer</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -188,17 +198,17 @@ export default function PlatformOverviewPage() {
           </div>
 
           {/* Module 2: Temporal Graph Topology */}
-          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-purple-500/40 transition-all space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
+          <div className="p-6 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-elevated)]/60 to-[var(--surface)] hover:border-purple-500/40 hover:shadow-lg transition-all space-y-4 flex flex-col justify-between card-interactive">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-xs">
                   <Network className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 font-semibold">
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/25 font-semibold">
                   Forensics &amp; Rings
                 </span>
               </div>
-              <h3 className="text-sm font-bold text-[var(--text-primary)]">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">
                 Temporal Graph Topology &amp; Collusion Rings
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -208,11 +218,11 @@ export default function PlatformOverviewPage() {
               </p>
             </div>
 
-            <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between">
+            <div className="pt-3 border-t border-[var(--border)] flex items-center justify-between">
               <span className="text-[11px] font-mono text-[var(--text-muted)]">708 Detected Rings</span>
               <Link
                 href="/fraud-rings"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline"
               >
                 <span>Explore Fraud Rings</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -221,17 +231,17 @@ export default function PlatformOverviewPage() {
           </div>
 
           {/* Module 3: Multimodal Catalog & Return Abuse */}
-          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-emerald-500/40 transition-all space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
+          <div className="p-6 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-elevated)]/60 to-[var(--surface)] hover:border-emerald-500/40 hover:shadow-lg transition-all space-y-4 flex flex-col justify-between card-interactive">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs">
                   <Layers className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-semibold">
                   Catalog &amp; Returns
                 </span>
               </div>
-              <h3 className="text-sm font-bold text-[var(--text-primary)]">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">
                 Multimodal Catalog &amp; Return Abuse Defense
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -240,37 +250,37 @@ export default function PlatformOverviewPage() {
               </p>
             </div>
 
-            <div className="pt-2 border-t border-[var(--border)] flex items-center gap-3">
+            <div className="pt-3 border-t border-[var(--border)] flex items-center gap-3">
               <Link
                 href="/listings"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
               >
                 <span>Listing Intelligence</span>
-                <ArrowRight className="w-3 h-3" />
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
               <span className="text-[var(--text-muted)]">·</span>
               <Link
                 href="/returns"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
               >
                 <span>Return Abuse Studio</span>
-                <ArrowRight className="w-3 h-3" />
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
 
           {/* Module 4: TreeSHAP & Conformal Sets */}
-          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-amber-500/40 transition-all space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
+          <div className="p-6 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-elevated)]/60 to-[var(--surface)] hover:border-amber-500/40 hover:shadow-lg transition-all space-y-4 flex flex-col justify-between card-interactive">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
                   <FileText className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-semibold">
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-semibold">
                   Case Forensics
                 </span>
               </div>
-              <h3 className="text-sm font-bold text-[var(--text-primary)]">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">
                 Autonomous Multi-Agent Case Dossiers
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -279,11 +289,11 @@ export default function PlatformOverviewPage() {
               </p>
             </div>
 
-            <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between">
+            <div className="pt-3 border-t border-[var(--border)] flex items-center justify-between">
               <span className="text-[11px] font-mono text-[var(--text-muted)]">Signed Dispute Briefs</span>
               <Link
                 href="/investigations"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
               >
                 <span>Case Dossier Studio</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -294,7 +304,7 @@ export default function PlatformOverviewPage() {
       </div>
 
       {/* Interactive Scenario Preview Card */}
-      <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[radial-gradient(ellipse_at_top_right,rgba(56,117,246,0.1),transparent_50%)] bg-[var(--surface)] p-6 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
           <div>
             <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
