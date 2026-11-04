@@ -52,3 +52,5 @@ models/release_manifest.json
 scripts/seed_graph.cypher
 scripts/seed_redis.txt
 
+
+scratch/

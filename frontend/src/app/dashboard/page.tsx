@@ -6,6 +6,7 @@ import { useViewMode } from "@/context/ViewModeContext";
 import { TrustShieldApi } from "@/lib/api/client";
 import { DecisionBadge } from "@/components/ui/DecisionBadge";
 import { StatCard } from "@/components/ui/StatCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ShieldAlert,
   Zap,
@@ -77,7 +78,9 @@ const AI_BREAKDOWNS = [
 export default function DashboardPage() {
   const { viewMode, isLive, readyInfo } = useViewMode();
   const { openTour } = useGuide();
-  const [activeTab, setActiveTab] = useState<"triage" | "telemetry" | "methodology">("triage");
+  const [secondaryTab, setSecondaryTab] = useState<"analytics" | "methodology" | "none">("analytics");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [streamStatus, setStreamStatus] = useState<"LIVE" | "SIMULATION" | "CONNECTING" | "DISCONNECTED" | "RECONNECTING" | "OFFLINE">("CONNECTING");
   const [showRiskGuide, setShowRiskGuide] = useState<boolean>(true);
   const [guideExpanded, setGuideExpanded] = useState<boolean>(true);
@@ -284,7 +287,7 @@ export default function DashboardPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("methodology")}
+            onClick={() => setSecondaryTab("methodology")}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring cursor-pointer"
             title="View Risk Evaluation Principles & Methodology"
           >
@@ -303,48 +306,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Dashboard Top-Level Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-px select-none">
-        <button
-          onClick={() => setActiveTab("triage")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-            activeTab === "triage"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
-              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
-          }`}
-        >
-          <ShieldAlert className="w-3.5 h-3.5" />
-          <span>Priority Triage &amp; Risk Queue</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
-            3 Actionable
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab("telemetry")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-            activeTab === "telemetry"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
-              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
-          }`}
-        >
-          <Activity className="w-3.5 h-3.5" />
-          <span>Platform Telemetry &amp; Routing</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("methodology")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-            activeTab === "methodology"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
-              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Risk Principles &amp; Governance</span>
-        </button>
-      </div>
       {/* TAB 1: PRIORITY TRIAGE & RISK QUEUE */}
-      {activeTab === "triage" && (
-        <div className="space-y-6">
+      {/* Main Operational Console Flow */}
       {/* Core Key Metrics Row */}
       {/* BEGIN GENERATED */}
       {viewMode === "executive" ? (
@@ -624,7 +587,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)] text-xs">
-                {displayedTransactions.map((tx, idx) => {
+                {displayedTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((tx, idx) => {
                   const meta = DECISION_META[tx.decision] ?? DECISION_META.ALLOW;
                   return (
                     <tr
@@ -693,7 +656,7 @@ export default function DashboardPage() {
               </thead>
               {/* BEGIN GENERATED */}
               <tbody className="divide-y divide-[var(--border)] text-xs font-mono">
-                {displayedTransactions.map((tx, idx) => {
+                {displayedTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((tx, idx) => {
                   const probPercent = (tx.calibratedProb * 100).toFixed(1);
                   return (
                     <tr
@@ -784,14 +747,81 @@ export default function DashboardPage() {
               {/* END GENERATED */}
             </table>
           )}
+          {displayedTransactions.length === 0 && (
+            <EmptyState
+              title="No Transactions Match Filter"
+              description="No incoming transactions match the selected operational decision filter. Click ALL to view the full priority queue."
+              actionLabel="View All Transactions"
+              onAction={() => setDecisionFilter("ALL")}
+            />
+          )}
         </div>
+
+        {/* Pagination bar */}
+        {displayedTransactions.length > pageSize && (
+          <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs font-mono text-[var(--text-secondary)]">
+            <div>
+              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, displayedTransactions.length)} of {displayedTransactions.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-2.5 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-primary)] disabled:opacity-50 hover:bg-[var(--surface)] transition-colors cursor-pointer"
+              >
+                Previous
+              </button>
+              <span>{currentPage} / {Math.ceil(displayedTransactions.length / pageSize)}</span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(displayedTransactions.length / pageSize), p + 1))}
+                disabled={currentPage >= Math.ceil(displayedTransactions.length / pageSize)}
+                className="px-2.5 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-primary)] disabled:opacity-50 hover:bg-[var(--surface)] transition-colors cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* Secondary Forensic Analytics & Methodology Tab Strip */}
+      <div className="pt-4 border-t border-[var(--border)] space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 border-b border-[var(--border)] pb-px select-none">
+            <button
+              onClick={() => setSecondaryTab("analytics")}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+                secondaryTab === "analytics"
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+                  : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Telemetry &amp; Decision Routing</span>
+            </button>
+            <button
+              onClick={() => setSecondaryTab("methodology")}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+                secondaryTab === "methodology"
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+                  : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Risk Principles &amp; Governance</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => setSecondaryTab((s) => (s === "none" ? "analytics" : "none"))}
+            className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] font-mono transition-colors"
+          >
+            {secondaryTab === "none" ? "Expand Telemetry Panels ▼" : "Collapse Telemetry Panels ▲"}
+          </button>
         </div>
-      )}
 
       {/* TAB 2: PLATFORM TELEMETRY & ROUTING */}
-      {activeTab === "telemetry" && (
+      {secondaryTab === "analytics" && (
         <div className="space-y-6">
       {/* Sub-System Health Telemetry (Lean Architecture Grounded) */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -998,7 +1028,7 @@ export default function DashboardPage() {
       )}
 
       {/* TAB 3: RISK PRINCIPLES & GOVERNANCE */}
-      {activeTab === "methodology" && (
+      {secondaryTab === "methodology" && (
         <div className="space-y-6">
       {/* Guided Orientation Banner: "How TrustShield Evaluates Risk" */}
       {showRiskGuide && (
@@ -1143,6 +1173,7 @@ export default function DashboardPage() {
 
         </div>
       )}
+      </div>
 
       {/* Transaction Detail Slide-Over Drawer */}
       <TransactionDetailDrawer

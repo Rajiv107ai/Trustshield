@@ -18,6 +18,7 @@ import {
   BarChart2,
 } from "lucide-react";
 import { TrustShieldApi } from "@/lib/api/client";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ChampionChallengerStatusResponse,
   ChampionChallengerComparisonResponse,
@@ -83,7 +84,7 @@ interface RegistryResultsData {
 
 export default function ModelRegistryPage() {
   const [selectedModel, setSelectedModel] = useState("tabular_graph");
-  const [activeTab, setActiveTab] = useState<"canary" | "simulator" | "registry" | "ablations">("canary");
+  const [activeTab, setActiveTab] = useState<"registry" | "canary" | "simulator" | "disagreements" | "ablations">("registry");
   const [resultsData, setResultsData] = useState<RegistryResultsData | null>(null);
 
   // Champion-Challenger State
@@ -322,6 +323,21 @@ export default function ModelRegistryPage() {
       {/* Sub-Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-[var(--border)] pb-px select-none">
         <button
+          onClick={() => setActiveTab("registry")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "registry"
+              ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <Cpu className="w-3.5 h-3.5" />
+          <span>Model Registry</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
+            v2.1.0
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveTab("canary")}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
             activeTab === "canary"
@@ -329,8 +345,8 @@ export default function ModelRegistryPage() {
               : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
           }`}
         >
-          <Activity className="w-3.5 h-3.5" />
-          <span>Canary & Deployment Split</span>
+          <GitCompare className="w-3.5 h-3.5" />
+          <span>Champion / Challenger</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-500/20">
             {statusData ? statusData.deployment_mode : "SHADOW"}
           </span>
@@ -344,23 +360,23 @@ export default function ModelRegistryPage() {
               : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
           }`}
         >
-          <GitCompare className="w-3.5 h-3.5" />
+          <Sparkles className="w-3.5 h-3.5" />
           <span>Dual Model Simulator</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
-            A/B Audit
-          </span>
         </button>
 
         <button
-          onClick={() => setActiveTab("registry")}
+          onClick={() => setActiveTab("disagreements")}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-            activeTab === "registry"
+            activeTab === "disagreements"
               ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 rounded-t-lg"
               : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
           }`}
         >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Model Architecture Specs</span>
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span>Disagreements Audit</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
+            {disagreements.length}
+          </span>
         </button>
 
         <button
@@ -372,7 +388,7 @@ export default function ModelRegistryPage() {
           }`}
         >
           <BarChart2 className="w-3.5 h-3.5" />
-          <span>20-Seed Ablation Benchmarks</span>
+          <span>Ablation Benchmarks</span>
         </button>
       </div>
 
@@ -715,10 +731,24 @@ export default function ModelRegistryPage() {
               </div>
             </div>
           )}
+
+          {!dualComparison && !isScoringDual && (
+            <EmptyState
+              title="Dual Model Inference Simulator"
+              description="Select an evaluation scenario preset or enter custom transaction parameters above, then click 'Run Dual-Model Scoring' to contrast Champion vs Challenger decisions and conformal prediction sets."
+              icon={Sparkles}
+            />
+          )}
         </div>
 
-        {/* Recent Disagreements Audit Trail */}
-        {disagreements.length > 0 && (
+        </div>
+      )}
+
+      {/* TAB 4: DISAGREEMENTS AUDIT */}
+      {activeTab === "disagreements" && (
+        <div className="space-y-6">
+          {/* Recent Disagreements Audit Trail */}
+        {disagreements.length > 0 ? (
           <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3 font-mono text-xs">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
               <div className="flex items-center gap-2">
@@ -759,8 +789,13 @@ export default function ModelRegistryPage() {
               ))}
             </div>
           </div>
+        ) : (
+          <EmptyState
+            title="No Divergent Predictions Detected"
+            description="Champion and Challenger models currently agree on all sampled inference boundaries and conformal prediction sets. Divergences are logged dynamically in real time."
+            icon={CheckCircle2}
+          />
         )}
-
         </div>
       )}
 

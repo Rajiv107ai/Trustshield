@@ -33,3 +33,6 @@ export function TableSkeleton({ rows = 5, cols = 6 }: { rows?: number; cols?: nu
     </div>
   );
 }
+
+export const LoadingSkeleton = TableSkeleton;
+export default TableSkeleton;

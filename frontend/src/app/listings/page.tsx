@@ -6,6 +6,8 @@ import { TrustShieldApi, ApiError, generateIdempotencyKey } from "@/lib/api/clie
 import { ActionReceipt, ListingScoreRequest, ListingScoreResponse } from "@/lib/types/api";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 import { useViewMode } from "@/context/ViewModeContext";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import {
   Tag,
   AlertTriangle,
@@ -347,6 +349,25 @@ export default function ListingIntelligencePage() {
           </div>
         )}
 
+        {loading && !result && (
+          <div className="lg:col-span-2 p-6 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+            <div className="text-xs text-[var(--text-muted)] font-mono mb-3">Running multimodal audit and extracting ViT-B/32 CLIP embeddings...</div>
+            <LoadingSkeleton rows={5} cols={2} />
+          </div>
+        )}
+
+        {!result && !loading && !errorState && (
+          <div className="lg:col-span-2">
+            <EmptyState
+              title="Multimodal Audit Engine Ready"
+              description="Select an audit preset or adjust pricing and asset similarity parameters on the left, then click 'Execute Multimodal Audit' to inspect catalog collision and image-text mismatch."
+              icon={Tag}
+              actionLabel="Audit Current Asset"
+              onAction={() => executeAudit(formData)}
+            />
+          </div>
+        )}
+
         {/* BEGIN GENERATED */}
         {result && (
           <div className="lg:col-span-2 space-y-6">
@@ -559,7 +580,7 @@ export default function ListingIntelligencePage() {
                   </p>
                 </div>
                 <Link
-                  href="/investigations?case_id=CASE-002"
+                  href={`/investigations?case_id=CASE-002&entity_id=${encodeURIComponent(formData.listing_id || "LISTING_CANON_501")}`}
                   className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-sm flex items-center gap-1.5 shrink-0 self-start sm:self-auto transition-colors cursor-pointer"
                 >
                   <span>Open in Investigations</span>

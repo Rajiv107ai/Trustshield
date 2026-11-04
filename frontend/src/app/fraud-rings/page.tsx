@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { TrustShieldApi, ApiError, generateIdempotencyKey } from "@/lib/api/client";
 import { ActionReceipt, FraudRingItem } from "@/lib/types/api";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useViewMode } from "@/context/ViewModeContext";
 import { Search } from "lucide-react";
 import {
   Network,
+  GitBranch,
   ShieldAlert,
   Lock,
   CheckCircle2,
@@ -19,7 +22,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-export default function FraudRingsPage() {
+function FraudRingsContent() {
+  const searchParams = useSearchParams();
   const { isDemo, setDemo, updateSessionApiKey } = useViewMode();
   const [rings, setRings] = useState<FraudRingItem[]>([]);
   const [selectedRing, setSelectedRing] = useState<FraudRingItem | null>(null);
@@ -43,8 +47,21 @@ export default function FraudRingsPage() {
       try {
         const res = await TrustShieldApi.getFraudRings(minRiskThreshold, 50);
         setRings(res.data.rings);
+        const entityParam = searchParams?.get("entity");
+        const ringParam = searchParams?.get("ring_id");
+        if (entityParam) {
+          setSearchQuery(entityParam);
+        }
         if (res.data.rings.length > 0) {
-          setSelectedRing(res.data.rings[0]);
+          let matched = res.data.rings[0];
+          if (ringParam) {
+            const found = res.data.rings.find((r) => r.ring_id.toLowerCase() === ringParam.toLowerCase());
+            if (found) matched = found;
+          } else if (entityParam) {
+            const found = res.data.rings.find((r) => r.members.some((m) => m.toLowerCase().includes(entityParam.toLowerCase())));
+            if (found) matched = found;
+          }
+          setSelectedRing(matched);
         } else {
           setSelectedRing(null);
         }
@@ -122,19 +139,30 @@ export default function FraudRingsPage() {
           </p>
         </div>
 
-        {/* Terminology Banner */}
-        <div className="flex items-center gap-2 text-[10px] font-mono">
-          <span className="px-2.5 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-secondary)]">
-            1. Connected Component
-          </span>
-          <span className="text-[var(--text-muted)]">&rarr;</span>
-          <span className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">
-            2. Candidate Cluster
-          </span>
-          <span className="text-[var(--text-muted)]">&rarr;</span>
-          <span className="px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold">
-            3. Confirmed Collusion Ring
-          </span>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link
+            href="/trust-graph"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-semibold text-purple-600 dark:text-purple-400 transition-colors shadow-sm focus-ring"
+            title="Open Multi-Relational Trust Graph Canvas"
+          >
+            <GitBranch className="w-3.5 h-3.5" />
+            <span>View Trust Graph</span>
+          </Link>
+
+          {/* Terminology Banner */}
+          <div className="hidden sm:flex items-center gap-2 text-[10px] font-mono">
+            <span className="px-2.5 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-secondary)]">
+              1. Connected Component
+            </span>
+            <span className="text-[var(--text-muted)]">&rarr;</span>
+            <span className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">
+              2. Candidate Cluster
+            </span>
+            <span className="text-[var(--text-muted)]">&rarr;</span>
+            <span className="px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold">
+              3. Confirmed Collusion Ring
+            </span>
+          </div>
         </div>
       </div>
 
@@ -525,5 +553,14 @@ export default function FraudRingsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+
+export default function FraudRingsPage() {
+  return (
+    <Suspense fallback={<LoadingSkeleton rows={6} />}>
+      <FraudRingsContent />
+    </Suspense>
   );
 }

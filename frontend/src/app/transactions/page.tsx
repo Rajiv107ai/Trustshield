@@ -34,6 +34,8 @@ import {
   Activity,
 } from "lucide-react";
 import { Suspense } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { RISK_THRESHOLDS } from "@/lib/constants/thresholds";
 
 function TransactionAnalyzerContent() {
@@ -46,6 +48,7 @@ function TransactionAnalyzerContent() {
   // Active form state
   const [formData, setFormData] = useState<TransactionScoreRequest>(initialPreset.payload);
   const [activePresetId, setActivePresetId] = useState<string>(initialPreset.id);
+  const [activeTab, setActiveTab] = useState<"score" | "explain" | "calibration">("score");
   const [loading, setLoading] = useState<boolean>(true);
   const [result, setResult] = useState<TransactionScoreResponse | null>(null);
   const [errorState, setErrorState] = useState<{ message: string; isAuth?: boolean; status?: number } | null>(null);
@@ -208,7 +211,156 @@ function TransactionAnalyzerContent() {
           </Link>
         </div>
       </div>
-      {/* 1. SCENARIO PRESETS TOOLBAR */}
+      
+      {errorState && (
+        <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
+          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold">
+            <ShieldAlert className="w-5 h-5" />
+            <span>
+              {errorState.isAuth
+                ? "Authentication Required (HTTP 401 / 403)"
+                : errorState.status
+                ? `Transaction Scoring Failed (HTTP ${errorState.status})`
+                : "Backend Service Unavailable"}
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-primary)] font-mono leading-relaxed">{errorState.message}</p>
+          <p className="text-[11px] text-[var(--text-secondary)]">
+            The scoring gateway is currently offline or unreachable. Check FastAPI server status on port 8000.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            {errorState.isAuth && (
+              <button
+                type="button"
+                onClick={() => {
+                  updateSessionApiKey("dev-operator-api-key-32chars-long");
+                  executeScore(formData);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              >
+                Reset to Default Dev Key (Operator)
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setDemo(true);
+                executeScore(formData);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-medium transition-colors cursor-pointer"
+            >
+              Enable Offline Simulation Mode
+            </button>
+          </div>
+        </div>
+      )}
+      {/* 2. HERO DECISION BANNER & TRUST SCORE GAUGE */}
+      {/* BEGIN GENERATED */}
+      {result && (
+        <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md transition-all">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            {/* Left: Decision Badge & Summary */}
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] shrink-0">
+                <ShieldAlert className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DecisionBadge decision={result.decision} size="lg" />
+                  <span className="text-xs px-2.5 py-1 rounded-md bg-[var(--surface-elevated)] text-[var(--text-primary)] font-mono font-medium border border-[var(--border)]">
+                    Calibrated Risk: {(result.overall_fraud_probability * 100).toFixed(1)}%
+                  </span>
+                  {result.risk_interval && (
+                    <span className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 font-mono font-semibold border border-blue-500/20" title="95% Conformal Prediction Bounded Interval">
+                      95% Interval: [{(result.risk_interval[0] * 100).toFixed(1)}%, {(result.risk_interval[1] * 100).toFixed(1)}%]
+                    </span>
+                  )}
+                  {result.cold_start && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+                      Cold Start Account
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-[var(--text-secondary)] font-mono pt-1">
+                  Order ID: <span className="text-[var(--text-primary)] font-semibold">{result.order_id}</span> · Model:{" "}
+                  <span className="text-blue-600 dark:text-blue-400">{result.model_used}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Dual Risk Metric Gauges */}
+            <div className="flex items-center gap-6 self-start lg:self-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-4 lg:pt-0 lg:pl-6">
+              {/* Trust Score (0-100) */}
+              <div className="text-center">
+                <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] tracking-wider">Trust Score</div>
+                <div className="text-3xl font-extrabold font-mono mt-1 text-[var(--text-primary)]">
+                  {result.trust_score.toFixed(1)}
+                  <span className="text-xs font-normal text-[var(--text-muted)]"> / 100</span>
+                </div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">Calibrated Fidelity</div>
+              </div>
+
+              {/* Epistemic Confidence */}
+              <div className="text-center">
+                <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] tracking-wider">
+                  AI Confidence
+                </div>
+                <div className="text-3xl font-extrabold font-mono mt-1 text-blue-600 dark:text-blue-400">
+                  {(result.confidence * 100).toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">
+                  Entropy: {result.predictive_uncertainty ?? 0.08}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* END GENERATED */}
+
+      {/* Tab Strip: Score / Explain / Calibration */}
+      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-px select-none">
+        <button
+          onClick={() => setActiveTab("score")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "score"
+              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>Score &amp; Parameter Matrix</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("explain")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "explain"
+              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>TreeSHAP Attributions &amp; Explanation</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("calibration")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "calibration"
+              ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/5 rounded-t-lg"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Conformal Bounds &amp; Calibration</span>
+        </button>
+      </div>
+
+      {/* TAB 1: SCORE & PARAMETER MATRIX */}
+      {activeTab === "score" && (
+        <div className="space-y-6">
+          {/* 1. SCENARIO PRESETS TOOLBAR */}
       <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-3 sticky top-16 z-20 backdrop-blur-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -246,11 +398,9 @@ function TransactionAnalyzerContent() {
         </div>
       </div>
 
-      {/* 2-COLUMN ANALYST WORKSPACE (SPLIT-SCREEN) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: PARAMETER INGESTION MATRIX */}
-        <div className="lg:col-span-5 space-y-4">
-      {/* 4. CUSTOM TRANSACTION INPUT FORM (STRUCTURED FIELDSETS) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-8 space-y-4">
+              {/* 4. CUSTOM TRANSACTION INPUT FORM (STRUCTURED FIELDSETS) */}
       <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
           <div>
@@ -419,199 +569,9 @@ function TransactionAnalyzerContent() {
         </form>
       </div>
     </div>
-
-        </div>
-
-        {/* RIGHT COLUMN: DECISION ANALYSIS & EXPLAINABILITY */}
-        <div className="lg:col-span-7 space-y-4">
-      {errorState && (
-        <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
-          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold">
-            <ShieldAlert className="w-5 h-5" />
-            <span>
-              {errorState.isAuth
-                ? "Authentication Required (HTTP 401 / 403)"
-                : errorState.status
-                ? `Transaction Scoring Failed (HTTP ${errorState.status})`
-                : "Backend Service Unavailable"}
-            </span>
-          </div>
-          <p className="text-xs text-[var(--text-primary)] font-mono leading-relaxed">{errorState.message}</p>
-          <p className="text-[11px] text-[var(--text-secondary)]">
-            The scoring gateway is currently offline or unreachable. Check FastAPI server status on port 8000.
-          </p>
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            {errorState.isAuth && (
-              <button
-                type="button"
-                onClick={() => {
-                  updateSessionApiKey("dev-operator-api-key-32chars-long");
-                  executeScore(formData);
-                }}
-                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-              >
-                Reset to Default Dev Key (Operator)
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setDemo(true);
-                executeScore(formData);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] hover:bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-medium transition-colors cursor-pointer"
-            >
-              Enable Offline Simulation Mode
-            </button>
-          </div>
-        </div>
-      )}
-
-
-      {/* 2. HERO DECISION BANNER & TRUST SCORE GAUGE */}
-      {/* BEGIN GENERATED */}
-      {result && (
-        <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md transition-all">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            {/* Left: Decision Badge & Summary */}
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] shrink-0">
-                <ShieldAlert className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <DecisionBadge decision={result.decision} size="lg" />
-                  <span className="text-xs px-2.5 py-1 rounded-md bg-[var(--surface-elevated)] text-[var(--text-primary)] font-mono font-medium border border-[var(--border)]">
-                    Calibrated Risk: {(result.overall_fraud_probability * 100).toFixed(1)}%
-                  </span>
-                  {result.risk_interval && (
-                    <span className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 font-mono font-semibold border border-blue-500/20" title="95% Conformal Prediction Bounded Interval">
-                      95% Interval: [{(result.risk_interval[0] * 100).toFixed(1)}%, {(result.risk_interval[1] * 100).toFixed(1)}%]
-                    </span>
-                  )}
-                  {result.cold_start && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
-                      Cold Start Account
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-[var(--text-secondary)] font-mono pt-1">
-                  Order ID: <span className="text-[var(--text-primary)] font-semibold">{result.order_id}</span> · Model:{" "}
-                  <span className="text-blue-600 dark:text-blue-400">{result.model_used}</span>
-                </div>
-              </div>
             </div>
 
-            {/* Right: Dual Risk Metric Gauges */}
-            <div className="flex items-center gap-6 self-start lg:self-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-4 lg:pt-0 lg:pl-6">
-              {/* Trust Score (0-100) */}
-              <div className="text-center">
-                <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] tracking-wider">Trust Score</div>
-                <div className="text-3xl font-extrabold font-mono mt-1 text-[var(--text-primary)]">
-                  {result.trust_score.toFixed(1)}
-                  <span className="text-xs font-normal text-[var(--text-muted)]"> / 100</span>
-                </div>
-                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">Calibrated Fidelity</div>
-              </div>
-
-              {/* Epistemic Confidence */}
-              <div className="text-center">
-                <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] tracking-wider">
-                  AI Confidence
-                </div>
-                <div className="text-3xl font-extrabold font-mono mt-1 text-blue-600 dark:text-blue-400">
-                  {(result.confidence * 100).toFixed(0)}%
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">
-                  Entropy: {result.predictive_uncertainty ?? 0.08}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* END GENERATED */}
-
-
-      {/* 3. DUAL VIEW: EXECUTIVE STORY VIEW vs DEEP AI INSPECTOR */}
-      {result && (
-        <>
-          {viewMode === "executive" ? (
-            /* EXECUTIVE STORY VIEW */
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left 2 Cols: Why AI Flagged This */}
-              <div className="lg:col-span-2 p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-blue-500" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                      Why The AI Flagged This (Plain-English Threat Story)
-                    </h3>
-                  </div>
-                  <span className="text-[11px] text-[var(--text-secondary)] font-mono">
-                    {result.reason_codes.length} active risk indicators
-                  </span>
-                </div>
-
-                {result.reason_codes.length === 0 ? (
-                  <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-[var(--text-primary)] flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <div>
-                      <div className="font-semibold text-emerald-600 dark:text-emerald-400">Clean Transaction Profile</div>
-                      <div className="text-[var(--text-secondary)] mt-0.5">
-                        No hardware collision, price anomaly, or graph collusion anomalies detected. Transaction fits historical baseline patterns.
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {result.reason_codes.map((code) => {
-                      const trans = REASON_CODE_TRANSLATIONS[code] || {
-                        title: code,
-                        explanation: "Algorithmic risk detector flagged abnormal variance.",
-                        severity: "warning",
-                      };
-                      return (
-                        <div
-                          key={code}
-                          className={`p-3.5 rounded-lg border text-xs ${
-                            trans.severity === "critical"
-                              ? "bg-rose-500/10 border-rose-500/20 text-[var(--text-primary)]"
-                              : "bg-amber-500/10 border-amber-500/20 text-[var(--text-primary)]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 font-bold font-mono">
-                            {trans.severity === "critical" ? (
-                              <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                            ) : (
-                              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                            )}
-                            <span>{trans.title}</span>
-                            <span className="text-[10px] font-mono text-[var(--text-muted)]">({code})</span>
-                          </div>
-                          <div className="text-[11px] text-[var(--text-secondary)] mt-1 pl-6 leading-relaxed">
-                            {trans.explanation}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Plain English Business Action Recommendation */}
-                <div className="pt-2 border-t border-[var(--border)]">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase">Operations Recommendation:</div>
-                  <div className="text-xs text-[var(--text-primary)] mt-1 leading-relaxed">
-                    {{
-                      ALLOW: "Proceed with automated payment authorization and normal order fulfillment. Expected chargeback probability is negligible.",
-                      REVIEW: "Route transaction to tier-1 fraud queue for manual verification. Call customer or request step-up 3D Secure / OTP authorization.",
-                      HOLD: "Do not dispatch items. Place merchant payout on temporary hold pending return policy validation or buyer ID verification.",
-                      BLOCK: "Decline payment authorization immediately. Freeze associated device fingerprints and add merchant to collusion monitoring queue.",
-                    }[result.decision] || "Algorithmic decision rendered."}
-                  </div>
-                </div>
-              </div>
-
+            <div className="lg:col-span-4 space-y-4">
               {/* Right Col: Operator Action Bar */}
               <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex flex-col justify-between space-y-4">
                 <div>
@@ -701,8 +661,165 @@ function TransactionAnalyzerContent() {
                 )}
               </div>
             </div>
+          </div>
+      )}
+
+      {/* TAB 2: TREESHAP ATTRIBUTIONS & THREAT STORY */}
+      {activeTab === "explain" && (
+        <div className="space-y-6">
+          {result ? (
+            <>
+              <div className="lg:col-span-2 p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-blue-500" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      Why The AI Flagged This (Plain-English Threat Story)
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-[var(--text-secondary)] font-mono">
+                    {result.reason_codes.length} active risk indicators
+                  </span>
+                </div>
+
+                {result.reason_codes.length === 0 ? (
+                  <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-[var(--text-primary)] flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-emerald-600 dark:text-emerald-400">Clean Transaction Profile</div>
+                      <div className="text-[var(--text-secondary)] mt-0.5">
+                        No hardware collision, price anomaly, or graph collusion anomalies detected. Transaction fits historical baseline patterns.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {result.reason_codes.map((code) => {
+                      const trans = REASON_CODE_TRANSLATIONS[code] || {
+                        title: code,
+                        explanation: "Algorithmic risk detector flagged abnormal variance.",
+                        severity: "warning",
+                      };
+                      return (
+                        <div
+                          key={code}
+                          className={`p-3.5 rounded-lg border text-xs ${
+                            trans.severity === "critical"
+                              ? "bg-rose-500/10 border-rose-500/20 text-[var(--text-primary)]"
+                              : "bg-amber-500/10 border-amber-500/20 text-[var(--text-primary)]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 font-bold font-mono">
+                            {trans.severity === "critical" ? (
+                              <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                            ) : (
+                              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                            )}
+                            <span>{trans.title}</span>
+                            <span className="text-[10px] font-mono text-[var(--text-muted)]">({code})</span>
+                          </div>
+                          <div className="text-[11px] text-[var(--text-secondary)] mt-1 pl-6 leading-relaxed">
+                            {trans.explanation}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Plain English Business Action Recommendation */}
+                <div className="pt-2 border-t border-[var(--border)]">
+                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase">Operations Recommendation:</div>
+                  <div className="text-xs text-[var(--text-primary)] mt-1 leading-relaxed">
+                    {{
+                      ALLOW: "Proceed with automated payment authorization and normal order fulfillment. Expected chargeback probability is negligible.",
+                      REVIEW: "Route transaction to tier-1 fraud queue for manual verification. Call customer or request step-up 3D Secure / OTP authorization.",
+                      HOLD: "Do not dispatch items. Place merchant payout on temporary hold pending return policy validation or buyer ID verification.",
+                      BLOCK: "Decline payment authorization immediately. Freeze associated device fingerprints and add merchant to collusion monitoring queue.",
+                    }[result.decision] || "Algorithmic decision rendered."}
+                  </div>
+                </div>
+              </div>
+              {/* Explicit TreeSHAP Attribution Waterfall Section */}
+              <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-indigo-500" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      Exact TreeSHAP Local Feature Attribution Waterfall
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-mono text-[var(--text-secondary)]">
+                    Additive Impact: Red pushes towards fraud, Green pushes towards legitimate
+                  </span>
+                </div>
+
+                {/* BEGIN GENERATED */}
+                {(() => {
+                  // Fallback to computed drivers if backend didn't supply full dict
+                  const shapEntries = result.shap_attributions
+                    ? Object.entries(result.shap_attributions)
+                    : [
+                        ["device_shared_buyer_count", result.decision === "BLOCK" ? 0.38 : 0.02],
+                        ["buyer_return_rate_before", result.decision === "HOLD" ? 0.44 : 0.04],
+                        ["price_vs_category_median_ratio", result.decision === "REVIEW" ? 0.31 : -0.08],
+                        ["buyer_age_days", -0.22],
+                        ["buyer_orders_before", -0.18],
+                      ];
+
+                  return (
+                    <div className="space-y-3 font-mono text-xs">
+                      {shapEntries.map(([feat, phiVal], idx) => {
+                        const val = typeof phiVal === "number" ? phiVal : parseFloat(String(phiVal)) || 0;
+                        const isPositive = val >= 0;
+                        const absPercent = Math.min(100, Math.abs(val) * 120);
+
+                        return (
+                          <div key={idx} className="space-y-1">
+                            <div className="flex justify-between text-[11px]">
+                              <span className="text-[var(--text-primary)] font-semibold">{feat}</span>
+                              <span className={isPositive ? "text-rose-500 font-bold" : "text-emerald-500 font-bold"}>
+                                {isPositive ? `+${val.toFixed(3)}` : val.toFixed(3)} SHAP
+                              </span>
+                            </div>
+                            <div className="h-2 rounded-full bg-[var(--surface-elevated)] overflow-hidden flex border border-[var(--border)]">
+                              {isPositive ? (
+                                <div
+                                  style={{ width: `${absPercent}%` }}
+                                  className="h-full bg-rose-500 transition-all rounded-full"
+                                  title={`Increased risk by +${val.toFixed(3)}`}
+                                />
+                              ) : (
+                                <div
+                                  style={{ width: `${absPercent}%` }}
+                                  className="h-full bg-emerald-500 transition-all rounded-full"
+                                  title={`Reduced risk by ${val.toFixed(3)}`}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                {/* END GENERATED */}
+              </div>
+            </>
           ) : (
-            /* DEEP AI INSPECTOR VIEW */
+            <EmptyState
+              title="No Local Attributions Available"
+              description="Submit a transaction scoring request or select an evaluation preset in the Score tab to generate TreeSHAP local feature attributions and risk explanations."
+              icon={Sparkles}
+            />
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: CONFORMAL UNCERTAINTY & CALIBRATION */}
+      {activeTab === "calibration" && (
+        <div className="space-y-6">
+          {result ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Col 1: Mathematical Risk Decomposition */}
@@ -828,80 +945,18 @@ function TransactionAnalyzerContent() {
                   </div>
                 </div>
               )}
-
-              {/* Explicit TreeSHAP Attribution Waterfall Section */}
-              <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
-                  <div className="flex items-center gap-2">
-                    <BarChart2 className="w-4 h-4 text-indigo-500" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                      Exact TreeSHAP Local Feature Attribution Waterfall
-                    </h3>
-                  </div>
-                  <span className="text-[11px] font-mono text-[var(--text-secondary)]">
-                    Additive Impact: Red pushes towards fraud, Green pushes towards legitimate
-                  </span>
-                </div>
-
-                {/* BEGIN GENERATED */}
-                {(() => {
-                  // Fallback to computed drivers if backend didn't supply full dict
-                  const shapEntries = result.shap_attributions
-                    ? Object.entries(result.shap_attributions)
-                    : [
-                        ["device_shared_buyer_count", result.decision === "BLOCK" ? 0.38 : 0.02],
-                        ["buyer_return_rate_before", result.decision === "HOLD" ? 0.44 : 0.04],
-                        ["price_vs_category_median_ratio", result.decision === "REVIEW" ? 0.31 : -0.08],
-                        ["buyer_age_days", -0.22],
-                        ["buyer_orders_before", -0.18],
-                      ];
-
-                  return (
-                    <div className="space-y-3 font-mono text-xs">
-                      {shapEntries.map(([feat, phiVal], idx) => {
-                        const val = typeof phiVal === "number" ? phiVal : parseFloat(String(phiVal)) || 0;
-                        const isPositive = val >= 0;
-                        const absPercent = Math.min(100, Math.abs(val) * 120);
-
-                        return (
-                          <div key={idx} className="space-y-1">
-                            <div className="flex justify-between text-[11px]">
-                              <span className="text-[var(--text-primary)] font-semibold">{feat}</span>
-                              <span className={isPositive ? "text-rose-500 font-bold" : "text-emerald-500 font-bold"}>
-                                {isPositive ? `+${val.toFixed(3)}` : val.toFixed(3)} SHAP
-                              </span>
-                            </div>
-                            <div className="h-2 rounded-full bg-[var(--surface-elevated)] overflow-hidden flex border border-[var(--border)]">
-                              {isPositive ? (
-                                <div
-                                  style={{ width: `${absPercent}%` }}
-                                  className="h-full bg-rose-500 transition-all rounded-full"
-                                  title={`Increased risk by +${val.toFixed(3)}`}
-                                />
-                              ) : (
-                                <div
-                                  style={{ width: `${absPercent}%` }}
-                                  className="h-full bg-emerald-500 transition-all rounded-full"
-                                  title={`Reduced risk by ${val.toFixed(3)}`}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-                {/* END GENERATED */}
-              </div>
             </div>
+          ) : (
+            <EmptyState
+              title="Calibration Diagnostics Pending"
+              description="Submit a transaction scoring request or select an evaluation preset to view finite-sample conformal prediction bounds and Bayesian probability decompositions."
+              icon={Microscope}
+            />
           )}
-        </>
+        </div>
       )}
 
-
-        </div>
-      </div>
+    </div>
   );
 }
 

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { TrustShieldApi, ApiError } from "@/lib/api/client";
 import { ReturnScoreRequest, ReturnScoreResponse } from "@/lib/types/api";
 import { DecisionBadge } from "@/components/ui/DecisionBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import {
   RotateCcw,
   Zap,
@@ -333,6 +335,23 @@ export default function ReturnAbusePage() {
 
         {/* Results Overview */}
         <div className="lg:col-span-2 space-y-4">
+          {loading && !result && (
+            <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+              <div className="text-xs text-[var(--text-muted)] font-mono mb-3">Evaluating serial return rate and wardrobing behavioral patterns...</div>
+              <LoadingSkeleton rows={4} cols={2} />
+            </div>
+          )}
+
+          {!result && !loading && !errorState && (
+            <EmptyState
+              title="Return Risk Analyzer Ready"
+              description="Select a return scenario preset or input custom return parameters on the left, then click 'Analyze Return Claim' to evaluate serial return abuse and wardrobing risk."
+              icon={RotateCcw}
+              actionLabel="Score Current Claim"
+              onAction={() => executeAnalysis(formData)}
+            />
+          )}
+
           {errorState && (
             <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3">
               <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold">
@@ -412,7 +431,7 @@ export default function ReturnAbusePage() {
                   </p>
                 </div>
                 <Link
-                  href="/investigations"
+                  href={formData.order_id ? `/investigations?order_id=${encodeURIComponent(formData.order_id)}` : "/investigations"}
                   className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-sm flex items-center gap-1.5 shrink-0 self-start sm:self-auto transition-colors cursor-pointer"
                 >
                   <span>Open in Investigations</span>

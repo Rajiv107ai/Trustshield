@@ -9,6 +9,7 @@ import {
   Zap,
   Activity,
   Network,
+  GitBranch,
   Tag,
   RotateCcw,
   FileSearch,
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
     category: "FORENSICS & INTELLIGENCE",
     items: [
       { name: "Fraud Rings", href: "/fraud-rings", icon: Network, badge: "Graph" },
+      { name: "Trust Graph", href: "/trust-graph", icon: GitBranch, badge: "Topology" },
       { name: "Investigation Cases", href: "/investigations", icon: FileSearch },
     ],
   },

@@ -25,13 +25,17 @@ import {
   FileText,
   AlertTriangle,
   Cpu,
+  Layers,
   Terminal,
+  GitBranch,
   ArrowRight,
   Search,
   X,
   ExternalLink,
 } from "lucide-react";
 import { TrustShieldApi, ApiError } from "@/lib/api/client";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import {
   DossierResponse,
   CopilotInvestigationResponse,
@@ -148,7 +152,7 @@ function InvestigationsContent() {
     CASES_DATA[0];
 
   // Tab State: "copilot" | "timeline" | "notes"
-  const [activeTab, setActiveTab] = useState<"copilot" | "timeline" | "notes">("copilot");
+  const [activeTab, setActiveTab] = useState<"overview" | "timeline" | "evidence" | "dossier">("overview");
 
   // Case Filtering State
   const [searchFilter, setSearchFilter] = useState("");
@@ -611,15 +615,15 @@ function InvestigationsContent() {
               {/* View Switcher Tabs */}
               <div className="flex items-center gap-1 p-1 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg">
                 <button
-                  onClick={() => setActiveTab("copilot")}
+                  onClick={() => setActiveTab("overview")}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeTab === "copilot"
+                    activeTab === "overview"
                       ? "bg-blue-600 text-white shadow-sm font-semibold"
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   }`}
                 >
-                  <Bot className="w-3.5 h-3.5" />
-                  <span>Agent Copilot</span>
+                  <FileSearch className="w-3.5 h-3.5" />
+                  <span>Overview</span>
                 </button>
 
                 <button
@@ -631,19 +635,31 @@ function InvestigationsContent() {
                   }`}
                 >
                   <Activity className="w-3.5 h-3.5" />
-                  <span>Evidence Channels</span>
+                  <span>Timeline</span>
                 </button>
 
                 <button
-                  onClick={() => setActiveTab("notes")}
+                  onClick={() => setActiveTab("evidence")}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeTab === "notes"
+                    activeTab === "evidence"
                       ? "bg-blue-600 text-white shadow-sm font-semibold"
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   }`}
                 >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Notes ({notes.length})</span>
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Evidence</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("dossier")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === "dossier"
+                      ? "bg-blue-600 text-white shadow-sm font-semibold"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Dossier</span>
                 </button>
               </div>
             </div>
@@ -664,11 +680,19 @@ function InvestigationsContent() {
                 <ExternalLink className="w-3 h-3" />
               </Link>
               <Link
-                href="/fraud-rings"
+                href={`/fraud-rings?entity=${encodeURIComponent(selectedCase.primaryEntity)}`}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--surface-elevated)] hover:bg-[var(--surface)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus-ring"
-                title="Inspect syndicate topologies"
+                title={`Inspect collusion rings for ${selectedCase.primaryEntity}`}
               >
-                <span>Fraud Rings Graph</span>
+                <span>Fraud Rings</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+              <Link
+                href={`/trust-graph?entity=${encodeURIComponent(selectedCase.primaryEntity)}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--surface-elevated)] hover:bg-[var(--surface)] border border-[var(--border)] text-[11px] font-mono text-purple-600 dark:text-purple-400 transition-colors focus-ring"
+                title={`Explore ${selectedCase.primaryEntity} in Trust Graph Canvas`}
+              >
+                <span>Trust Graph</span>
                 <ExternalLink className="w-3 h-3" />
               </Link>
               <Link
@@ -683,7 +707,7 @@ function InvestigationsContent() {
           </div>
 
           {/* TAB 1: AUTONOMOUS MULTI-AGENT COPILOT VIEW */}
-          {activeTab === "copilot" && (
+          {activeTab === "overview" && (
             <div className="space-y-6">
               {/* Copilot Launcher Control Bar */}
               <div className="p-5 rounded-xl border border-blue-500/30 bg-gradient-to-br from-[var(--surface)] to-blue-500/5 shadow-sm space-y-4">
@@ -1167,8 +1191,58 @@ function InvestigationsContent() {
             </div>
           )}
 
-          {/* TAB 2: CHRONOLOGICAL EVIDENCE & TIMELINE VIEW */}
+          {/* TAB 2: CHRONOLOGICAL EVIDENCE SEQUENCE */}
           {activeTab === "timeline" && (
+            <div className="space-y-6">
+              {/* Chronological Evidence Sequence */}
+              <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
+                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                  Chronological Evidence Sequence
+                </div>
+
+                <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--border)]">
+                  {selectedCase.timeline.map((step, idx) => (
+                    <div key={idx} className="relative flex items-start gap-3">
+                      <span className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-[var(--surface)]" />
+                      <div className="text-xs font-mono">
+                        <span className="text-[var(--text-muted)] mr-2">[{step.time}]</span>
+                        <span className="text-[var(--text-primary)]">{step.event}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: MULTI-DOMAIN EVIDENCE CHANNELS */}
+          {activeTab === "evidence" && (
+            <div className="space-y-6">
+              {/* Evidence Channel Breakdown Cards */}
+              <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
+                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                  Channel-Specific Evidence Dossier
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {[
+                    { title: "1. Transaction Evidence", color: "text-blue-600 dark:text-blue-400", text: selectedCase.evidence.transaction },
+                    { title: "2. Graph Topology Evidence", color: "text-purple-600 dark:text-purple-400", text: selectedCase.evidence.graph },
+                    { title: "3. Behavioral Velocity", color: "text-amber-600 dark:text-amber-400", text: selectedCase.evidence.behavioral },
+                    { title: "4. Multimodal / CLIP Evidence", color: "text-cyan-600 dark:text-cyan-400", text: selectedCase.evidence.multimodal },
+                  ].map((ch) => (
+                    <div key={ch.title} className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+                      <div className={`text-[10px] font-mono font-bold uppercase ${ch.color}`}>{ch.title}</div>
+                      <div className="text-[var(--text-secondary)] mt-1 leading-relaxed">{ch.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: CASE DOSSIER STUDIO */}
+          {activeTab === "dossier" && (
             <div className="space-y-6">
               {/* Telemetry Synthesis Header */}
               <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1208,6 +1282,23 @@ function InvestigationsContent() {
                   </div>
                   <p className="text-xs text-[var(--text-primary)] font-mono">{errorState.message}</p>
                 </div>
+              )}
+
+              {isGenerating && (
+                <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+                  <div className="text-xs text-[var(--text-muted)] font-mono mb-2">Synthesizing deterministic audit pack telemetry...</div>
+                  <LoadingSkeleton rows={4} cols={2} />
+                </div>
+              )}
+
+              {!liveDossier && !isGenerating && (
+                <EmptyState
+                  title="Deterministic Audit Pack Ready for Synthesis"
+                  description="Click 'Synthesize Deterministic Pack' above to execute forensic RAG retrieval, multi-domain Bayesian risk fusion, and generate an audited case report."
+                  icon={Sparkles}
+                  actionLabel="Synthesize Pack Now"
+                  onAction={handleSynthesizeDossier}
+                />
               )}
 
               {/* Live Synthesized Findings Section */}
@@ -1335,51 +1426,11 @@ function InvestigationsContent() {
                   )}
                 </div>
               )}
-
-              {/* Chronological Evidence Sequence */}
-              <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                  Chronological Evidence Sequence
-                </div>
-
-                <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--border)]">
-                  {selectedCase.timeline.map((step, idx) => (
-                    <div key={idx} className="relative flex items-start gap-3">
-                      <span className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-[var(--surface)]" />
-                      <div className="text-xs font-mono">
-                        <span className="text-[var(--text-muted)] mr-2">[{step.time}]</span>
-                        <span className="text-[var(--text-primary)]">{step.event}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Evidence Channel Breakdown Cards */}
-              <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                  Channel-Specific Evidence Dossier
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  {[
-                    { title: "1. Transaction Evidence", color: "text-blue-600 dark:text-blue-400", text: selectedCase.evidence.transaction },
-                    { title: "2. Graph Topology Evidence", color: "text-purple-600 dark:text-purple-400", text: selectedCase.evidence.graph },
-                    { title: "3. Behavioral Velocity", color: "text-amber-600 dark:text-amber-400", text: selectedCase.evidence.behavioral },
-                    { title: "4. Multimodal / CLIP Evidence", color: "text-cyan-600 dark:text-cyan-400", text: selectedCase.evidence.multimodal },
-                  ].map((ch) => (
-                    <div key={ch.title} className="p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
-                      <div className={`text-[10px] font-mono font-bold uppercase ${ch.color}`}>{ch.title}</div>
-                      <div className="text-[var(--text-secondary)] mt-1 leading-relaxed">{ch.text}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
           {/* TAB 3: HUMAN INVESTIGATOR NOTES & CASE TAGGING */}
-          {activeTab === "notes" && (
+          {activeTab === "overview" && (
             <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
                 <div className="flex items-center gap-2">
