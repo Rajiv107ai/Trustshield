@@ -42,28 +42,28 @@ export function DecisionBadge({
   if (norm === "ALLOW") {
     config = {
       label: "ALLOW",
-      classes: "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-semibold",
+      classes: "bg-[var(--allow-bg)] border-[var(--allow-border)] text-emerald-700 dark:text-emerald-400 font-semibold",
       icon: CheckCircle2,
       title: "Automated Checkout Allowed (Low Fraud Risk)",
     };
   } else if (norm === "REVIEW") {
     config = {
       label: "REVIEW",
-      classes: "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 font-semibold",
+      classes: "bg-[var(--review-bg)] border-[var(--review-border)] text-amber-700 dark:text-amber-400 font-semibold",
       icon: Activity,
       title: "Cost-Loss Review Queued (Human Forensic Verification Required)",
     };
   } else if (norm === "HOLD") {
     config = {
       label: "HOLD",
-      classes: "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-400 font-semibold",
+      classes: "bg-[var(--hold-bg)] border-[var(--hold-border)] text-orange-700 dark:text-orange-400 font-semibold",
       icon: AlertTriangle,
       title: "Payment Authorization Hold (Step-Up Authentication Triggered)",
     };
   } else if (norm === "BLOCK") {
     config = {
       label: "BLOCK",
-      classes: "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400 font-semibold",
+      classes: "bg-[var(--block-bg)] border-[var(--block-border)] text-rose-700 dark:text-rose-400 font-semibold",
       icon: XCircle,
       title: "Transaction Blocked (Critical Fraud Likelihood)",
     };

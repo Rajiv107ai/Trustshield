@@ -199,7 +199,7 @@ export default function ListingIntelligencePage() {
       <div className="space-y-2">
         <div className="text-xs font-medium text-[var(--text-secondary)] flex items-center justify-between">
           <span>Test Scenarios (Pre-configured Multimodal Audits)</span>
-          <span className="text-[10px] font-mono text-[#596574]">Click to execute instant audit</span>
+          <span className="text-[10px] font-mono text-[var(--text-muted)]">Click to execute instant audit</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -493,7 +493,7 @@ export default function ListingIntelligencePage() {
                     Similarity: {(result.multimodal_similarity_score * 100).toFixed(1)}%
                   </span>
                 </div>
-                <div className="h-2 rounded-full bg-[#151D27] overflow-hidden flex">
+                <div className="h-2 rounded-full bg-[var(--surface-elevated)] overflow-hidden flex">
                   <div
                     style={{ width: `${Math.min(result.multimodal_similarity_score * 100, 100)}%` }}
                     className={`h-full transition-all duration-500 ${
@@ -505,7 +505,7 @@ export default function ListingIntelligencePage() {
                     }`}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] font-mono text-[#596574]">
+                <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
                   <span>0.0 (Unrelated)</span>
                    <span>{RISK_THRESHOLDS.LISTING_QUARANTINE.toFixed(2)} (Threshold)</span>
                   <span>1.0 (Exact Image Duplicate)</span>
@@ -609,7 +609,7 @@ export default function ListingIntelligencePage() {
                       }
                       disabled={!isDemo || listingActionLoading}
                       title={isDemo ? "Demo-only control" : "No live inventory-proof action route is configured"}
-                      className="py-2 px-3 rounded-lg bg-[#151D27] hover:bg-[#1C2633] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="py-2 px-3 rounded-lg bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <AlertTriangle className="w-4 h-4 text-amber-400" />
                       <span>Request Inventory Proof</span>

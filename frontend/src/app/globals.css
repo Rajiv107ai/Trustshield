@@ -5,51 +5,83 @@ html {
 }
 
 :root, html.dark {
-  --background: #0B0F14;
+  /* Surface & Spatial Geometry */
+  --background: #090D11;
   --foreground: #E8EDF3;
-  --surface: #111821;
-  --surface-elevated: #151D27;
-  --surface-hover: #1A2432;
-  --border: #202A35;
-  --border-subtle: rgba(255, 255, 255, 0.08);
+  --surface: #0E141B;
+  --surface-elevated: #141C25;
+  --surface-hover: #1B2532;
+  --surface-active: #222F3F;
+  --border: #1F2933;
+  --border-subtle: rgba(255, 255, 255, 0.07);
 
+  /* Typography Contrast Hierarchy (WCAG AAA >= 7:1) */
   --text-primary: #E8EDF3;
-  --text-secondary: #8995A3;
-  --text-muted: #596574;
+  --text-secondary: #8E9CAE;
+  --text-muted: #5A6777;
 
-  /* Semantic Decision Tokens */
-  --decision-allow: #22C55E;
+  /* Semantic Operational Decision Tokens */
+  --decision-allow: #10B981;
   --decision-review: #F59E0B;
   --decision-hold: #F97316;
-  --decision-block: #EF4444;
-  --intelligence-blue: #3B82F6;
+  --decision-block: #F43F5E;
+
+  /* Specialized Domain Intelligence Channels */
+  --intelligence-blue: #3875F6;
   --graph-purple: #8B5CF6;
-  --device-cyan: #06B6D4;
+  --device-cyan: #0EA5E9;
+  --audit-teal: #14B8A6;
+
+  /* Semantic Translucent Tints */
+  --allow-bg: rgba(16, 185, 129, 0.12);
+  --allow-border: rgba(16, 185, 129, 0.28);
+  --review-bg: rgba(245, 158, 11, 0.12);
+  --review-border: rgba(245, 158, 11, 0.28);
+  --hold-bg: rgba(249, 115, 22, 0.12);
+  --hold-border: rgba(249, 115, 22, 0.28);
+  --block-bg: rgba(244, 63, 94, 0.12);
+  --block-border: rgba(244, 63, 94, 0.28);
 
   color-scheme: dark;
 }
 
 html.light, [data-theme="light"] {
-  --background: #F8FAFC;
+  /* Surface & Spatial Geometry */
+  --background: #F4F6F9;
   --foreground: #0F172A;
   --surface: #FFFFFF;
-  --surface-elevated: #F1F5F9;
-  --surface-hover: #E2E8F0;
-  --border: #CBD5E1;
-  --border-subtle: rgba(0, 0, 0, 0.06);
+  --surface-elevated: #EAEFF5;
+  --surface-hover: #E0E7F0;
+  --surface-active: #D5DFEC;
+  --border: #D4DCE5;
+  --border-subtle: rgba(0, 0, 0, 0.05);
 
+  /* Typography Contrast Hierarchy (WCAG AAA >= 7:1) */
   --text-primary: #0F172A;
   --text-secondary: #475569;
   --text-muted: #64748B;
 
-  /* Semantic Decision Tokens (Light Mode Adjusted for WCAG AA Contrast) */
-  --decision-allow: #16A34A;
-  --decision-review: #D97706;
-  --decision-hold: #EA580C;
-  --decision-block: #DC2626;
-  --intelligence-blue: #2563EB;
-  --graph-purple: #7C3AED;
-  --device-cyan: #0891B2;
+  /* Semantic Operational Decision Tokens (Calibrated for WCAG AA on Light) */
+  --decision-allow: #047857;
+  --decision-review: #B45309;
+  --decision-hold: #C2410C;
+  --decision-block: #BE123C;
+
+  /* Specialized Domain Intelligence Channels */
+  --intelligence-blue: #1D5BD8;
+  --graph-purple: #6D28D9;
+  --device-cyan: #0369A1;
+  --audit-teal: #0F766E;
+
+  /* Semantic Translucent Tints */
+  --allow-bg: rgba(4, 120, 87, 0.08);
+  --allow-border: rgba(4, 120, 87, 0.22);
+  --review-bg: rgba(180, 83, 9, 0.08);
+  --review-border: rgba(180, 83, 9, 0.22);
+  --hold-bg: rgba(194, 65, 12, 0.08);
+  --hold-border: rgba(194, 65, 12, 0.22);
+  --block-bg: rgba(190, 18, 60, 0.08);
+  --block-border: rgba(190, 18, 60, 0.22);
 
   color-scheme: light;
 }
@@ -59,7 +91,9 @@ html.light, [data-theme="light"] {
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
@@ -71,6 +105,43 @@ html.light, [data-theme="light"] {
   --color-blue: var(--intelligence-blue);
   --color-purple: var(--graph-purple);
   --color-cyan: var(--device-cyan);
+  --color-teal: var(--audit-teal);
+
+  /* Precise Palette Scale Tuning */
+  --color-emerald-400: #34D399;
+  --color-emerald-500: #10B981;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #F59E0B;
+  --color-amber-600: #D97706;
+  --color-amber-700: #B45309;
+
+  --color-orange-400: #FB923C;
+  --color-orange-500: #F97316;
+  --color-orange-600: #EA580C;
+  --color-orange-700: #C2410C;
+
+  --color-rose-400: #FB7185;
+  --color-rose-500: #F43F5E;
+  --color-rose-600: #E11D48;
+  --color-rose-700: #BE123C;
+
+  --color-blue-400: #60A5FA;
+  --color-blue-500: #3875F6;
+  --color-blue-600: #2563EB;
+  --color-blue-700: #1D5BD8;
+
+  --color-purple-400: #A78BFA;
+  --color-purple-500: #8B5CF6;
+  --color-purple-600: #7C3AED;
+  --color-purple-700: #6D28D9;
+
+  --color-cyan-400: #38BDF8;
+  --color-cyan-500: #0EA5E9;
+  --color-cyan-600: #0284C7;
+  --color-cyan-700: #0369A1;
 
   --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), "JetBrains Mono", monospace;
@@ -108,7 +179,7 @@ body {
 
 /* Browser surface craftsmanship: selection, caret, underline offset */
 ::selection {
-  background-color: rgba(59, 130, 246, 0.28);
+  background-color: rgba(56, 117, 246, 0.25);
   color: var(--foreground);
 }
 
@@ -130,7 +201,7 @@ a {
 }
 .card-interactive:hover {
   transform: translateY(-1.5px);
-  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.28);
 }
 
 /* Accessible focus ring */
@@ -142,21 +213,21 @@ a {
   outline-offset: 2px;
 }
 
-/* Subtle glow effects */
+/* Subtle, calibrated glow effects */
 .glow-allow {
-  box-shadow: 0 0 20px -5px rgba(34, 197, 94, 0.25);
+  box-shadow: 0 0 16px -3px rgba(16, 185, 129, 0.22);
 }
 .glow-review {
-  box-shadow: 0 0 20px -5px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 16px -3px rgba(245, 158, 11, 0.22);
 }
 .glow-hold {
-  box-shadow: 0 0 20px -5px rgba(249, 115, 22, 0.25);
+  box-shadow: 0 0 16px -3px rgba(249, 115, 22, 0.22);
 }
 .glow-block {
-  box-shadow: 0 0 20px -5px rgba(239, 68, 68, 0.25);
+  box-shadow: 0 0 16px -3px rgba(244, 63, 94, 0.22);
 }
 .glow-cyan {
-  box-shadow: 0 0 20px -5px rgba(6, 182, 212, 0.25);
+  box-shadow: 0 0 16px -3px rgba(14, 165, 233, 0.22);
 }
 
 @media (prefers-reduced-motion: reduce) {

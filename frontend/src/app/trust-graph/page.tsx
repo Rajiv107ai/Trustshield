@@ -286,17 +286,17 @@ function TrustGraphContent() {
   const nodeColor = (type: NodeType) => {
     switch (type) {
       case "BUYER":
-        return "#3B82F6"; // Intelligence Blue
+        return "#3875F6"; // Cobalt Blue
       case "SELLER":
-        return "#8B5CF6"; // Graph Purple
+        return "#8B5CF6"; // Amethyst Iris
       case "DEVICE":
-        return "#06B6D4"; // Device Cyan
+        return "#0EA5E9"; // Ice Azure
       case "CARD":
-        return "#10B981"; // Emerald
+        return "#10B981"; // Spruce Jade
       case "ADDRESS":
-        return "#F59E0B"; // Amber
+        return "#F59E0B"; // Amber Topaz
       default:
-        return "#94A3B8";
+        return "#8E9CAE";
     }
   };
 
@@ -407,7 +407,7 @@ function TrustGraphContent() {
                 >
                   <span
                     className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: type === "ALL" ? "#A855F7" : nodeColor(type) }}
+                    style={{ backgroundColor: type === "ALL" ? "#8B5CF6" : nodeColor(type) }}
                   />
                   <span>
                     {type === "ALL"
@@ -532,7 +532,7 @@ function TrustGraphContent() {
               >
                 <defs>
                   <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.4" />
+                    <stop offset="0%" stopColor="#3875F6" stopOpacity="0.4" />
                     <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.4" />
                   </linearGradient>
                 </defs>
@@ -620,19 +620,19 @@ function TrustGraphContent() {
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[var(--border)] text-[11px] text-[var(--text-secondary)] font-mono">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]" /> Buyer Node
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Buyer Node
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]" /> Merchant
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Merchant
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#06B6D4]" /> Hardware Device
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-500" /> Hardware Device
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" /> Bank Card
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Bank Card
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" /> Shipping Addr
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Shipping Addr
               </span>
             </div>
             <div className="text-[10px] text-[var(--text-muted)]">Click any node to inspect forensics</div>
