@@ -86,7 +86,7 @@ async def prometheus_metrics_middleware(request: Request, call_next):
 # Explicit validated CORS configuration (strict origin whitelist)
 _raw_origins = os.getenv(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,https://rajiv107ai.github.io",
 )
 _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 _allow_creds = "*" not in _allowed_origins
@@ -94,6 +94,7 @@ _allow_creds = "*" not in _allowed_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.github\.io|.*\.vercel\.app|.*\.loca\.lt|.*\.ngrok.*|.*\.trycloudflare\.com)(:\d+)?$",
     allow_credentials=_allow_creds,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
