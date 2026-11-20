@@ -1,9 +1,12 @@
 # TrustShield AI — Enterprise Frontend Console
 
+[![Live Console](https://img.shields.io/badge/Live_Console-GitHub_Pages-2ea44f?style=for-the-badge&logo=github)](https://rajiv107ai.github.io/Trustshield/)
 [![Next.js](https://img.shields.io/badge/Next.js-16.4+-black.svg)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19.3+-blue.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6.svg)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38B2AC.svg)](https://tailwindcss.com)
+
+> **🚀 Live Console URL:** [https://rajiv107ai.github.io/Trustshield/](https://rajiv107ai.github.io/Trustshield/)
 
 Production-grade enterprise user interface for the **TrustShield AI** fraud intelligence platform. Built with Next.js 16 (App Router), React 19, strict TypeScript, and a high-density dark console design system.
 

@@ -1,8 +1,30 @@
 # TrustShield AI
 
+[![Live Console](https://img.shields.io/badge/Live_Console-GitHub_Pages-2ea44f?style=for-the-badge&logo=github)](https://rajiv107ai.github.io/Trustshield/)
+[![Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/Rajiv107ai/Trustshield)
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Deployment_Claim-000000?style=for-the-badge&logo=vercel)](https://vercel.com/claim-deployment?code=829f9c24-52cb-4f90-883f-705f9664ca0f)
+
+> **🚀 Live Production Console:** [https://rajiv107ai.github.io/Trustshield/](https://rajiv107ai.github.io/Trustshield/)
+
 TrustShield is an e-commerce fraud-intelligence platform that combines machine learning, point-in-time history, relationship signals, listing analysis, and investigation tooling in one system.
 
 The project is built around a simple idea: a fraud score is only useful when the data was available at decision time, the result can be explained, and the surrounding operations workflow can be trusted. TrustShield therefore treats temporal leakage, feature ownership, calibration, auditability, and deployment readiness as first-class engineering concerns.
+
+---
+
+## 🌐 Live Deployment & Interactive Console
+
+The frontend operator console is deployed live and operates with zero configuration in demonstration mode:
+
+| Deployment | URL / Access | Status | Notes |
+| :--- | :--- | :--- | :--- |
+| **Primary Live Console** | [https://rajiv107ai.github.io/Trustshield/](https://rajiv107ai.github.io/Trustshield/) | 🟢 Active | Hosted on GitHub Pages with automated CI/CD (`gh-pages` branch) |
+| **Vercel Cloud Deployment** | [quick-maroon-erhrkhs.tmp.now](https://quick-maroon-erhrkhs.tmp.now) | 🟡 Live | [1-Click Claim into your Vercel account](https://vercel.com/claim-deployment?code=829f9c24-52cb-4f90-883f-705f9664ca0f) |
+| **Source Repository** | [https://github.com/Rajiv107ai/Trustshield](https://github.com/Rajiv107ai/Trustshield) | 🟢 Synced | Production branch: `main` |
+
+*Note: In standalone cloud preview mode without a locally connected FastAPI gateway, the console operates in **Deterministic Simulation Mode**, providing complete interactive triage, TreeSHAP waterfall attributions, collusion ring graphs, and model registry metrics.*
+
+---
 
 This repository contains the full platform:
 
